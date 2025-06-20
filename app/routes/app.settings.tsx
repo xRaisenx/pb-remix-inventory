@@ -1,8 +1,8 @@
 // app/routes/app.settings.tsx
 
 
-import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
+import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
+import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Card,
@@ -23,12 +23,6 @@ import { z } from "zod";
 import type { Shop } from "~/types";
 
 // --- Zod Schemas ---
-const WhatsAppCredentialsSchema = z.object({
-  providerInfo: z.string().optional(),
-  phoneNumberId: z.string().optional(),
-  accessToken: z.string().optional(),
-}).optional();
-
 const SettingsSchema = z.object({
   lowStockThreshold: z.coerce.number().int().min(0, "Threshold must be non-negative.").optional(),
   emailForNotifications: z.string().email({ message: "Invalid email address." }).optional().or(z.literal('')),
@@ -59,7 +53,7 @@ interface ActionData {
 
 // --- Loader ---
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnType<typeof json<LoaderData>>> => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
   try {
@@ -96,7 +90,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnTyp
 
 // --- Action ---
 export const action = async ({ request }: ActionFunctionArgs): Promise<ReturnType<typeof json<ActionData>>> => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
   const formData = await request.formData();
   const formPayload = Object.fromEntries(formData);

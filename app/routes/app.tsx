@@ -14,7 +14,7 @@ import AppLayout from '../components/AppLayout'; // Ensure this component exists
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // authenticate.admin will throw a redirect if the user is not authenticated.
   // If authentication is successful, it returns an object with `admin`, `session`, `billing`, etc.
-  const { session, admin } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
   // Return the session and admin context to be used by components under this layout.
   return json({
@@ -30,7 +30,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function App() {
   // useLoaderData now correctly receives the object returned from the loader.
   // The `typeof loader` tells TypeScript to infer the return type automatically.
-  const { session } = useLoaderData<typeof loader>();
+  useLoaderData<typeof loader>();
 
   return (
     <AppProvider i18n={enTranslations}>

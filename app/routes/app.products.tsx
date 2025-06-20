@@ -10,7 +10,7 @@ interface LoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   try {
     // Use the GraphQL API as 'rest' is not available
     const query = `

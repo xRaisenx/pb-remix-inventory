@@ -1,6 +1,6 @@
 // app/routes/app.reports.tsx
 
-import { json, redirect, type ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { Form, useNavigation } from "@remix-run/react";
 import { Page, Card, Text, Button, BlockStack } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
@@ -8,7 +8,7 @@ import prisma  from "~/db.server";
 import { stringify } from "csv-stringify/sync"; // Using sync version for server-side action
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
   // For this action, we only expect it to be triggered by the export button.

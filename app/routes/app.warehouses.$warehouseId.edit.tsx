@@ -2,8 +2,8 @@
 
 import React from "react";
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigate, useNavigation, useParams, useRouteError } from "@remix-run/react";
-import { Page, Card, TextField, Button, Banner, BlockStack, Text, Spinner, EmptyState, Select } from "@shopify/polaris"; // Added Select
+import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
+import { Page, Card, TextField, Button, Banner, BlockStack, Text, Select } from "@shopify/polaris"; // Added Select
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
 import { z } from "zod";
