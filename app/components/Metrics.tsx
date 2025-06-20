@@ -1,111 +1,92 @@
-// app/components/Metrics.tsx
-import React from "react";
-import {
-  Card,
-  Grid,
-  Text,
-  Icon,
-  BlockStack,
-  InlineStack,
-  type IconSource,
-} from "@shopify/polaris";
-import { CartIcon, InventoryIcon, AlertCircleIcon } from "@shopify/polaris-icons";
+import { Card } from '~/components/common/Card';
+import { Text } from '~/components/common/Text';
+import { Icon, Grid, Box } from '@shopify/polaris';
+import { ProductsMajor, AlertMinor, AnalyticsMajor } from '@shopify/polaris-icons'; // Example icons
+import React from 'react';
 
-// A reusable card for displaying a single metric.
-interface MetricDisplayCardProps {
-  title: string;
-  value: string | number;
-  iconSource: IconSource;
-  // FIX 1: Removed 'warning' as it's not a valid tone for the Text component.
-  valueTone?: 'critical' | 'success' | 'subdued';
-  helpText?: string;
-}
-
-const MetricDisplayCard: React.FC<MetricDisplayCardProps> = ({
-  title,
-  value,
-  iconSource,
-  valueTone,
-  helpText,
-}) => {
-  const calculatedTone = () => {
-    const numericValue = Number(value);
-    if (isNaN(numericValue)) return 'subdued';
-    return numericValue > 0 ? 'success' : 'subdued';
-  };
-
-  const displayTone = valueTone ?? calculatedTone();
-
-  return (
-    <Card>
-      <BlockStack gap="400">
-        <InlineStack align="start" blockAlign="start" gap="400" wrap={false}>
-          <BlockStack gap="100" inlineAlign="start">
-            <Text as="h2" variant="bodyMd" tone="subdued">
-              {title}
-            </Text>
-            <Text as="p" variant="headingXl" tone={displayTone}>
-              {value}
-            </Text>
-          </BlockStack>
-          <div style={{ marginLeft: 'auto' }}>
-            <Icon source={iconSource} tone="base" />
-          </div>
-        </InlineStack>
-        {helpText && (
-          <Text as="p" variant="bodySm" tone="subdued">
-            {helpText}
-          </Text>
-        )}
-      </BlockStack>
-    </Card>
-  );
-};
-
-// The main grid component that lays out all the metrics.
-interface MetricsGridProps {
+interface MetricsProps {
   totalProducts: number;
   lowStockItemsCount: number;
   totalInventoryUnits: number;
 }
 
-export default function MetricsGrid({
-  totalProducts,
-  lowStockItemsCount,
-  totalInventoryUnits,
-}: MetricsGridProps) {
-  const hasLowStock = lowStockItemsCount > 0;
-  const lowStockTone = hasLowStock ? 'critical' : 'success';
-  const lowStockHelpText = hasLowStock
-    ? "Items needing attention"
-    : "All items are well stocked";
-
+export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCount, totalInventoryUnits }) => {
   return (
-    // FIX 2: The 'gap' prop must be an object for responsive values.
-    <Grid gap={{ xs: "400", sm: "400", md: "400" }} columns={{ xs: 1, sm: 2, md: 3 }}>
-      <Grid.Cell>
-        <MetricDisplayCard
-          title="Total Products"
-          value={totalProducts}
-          iconSource={CartIcon}
-        />
+    <Grid>
+      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
+        <Card sectioned>
+          <Box paddingBlockEnd="200">
+            <Grid>
+              <Grid.Cell columnSpan={{ xs: 4, sm: 4, md: 4, lg: 8, xl: 8 }}>
+                <Text as="p" variant="bodySm" color="subdued">Total Products</Text>
+                <Text as="h2" variant="headingLg">{totalProducts}</Text>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
+                <Box
+                  background="bg-surface-magic-subdued" // Approx #fff1f2
+                  padding="100" // Approx 4px, Polaris token might be different
+                  borderRadius="full"
+                  width="32px"
+                  height="32px"
+                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Icon source={ProductsMajor} />
+                </Box>
+              </Grid.Cell>
+            </Grid>
+          </Box>
+        </Card>
       </Grid.Cell>
-      <Grid.Cell>
-        <MetricDisplayCard
-          title="Low Stock Items"
-          value={lowStockItemsCount}
-          iconSource={AlertCircleIcon}
-          valueTone={lowStockTone}
-          helpText={lowStockHelpText}
-        />
+
+      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
+        <Card sectioned>
+          <Box paddingBlockEnd="200">
+            <Grid>
+              <Grid.Cell columnSpan={{ xs: 4, sm: 4, md: 4, lg: 8, xl: 8 }}>
+                <Text as="p" variant="bodySm" color="subdued">Low Stock Items</Text>
+                <Text as="h2" variant="headingLg">{lowStockItemsCount}</Text>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
+                <Box
+                  background="bg-surface-critical-subdued" // Approx #fff5f5
+                  padding="100"
+                  borderRadius="full"
+                  width="32px"
+                  height="32px"
+                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Icon source={AlertMinor} color="critical" />
+                </Box>
+              </Grid.Cell>
+            </Grid>
+          </Box>
+        </Card>
       </Grid.Cell>
-      <Grid.Cell>
-        <MetricDisplayCard
-          title="Total Inventory Units"
-          value={totalInventoryUnits}
-          iconSource={InventoryIcon}
-        />
+
+      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
+        <Card sectioned>
+          <Box paddingBlockEnd="200">
+            <Grid>
+              <Grid.Cell columnSpan={{ xs: 4, sm: 4, md: 4, lg: 8, xl: 8 }}>
+                <Text as="p" variant="bodySm" color="subdued">Total Inventory Units</Text>
+                <Text as="h2" variant="headingLg">{totalInventoryUnits}</Text>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
+                <Box
+                  background="bg-surface-success-subdued" // Approx #e6fffa
+                  padding="100"
+                  borderRadius="full"
+                  width="32px"
+                  height="32px"
+                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Icon source={AnalyticsMajor} color="success" />
+                </Box>
+              </Grid.Cell>
+            </Grid>
+          </Box>
+        </Card>
       </Grid.Cell>
     </Grid>
   );
-}
+};
