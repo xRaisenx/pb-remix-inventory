@@ -109,7 +109,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shopId: shop.id,
         name: validatedName,
         location: validatedLocation,
-        shopifyLocationGid: validatedShopifyLocationGid || "",
+        shopifyLocationGid: validatedShopifyLocationGid === "" ? null : validatedShopifyLocationGid,
       },
     });
     return redirect("/app/warehouses");

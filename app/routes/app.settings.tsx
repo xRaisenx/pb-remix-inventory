@@ -451,15 +451,5 @@ function formStateToFormData(formState: NotificationSettingsFormData, intent: st
 // Duplicate and broken JSX below this point. It is unreachable and causes syntax errors.
 // Reason: The file already returns from the main component and helper function above. The following code is a duplicate and should not exist in a valid React file.
 // If you want to keep for reference, it is commented out. Remove to resolve errors.
-/*
-            </Layout.Section>
-            <Layout.Section>
-                <Button submit variant="primary" fullWidth loading={isSaving} onClick={() => fetcher.submit(formStateToFormData(formState, 'saveSettings'), { method: 'post' })}>Save Settings</Button>
-            </Layout.Section>
-          </Layout>
-        </BlockStack>
-      </fetcher.Form>
-    </Page>
-  );
-*/
+
 // End of file
