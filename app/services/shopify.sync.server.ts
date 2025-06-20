@@ -5,41 +5,13 @@ import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, Inven
 import { updateAllProductMetricsForShop } from './product.service'; // Adjust path if needed
 
 // Helper function to get shop ID
-async function getShopId(admin: any): Promise<string> {
-  const shopDataResponse = await admin.graphql(
-    `#graphql
-    query shop {
-      shop {
-        id
-        name
-      }
-    }`
-  );
-  const shopDataJson = await shopDataResponse.json();
-  const shopShopifyId = shopDataJson.data.shop.id;
-
-  const shopRecord = await prisma.shop.findFirst({
-    where: {
-      // Assuming shop domain is stored in a way that can be retrieved or matched.
-      // This part might need adjustment based on how shop identity is managed.
-      // For this example, let's assume we can fetch it by the Shopify shop ID if it was stored previously
-      // or we might need to pass the shop domain and find by that.
-      // For now, let's try to find by shopify's internal shop ID if we had a field for it,
-      // or simply ensure a shop record exists. This is simplified.
-      // A robust solution would involve matching on shop domain from the session.
-    }
-    // A placeholder for finding the shop. In a real scenario, you'd use the current shop context.
-    // For this subtask, we'll assume the shop exists and we can get its UUID.
-    // This function might need to be called where `shop` domain is available.
-    // For now, let's assume a single shop context for simplicity in this subtask.
-    // We'll query the first shop to get A shopId.
-    // This is NOT robust for multi-shop scenarios without more context.
+async function getShopId(shopDomain: string): Promise<string> {
+  const shopRecord = await prisma.shop.findUnique({
+    where: { shop: shopDomain },
+    select: { id: true } // Only select the id
   });
   if (!shopRecord) {
-    // Fallback: if no shop is found, query the first one in DB (for subtask simplicity)
-    const anyShop = await prisma.shop.findFirst();
-    if (!anyShop) throw new Error("No shop found in the database to associate products with.");
-    return anyShop.id;
+    throw new Error(`Shop with domain ${shopDomain} not found in the database.`);
   }
   return shopRecord.id;
 }
@@ -122,7 +94,7 @@ export async function syncProductsAndInventory(shopDomain: string) {
   if (!admin || !session) {
     throw new Error('Failed to authenticate with Shopify');
   }
-  const shopId = await getShopId(admin); // You might want to pass shopDomain here to find the correct shop
+  const shopId = await getShopId(shopDomain); // New call
   const locationsMap = await getOrSyncLocations(admin, shopId);
 
   let hasNextPage = true;
