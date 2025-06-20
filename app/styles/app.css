@@ -1,0 +1,8 @@
+/* Main app styles. Add your CSS here. */
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f9f9f9;
+}
