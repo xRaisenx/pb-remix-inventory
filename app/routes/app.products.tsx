@@ -6,8 +6,9 @@ import { SearchMinor } from '@shopify/polaris-icons';
 import { useState, useMemo, useCallback } from "react";
 import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
-import { ProductModal } from "~/components/ProductModal"; // Assuming ProductModal path
-import { Badge } from "~/components/common/Badge"; // Common Badge
+import { ProductModal } from "~/components/ProductModal";
+import { Badge } from "~/components/common/Badge";
+import { calculateProductStatus, type VariantForStatus } from "~/utils/product-status.server"; // Import the new utility
 
 // Define types for data structure
 interface ProductVariantForModal {
@@ -30,7 +31,7 @@ export interface ProductForTable {
   salesLastWeek: number; // Placeholder
   salesVelocity: number;
   stockoutDays: number;
-  status: string;
+  status: "Critical" | "Low" | "Healthy" | "Unknown"; // Updated status type
   variantsForModal: ProductVariantForModal[];
 }
 
@@ -39,8 +40,12 @@ interface LoaderData {
   error?: string;
 }
 
-// Loader Function
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+/**
+ * Loader function to fetch products for the current shop and calculate their inventory status.
+ * @param {LoaderFunctionArgs} args - Remix loader arguments.
+ * @returns A JSON response with the list of products or an error message.
+ */
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response> => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) throw new Response("Shop not found", { status: 404 });
@@ -64,9 +69,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     });
 
-    const productsForTable = productsFromDB.map(p => ({
-      id: p.id,
-      shopifyId: p.shopifyId,
+    const lowStockThreshold = shopRecord.lowStockThreshold ?? 10; // Default to 10 if not set
+
+    const productsForTable = productsFromDB.map(p => {
+      // Adapt Prisma variants to VariantForStatus interface for the utility function
+      const variantsForStatusCalc: VariantForStatus[] = p.variants.map(v => ({
+        inventoryQuantity: v.inventoryQuantity,
+      }));
+      const productStatus = calculateProductStatus(variantsForStatusCalc, lowStockThreshold);
+
+      return {
+        id: p.id,
+        shopifyId: p.shopifyId,
       title: p.title,
       vendor: p.vendor,
       price: p.variants?.[0]?.price?.toString() ?? '0.00',
@@ -75,7 +89,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       salesLastWeek: 0, // Placeholder
       salesVelocity: p.salesVelocityFloat ?? 0,
       stockoutDays: p.stockoutDays ?? 0,
-      status: p.status ?? 'Unknown',
+      status: productStatus, // Use calculated status
       variantsForModal: p.variants.map(v => ({
         id: v.id,
         // shopifyVariantId: v.shopifyId || '', // Map if available
@@ -88,15 +102,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         inventoryItemId: '', // Placeholder
       })),
     }));
-    return json({ products: productsForTable });
-  } catch (error) {
-    console.error("Error fetching products for table:", error);
-    return json({ products: [], error: "Failed to fetch products" }, { status: 500 });
+    return json({ products: productsForTable } as LoaderData);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error fetching products for table:", message, error);
+    return json({ products: [], error: `Failed to fetch products: ${message}` } as LoaderData, { status: 500 });
   }
 };
 
-// Action Function
-export const action = async ({ request }: ActionFunctionArgs) => {
+/**
+ * Action function to handle product-related actions.
+ * Currently, includes a placeholder for 'updateInventory'.
+ * @param {ActionFunctionArgs} args - Remix action arguments.
+ * @returns A JSON response indicating success or failure.
+ */
+export const action = async ({ request }: ActionFunctionArgs): Promise<Response> => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) throw new Response("Shop not found", { status: 404 });
@@ -124,22 +144,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: { inventoryQuantity: newQuantity }, // Directly set new quantity
       });
 
-      // TODO: Potentially re-calculate and update parent Product's status
-      // This might be better handled by a background job or a more complex update logic here.
+      // TODO: Potentially re-calculate and update parent Product's status after inventory change.
+      // This might be better handled by a background job or a more complex update logic here,
+      // or by revalidating loader data for this page.
 
       return json({ success: true, updatedVariant });
-    } catch (error) {
-      console.error("Failed to update inventory:", error);
-      return json({ error: "Failed to update inventory" }, { status: 500 });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown server error.";
+      console.error("Failed to update inventory:", message, error);
+      return json({ error: `Failed to update inventory: ${message}` }, { status: 500 });
     }
   }
   return json({ error: "Invalid intent" }, { status: 400 });
 };
 
-
-// Component Function
+/**
+ * Renders the products page, displaying a sortable and filterable list of products
+ * with their calculated inventory status.
+ */
 export default function AppProductsPage() {
-  const { products, error } = useLoaderData<LoaderData>();
+  const { products, error } = useLoaderData<typeof loader>(); // Use typeof loader for stronger type inference
   const navigate = useNavigate(); // For navigation actions if any
 
   const [selectedProduct, setSelectedProduct] = useState<ProductForTable | null>(null);
@@ -215,7 +239,7 @@ export default function AppProductsPage() {
         <IndexTable.Cell>{product.inventory}</IndexTable.Cell>
         <IndexTable.Cell>{product.salesVelocity.toFixed(2)}</IndexTable.Cell>
         <IndexTable.Cell>{product.stockoutDays.toFixed(0)}</IndexTable.Cell>
-        <IndexTable.Cell><Badge customStatus={product.status?.toLowerCase() as any}>{product.status}</Badge></IndexTable.Cell>
+        <IndexTable.Cell><Badge customStatus={product.status}>{product.status}</Badge></IndexTable.Cell>
       </IndexTable.Row>
     ),
   );

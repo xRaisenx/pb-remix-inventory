@@ -338,8 +338,12 @@ To fix this ensure you have enabled `Set time and date automatically` in the `Da
 
 Shopify apps are built on a variety of Shopify tools to create a great merchant experience.
 
-<!-- TODO: Uncomment this after we've updated the docs -->
-<!-- The [create an app](https://shopify.dev/docs/apps/getting-started/create) tutorial in our developer documentation will guide you through creating a Shopify app using this template. -->
+This template includes several features to help you understand your store's performance and manage inventory:
+- **Dashboard Metrics**: The `app/components/Metrics.tsx` component displays key figures like total products, low stock items, and total inventory units.
+- **Inventory Reports**: You can generate and download CSV reports of your inventory from the `app/routes/app.reports.tsx` page.
+- **Automated Daily Analysis**: Cron jobs defined in `app/cron/dailyAnalysis.ts` perform daily product synchronization and AI-driven demand forecasting.
+
+The [create an app](https://shopify.dev/docs/apps/getting-started/create) tutorial in our developer documentation provides general guidance on building Shopify apps, which can be supplemented by exploring the specific features mentioned above within this template.
 
 The Remix app template comes with the following out-of-the-box functionality:
 
@@ -348,6 +352,7 @@ The Remix app template comes with the following out-of-the-box functionality:
 - [Webhooks](https://github.com/Shopify/shopify-app-js/tree/main/packages/shopify-app-remix#authenticating-webhook-requests): Callbacks sent by Shopify when certain events occur
 - [AppBridge](https://shopify.dev/docs/api/app-bridge): This template uses the next generation of the Shopify App Bridge library which works in unison with previous versions.
 - [Polaris](https://polaris.shopify.com/): Design system that enables apps to create Shopify-like experiences
+- **Inventory Forecasting**: Leverages AI for daily demand forecasting (see `app/cron/dailyAnalysis.ts` and `app/services/ai.server.ts`) to help predict future stock needs based on historical sales data and trends.
 
 ## Tech Stack
 

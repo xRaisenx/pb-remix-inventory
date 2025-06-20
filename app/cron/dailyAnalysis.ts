@@ -1,36 +1,75 @@
 // app/cron/dailyAnalysis.ts
-// Fix: Add type for node-cron
 
 import cron from 'node-cron';
-import prisma from '~/db.server'; // Assuming db.server.ts exports prisma correctly
-import { performDailyProductSync } from '~/dailyAnalysis'; // The product sync function
-import { getDemandForecast } from '../services/ai.server'; // AI demand forecast function
+import prisma from '~/db.server';
+import { performDailyProductSync } from '~/dailyAnalysis';
+import { getDemandForecast } from '../services/ai.server';
 
-
+/**
+ * Expected structure for the output of the AI demand forecast service.
+ */
+interface AIDemandForecastOutput {
+  predictedDemand: number;
+  confidenceScore?: number;
+  // Potentially other fields, but these are the ones used.
+}
 
 // Define the cron schedule (e.g., daily at midnight)
 // Adjust as needed: second(opt) minute hour day(month) month day(week)
 const CRON_SCHEDULE = '0 0 * * *'; // Midnight every day
 
-async function runDailyTasks() {
-  console.log(`[CRON JOB - ${new Date().toISOString()}] Starting daily tasks...`);
+// In-memory cache for rate limiting notifications across all shops within a single cron run.
+// Key: shopId-productId, Value: timestamp of last notification logged.
+const lowStockNotificationTimestamps: Record<string, number> = {};
+const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000;
 
-  // 1. Sync Shopify products to local DB
+/**
+ * @function runDailyTasks
+ * @description Main function executed by the cron job. It performs daily synchronization of Shopify products,
+ * fetches AI demand forecasts, stores them, checks for low stock items, and simulates sending notifications.
+ */
+async function runDailyTasks() {
+  console.log(`[CRON JOB - ${new Date().toISOString()}] Starting daily tasks routine...`);
+
+  // Section 1: Synchronize Shopify products with the local database.
+  // This step ensures that local product data is up-to-date before performing analysis.
+  console.log("[CRON JOB] Initiating daily product synchronization...");
   try {
-    console.log(`[CRON JOB] Starting daily product sync...`);
     await performDailyProductSync();
-    console.log(`[CRON JOB] Daily product sync finished.`);
+    console.log("[CRON JOB] Daily product synchronization completed successfully.");
   } catch (error) {
-    console.error(`[CRON JOB] Error during daily product sync:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[CRON JOB] Critical error during daily product sync: ${errorMessage}`, error);
+    // Depending on severity, might decide to return or throw to stop further execution.
+    // For now, it logs and continues to other tasks.
   }
 
-  // 2. Perform AI Demand Forecasting and Low Stock Checks for each shop
+  // Section 2: Perform AI Demand Forecasting and Low Stock Checks for each active shop.
+  console.log("[CRON JOB] Starting AI demand forecasting and low stock checks for all relevant shops...");
   try {
-    
     const shops = await prisma.shop.findMany({
-      
       where: { accessToken: { not: undefined } }, // Only process shops with an access token (active)
-      select: { id: true, shop: true, lowStockThreshold: true, products: { select: { id: true, title: true } } }
+      select: {
+        id: true,
+        shop: true,
+        lowStockThreshold: true,
+        emailForNotifications: true,
+        slackWebhookUrl: true,
+        // Assuming telegramBotToken and telegramChatId are for Telegram, not explicitly asked but good to fetch
+        // whatsAppApiCredentialsJson for WhatsApp, not explicitly asked
+        notificationSettings: { // Fetch related notification settings
+          select: {
+            email: true,
+            slack: true,
+            telegram: true, // Example: if you plan to support it
+            // mobilePush: true, // Example
+            // frequency: true, // Might be useful for more advanced rate limiting or scheduling
+          }
+        },
+        // products field is not directly needed here for the shop query itself,
+        // as individual products are fetched later per shop.
+        // products: { select: { id: true, title: true } } // Removed to avoid overfetching if not used at this level
+      }
     });
 
     if (shops.length === 0) {
@@ -55,69 +94,139 @@ async function runDailyTasks() {
             
             for (const product of shopProducts) {
               try {
-                // product.id here is the Prisma Product ID (UUID)
-                const forecast = await getDemandForecast(product.id);
-                console.log(`[CRON JOB] -- Forecast for '${product.title}' (PrismaID: ${product.id}): ${forecast.substring(0, 100)}...`); // Log snippet
-                // TODO: Store this forecast (e.g., new Prisma model or update Product model)
-              } catch (error: any) {
-                console.error(`[CRON JOB] -- Error getting forecast for product ${product.title} (PrismaID: ${product.id}):`, error.message);
+                const forecastOutput = await getDemandForecast(product.id);
+                let demandData: AIDemandForecastOutput;
+
+                if (typeof forecastOutput === 'string') {
+                  const parsedDemand = parseFloat(forecastOutput);
+                  if (isNaN(parsedDemand)) {
+                    console.error(`[CRON JOB] -- Failed to parse forecast string to number for product ${product.id}: "${forecastOutput}"`);
+                    continue; // Skip this product's forecast storage
+                  }
+                  demandData = { predictedDemand: parsedDemand };
+                  console.log(`[CRON JOB] -- Parsed forecast for '${product.title}' (PrismaID: ${product.id}): Demand=${demandData.predictedDemand}`);
+                } else if (typeof forecastOutput === 'object' && forecastOutput !== null && 'predictedDemand' in forecastOutput) {
+                  // Type assertion after check, now safer with defined interface
+                  demandData = forecastOutput as AIDemandForecastOutput;
+                  console.log(`[CRON JOB] -- Received forecast object for '${product.title}' (PrismaID: ${product.id}): Demand=${demandData.predictedDemand}, Confidence=${demandData.confidenceScore ?? 'N/A'}`);
+                } else {
+                  console.error(`[CRON JOB] -- Unexpected forecast output type for product ${product.id}: ${typeof forecastOutput}`);
+                  continue; // Skip this product's forecast storage
+                }
+
+                await prisma.demandForecast.create({
+                  data: {
+                    productId: product.id,
+                    predictedDemand: demandData.predictedDemand,
+                    periodDays: 30, // Defaulting to 30 days for the forecast period
+                    confidenceScore: demandData.confidenceScore ?? 0.5, // Defaulting confidence if not provided
+                  },
+                });
+                console.log(`[CRON JOB] -- Successfully stored AI demand forecast for product '${product.title}' (PrismaID: ${product.id}).`);
+
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.error(`[CRON JOB] -- Error processing or storing forecast for product ${product.title} (PrismaID: ${product.id}): ${errorMessage}`, error);
               }
             }
           } else {
-            console.log(`[CRON JOB] -- No products found for shop ${shop.shop} to forecast.`);
+            console.log(`[CRON JOB] -- No products found for shop ${shop.shop} (ID: ${shop.id}) to perform AI forecasting.`);
           }
 
-          // Basic Low Stock Check (based on local Prisma data)
+          // Perform Low Stock Check based on local Prisma data.
+          // This uses the shop's configured lowStockThreshold.
           const lowStockInventories = await prisma.inventory.findMany({
             where: {
               warehouse: { shopId: shop.id },
-              quantity: { lt: lowStockThreshold },
+              quantity: { lt: lowStockThreshold }, // Items with quantity less than threshold
             },
             include: {
-              product: { select: { title: true } },
+              product: { select: { id: true, title: true } }, // Ensure product ID is fetched for notification key
               warehouse: { select: { name: true } },
             },
-            take: 100, // Limit to avoid excessive logging if many items are low
+            take: 100, // Limit to prevent excessive processing/logging if many items are low
           });
 
           if (lowStockInventories.length > 0) {
-            console.warn(`[CRON JOB] -- Low stock alert for shop ${shop.shop} (Threshold: <${lowStockThreshold}):`);
-            lowStockInventories.forEach((item: {
-              product: { title: string };
-              warehouse: { name: string };
-              quantity: number;
-            }) => {
-              console.warn(`[CRON JOB] -- -- Product: '${item.product.title}', Warehouse: '${item.warehouse.name}', Quantity: ${item.quantity}`);
-            });
-            // TODO: Trigger actual notifications here based on shop settings (email, Slack, etc.)
-            // This would involve fetching shop.emailForNotifications, shop.slackWebhookUrl etc.
-            // and using appropriate notification services.
+            console.warn(`[CRON JOB] -- Low stock alert for shop ${shop.shop} (ID: ${shop.id}). Threshold: <${lowStockThreshold}. Found ${lowStockInventories.length} items.`);
+
+            // Iterate over low stock items and simulate notifications.
+            // Implements rate limiting to avoid spamming.
+            for (const item of lowStockInventories) {
+              const { product, warehouse, quantity } = item;
+              const notificationKey = `${shop.id}-${product.id}`; // Unique key for rate limiting: shopId-productId
+              const now = Date.now();
+
+              console.warn(`[CRON JOB] -- -- Low Stock Item: Product '${product.title}' (ID: ${product.id}), Warehouse: '${warehouse.name}', Quantity: ${quantity}`);
+
+              // Rate Limiting Check: Skip if a notification for this item was logged recently.
+              const lastNotificationTime = lowStockNotificationTimestamps[notificationKey];
+              if (lastNotificationTime && (now - lastNotificationTime < TWENTY_FOUR_HOURS_IN_MS)) {
+                console.log(`[INFO] Low stock notification for product '${product.title}' (ID: ${product.id}) in shop ${shop.shop} would be rate limited (last sent: ${new Date(lastNotificationTime).toISOString()}).`);
+                continue;
+              }
+
+              const settings = shop.notificationSettings;
+              if (!settings) {
+                console.warn(`[CRON JOB] -- -- No notification settings found for shop ${shop.shop} (ID: ${shop.id}). Skipping notification dispatch for this item.`);
+                continue;
+              }
+
+              let notificationSentOrAttempted = false;
+
+              // Simulate Email Notification
+              if (settings.email) {
+                notificationSentOrAttempted = true;
+                if (shop.emailForNotifications) {
+                  console.log(`[INFO] [Notification Simulation] Would send EMAIL to ${shop.emailForNotifications} for low stock of '${product.title}' (ID: ${product.id}, Qty: ${quantity}) at warehouse '${warehouse.name}' in shop ${shop.shop}.`);
+                } else {
+                  console.warn(`[WARN] Email notification enabled for shop ${shop.shop} (ID: ${shop.id}), but no 'emailForNotifications' is configured.`);
+                }
+              }
+
+              // Simulate Slack Notification
+              if (settings.slack) {
+                notificationSentOrAttempted = true;
+                if (shop.slackWebhookUrl) {
+                  console.log(`[INFO] [Notification Simulation] Would send SLACK via webhook ${shop.slackWebhookUrl} for low stock of '${product.title}' (ID: ${product.id}, Qty: ${quantity}) at warehouse '${warehouse.name}' in shop ${shop.shop}.`);
+                } else {
+                  console.warn(`[WARN] Slack notification enabled for shop ${shop.shop} (ID: ${shop.id}), but no 'slackWebhookUrl' is configured.`);
+                }
+              }
+
+              // Placeholder for other notification channels (e.g., Telegram, WhatsApp)
+              // if (settings.telegram && shop.telegramBotToken && shop.telegramChatId) { ... }
+
+              // Update timestamp for rate limiting if a notification was relevant for this item.
+              if (notificationSentOrAttempted) {
+                lowStockNotificationTimestamps[notificationKey] = now;
+              }
+            }
           } else {
-            console.log(`[CRON JOB] -- No low stock items found for shop ${shop.shop} based on threshold <${lowStockThreshold}.`);
+            console.log(`[CRON JOB] -- No low stock items found for shop ${shop.shop} (ID: ${shop.id}) based on threshold <${lowStockThreshold}.`);
           }
         }
-        console.log(`[CRON JOB] AI demand forecasting and low stock checks finished for all processed shops.`);
+        console.log("[CRON JOB] AI demand forecasting and low stock checks finished for all processed shops.");
     }
-
   } catch (error) {
-    console.error(`[CRON JOB] Error during AI analysis or low stock checks:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[CRON JOB] Error during AI analysis or low stock checks phase: ${errorMessage}`, error);
   }
-  console.log(`[CRON JOB - ${new Date().toISOString()}] Daily tasks finished.`);
+  console.log(`[CRON JOB - ${new Date().toISOString()}] Daily tasks routine finished.`);
 }
 
-// Schedule the job
-// Ensure this file is imported once in your application lifecycle, e.g., in entry.server.ts or a similar setup file.
-// The cron job will start as soon as this module is loaded.
-if (process.env.NODE_ENV !== 'test') { // Avoid running cron during tests
-    cron.schedule(CRON_SCHEDULE, runDailyTasks, {
-      timezone: "UTC", // Or your preferred timezone
-    });
-    console.log(`[CRON INIT] Daily analysis job scheduled with pattern: ${CRON_SCHEDULE} (Timezone: UTC)`);
+// Cron Job Scheduling:
+// This section schedules the `runDailyTasks` function to execute based on CRON_SCHEDULE.
+// It only runs if the environment is not 'test'.
+// The cron job is configured to run in the UTC timezone.
+if (process.env.NODE_ENV !== 'test') {
+  cron.schedule(CRON_SCHEDULE, runDailyTasks, {
+    timezone: "UTC",
+  });
+  console.log(`[CRON INIT] Daily analysis job scheduled with pattern: "${CRON_SCHEDULE}" (Timezone: UTC)`);
 } else {
-    console.log("[CRON INIT] Cron job scheduling skipped in test environment.");
+  console.log("[CRON INIT] Cron job scheduling skipped in test environment (NODE_ENV=test).");
 }
 
-
-// Export something to make it a module if needed by import mechanisms,
-// or this file can just be imported for its side effect of scheduling.
-export const isCronJobScheduled = true; // Simple export for module recognition
+// Exporting a constant to indicate cron job setup status, mainly for import side effects or testing.
+export const isCronJobScheduled = process.env.NODE_ENV !== 'test';

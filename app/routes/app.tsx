@@ -23,19 +23,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 /**
  * This is the main layout for the authenticated part of the app.
  */
+import { Frame } from '@shopify/polaris'; // Import Frame
+
 export default function App() {
   // useLoaderData now correctly receives the session object from the loader.
   const { session } = useLoaderData<typeof loader>();
 
   return (
     <AppProvider i18n={enTranslations}>
-      <AppLayout>
-        <Page>
-          <BlockStack>
-            <Outlet />
-          </BlockStack>
-        </Page>
-      </AppLayout>
+      {/* Frame component is necessary for Polaris Toasts and other frame-dependent features like ContextualSaveBar */}
+      <Frame>
+        <AppLayout>
+          <Page>
+            <BlockStack>
+              <Outlet />
+            </BlockStack>
+          </Page>
+        </AppLayout>
+      </Frame>
     </AppProvider>
   );
 }
