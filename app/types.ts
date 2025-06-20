@@ -107,3 +107,32 @@ export interface ShopifyProduct {
     inventoryItem?: { id: string };
   }>;
 }
+
+// Types for app._index.tsx loader data and component props
+
+// For ProductAlerts component
+export interface DashboardAlertProduct {
+  id: string; // Internal App Product ID
+  title: string;
+  // inventory?: number; // This was optional; status is primarily used.
+  status?: string | null; // 'Low', 'Critical'
+  salesVelocityFloat?: number | null; // For high sales trend alerts
+  stockoutDays?: number | null;       // For high sales trend alerts
+}
+
+// For TrendingProducts component
+export interface DashboardProductVariant {
+  sku: string | null;
+  price: string; // Assuming price is string after formatting
+}
+
+export interface DashboardTrendingProduct {
+  id: string; // Internal App Product ID
+  title: string;
+  vendor: string;
+  shopifyId: string; // Shopify Product GID
+  salesVelocityFloat: number | null;
+  status: string | null;
+  trending: boolean | null;
+  variants: Array<DashboardProductVariant> | null; // Expecting only one variant for display
+}
