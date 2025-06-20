@@ -7,7 +7,9 @@ import { authenticate } from "~/shopify.server"; // Corrected path
 import { Metrics } from "~/components/Metrics"; // Corrected path
 import { TrendingProducts } from "~/components/TrendingProducts"; // Corrected path
 import { ProductAlerts } from "~/components/ProductAlerts";
+import { DashboardVisualizations } from "~/components/DashboardVisualizations"; // Import the new component
 import { AIAssistant } from "~/components/AIAssistant";
+import { QuickActions } from "~/components/QuickActions"; // Import the new QuickActions component
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request); // admin method for backend auth
@@ -75,12 +77,21 @@ export default function DashboardIndex() {
           lowStockItemsCount={data.lowStockItemsCount}
           totalInventoryUnits={data.totalInventoryUnits}
         />
+        {/* Render the new DashboardVisualizations component */}
+        <DashboardVisualizations /* Pass mock data here if needed in the future */ />
         <ProductAlerts
           lowStockProducts={data.lowStockProductsForAlerts as any} // Cast as any if Prisma types don't perfectly match AlertProduct
           highSalesTrendProducts={data.highSalesTrendProducts as any} // Cast as any for same reason
         />
         <TrendingProducts products={data.trendingProducts as any} />
-        <AIAssistant />
+        <Grid>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
+            <QuickActions />
+          </Grid.Cell>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
+            <AIAssistant />
+          </Grid.Cell>
+        </Grid>
       </BlockStack>
     </Page>
   );
