@@ -13,8 +13,8 @@ import {
 } from "@remix-run/react";
 import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
 import enTranslations from "@shopify/polaris/locales/en.json";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
-import appStyles from "~/styles/app.css?url"; // Import your global styles
+import polarisStyles from "@shopify/polaris/build/esm/styles.css";
+import appStyles from "~/styles/app.css"; // Import your global styles
 
 export const meta: MetaFunction = () => {
   return [
@@ -30,21 +30,6 @@ export const links: LinksFunction = () => [
 ];
 
 export default function App() {
-  const AppTheme = {
-    colorScheme: "light" as const,
-    logo: {
-      width: 124,
-      accessibilityLabel: 'Planet Beauty',
-      // topBarSource and url can be added when actual assets/routes are known
-    },
-    colors: {
-      primary: '#d81b60', // For primary buttons and interactive elements
-      // Not setting 'surface' here to let it default (usually white for cards)
-      // The body background is handled by app.css
-    }
-    // topBar: { background: '#c94f6d' } // Keep this commented, address with CSS if needed
-  };
-
   return (
     <html lang="en">
       <head>
@@ -52,7 +37,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <AppProvider i18n={enTranslations} theme={AppTheme}>
+        <AppProvider i18n={enTranslations}>
           <Outlet />
         </AppProvider>
         <ScrollRestoration />

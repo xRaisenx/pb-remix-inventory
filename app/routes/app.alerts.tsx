@@ -3,7 +3,7 @@ import { useLoaderData, Link as RemixLink } from "@remix-run/react"; // Use Remi
 import { Page, Card, Text, EmptyState, BlockStack, Link as PolarisLink, Banner, DataTable } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import AlertsDisplay, { type AlertItem } from "~/components/AlertsDisplay"; // Assuming AlertsDisplay path is correct
+import { AlertsDisplay, type AlertItem } from "~/components/Alerts"; // Assuming AlertsDisplay is a named export from Alerts.tsx
 import type { NotificationLog } from "@prisma/client"; // Import the NotificationLog type
 
 interface LoaderData {
@@ -36,13 +36,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopId = shopRecord.id;
 
   // Define thresholds (use defaults or fetch from settings)
-  const currentLowStockThreshold = shopRecord.notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-  // const currentCriticalStockThreshold = shopRecord.notificationSettings?.criticalStockThresholdUnits ?? 5; // Example, make configurable later
+  const notificationSettings = shopRecord.NotificationSettings?.[0]; // Access the first NotificationSetting record
+  const currentLowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
   // For critical alerts, this page primarily relies on product.status which is calculated by product.service.ts using these new settings.
 
   const defaultSalesVelocityThreshold = 30; // Default for alerts if nothing is set in notification settings
   const highSalesVelocityThreshold =
-      shopRecord.notificationSettings?.salesVelocityThreshold ??
+      notificationSettings?.salesVelocityThreshold ??
       defaultSalesVelocityThreshold;
 
   const allAlertItems: AlertItem[] = [];
@@ -135,8 +135,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       notificationHistory,
       historyError,
       lowStockThresholdDisplay: currentLowStockThreshold,
-      criticalStockThresholdUnitsDisplay: shopRecord.notificationSettings?.criticalStockThresholdUnits?.toString() ?? "Not set (default logic applies)",
-      criticalStockoutDaysDisplay: shopRecord.notificationSettings?.criticalStockoutDays?.toString() ?? "Not set (default logic applies)",
+      criticalStockThresholdUnitsDisplay: notificationSettings?.criticalStockThresholdUnits?.toString() ?? "Not set (default logic applies)",
+      criticalStockoutDaysDisplay: notificationSettings?.criticalStockoutDays?.toString() ?? "Not set (default logic applies)",
       highSalesVelocityThresholdDisplay: highSalesVelocityThreshold.toString() + " units/day"
     });
 

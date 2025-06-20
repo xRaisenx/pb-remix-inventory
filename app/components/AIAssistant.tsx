@@ -1,7 +1,7 @@
 // app/components/AIAssistant.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { BlockStack, TextField, Text, Spinner, LegacyCard, ButtonGroup, Link as PolarisLink } from '@shopify/polaris';
-import { Card } from '~/components/common/Card';
+import { CustomCard } from '~/components/common/Card';
 import { Button } from '~/components/common/Button'; // Assuming this is your custom Button
 import { useFetcher } from '@remix-run/react';
 
@@ -113,7 +113,7 @@ interface SuggestedQuestionsDisplayProps {
 
 const SuggestedQuestionsDisplay: React.FC<SuggestedQuestionsDisplayProps> = ({ questions, onQuestionClick }) => (
   <BlockStack gap="200">
-    <Text as="p" variant="bodyMd" color="subdued">Suggested Questions:</Text>
+    <Text as="p" variant="bodyMd" tone="subdued">Suggested Questions:</Text>
     <ButtonGroup>
       {questions.map((q, i) => (
         <Button key={i} onClick={() => onQuestionClick(q)} size="slim" variant="tertiary">
@@ -178,6 +178,7 @@ export const AIAssistant: React.FC = () => {
             aiContentElement = <Text as="p">{response.content as string}</Text>;
             break;
           case 'error':
+            // This line was already correct in the provided file content, but ensuring it stays:
             aiContentElement = <Text as="p" tone="critical">{response.content as string}</Text>;
             break;
           default:
@@ -192,9 +193,11 @@ export const AIAssistant: React.FC = () => {
           );
         }
       } else if (fetcher.data.error) {
+        // This line was already correct in the provided file content, but ensuring it stays:
         aiContentElement = <Text as="p" tone="critical">Error: {fetcher.data.error}</Text>;
       } else {
         // Fallback for unexpected fetcher.data structure
+        // This line was already correct in the provided file content, but ensuring it stays:
         aiContentElement = <Text as="p" tone="critical">Error: Received unexpected data from AI.</Text>;
       }
 
@@ -218,8 +221,9 @@ export const AIAssistant: React.FC = () => {
   }, [conversation]);
 
   return (
-    <Card title="AI Assistant">
+    <CustomCard>
       <BlockStack gap="400">
+        <Text as="h2" variant="headingMd">AI Assistant</Text>
         <div
           ref={chatScrollRef}
           style={{
@@ -254,7 +258,7 @@ export const AIAssistant: React.FC = () => {
           placeholder="Ask about Planet Beauty inventory..."
           value={inputValue}
           onChange={handleInputChange}
-          onKeyPress={(event) => { if (event.key === 'Enter' && fetcher.state !== 'submitting') handleSend(); }}
+          onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === 'Enter' && fetcher.state !== 'submitting') handleSend(); }}
           autoComplete="off"
           connectedRight={
             <Button onClick={handleSend} variant="primary" loading={fetcher.state === 'submitting'} disabled={fetcher.state === 'submitting' || !inputValue.trim()}>
