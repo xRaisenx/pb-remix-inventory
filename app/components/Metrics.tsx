@@ -1,60 +1,88 @@
 // app/components/Metrics.tsx
 import React from "react";
-import { Card, Grid, Text, Icon, BlockStack, type IconSource } from "@shopify/polaris";
-import { CartIcon, InventoryIcon } from "@shopify/polaris-icons";
+import {
+  Card,
+  Grid,
+  Text,
+  Icon,
+  BlockStack,
+  InlineStack,
+  type IconSource,
+} from "@shopify/polaris";
+import { CartIcon, InventoryIcon, AlertCircleIcon } from "@shopify/polaris-icons";
 
-interface MetricItemProps {
+// A reusable card for displaying a single metric.
+interface MetricDisplayCardProps {
   title: string;
   value: string | number;
   iconSource: IconSource;
-  valueTone?: 'critical' | 'success' | 'subdued'; // Only valid tones for Polaris Text
+  // FIX 1: Removed 'warning' as it's not a valid tone for the Text component.
+  valueTone?: 'critical' | 'success' | 'subdued';
   helpText?: string;
 }
 
-const MetricDisplayCard: React.FC<MetricItemProps> = ({ title, value, iconSource, valueTone, helpText }) => {
-  const numericValue = typeof value === "number" ? value : Number(value);
-  const tone: 'critical' | 'success' | 'subdued' =
-    numericValue > 0 ? "success" : numericValue < 0 ? "critical" : "subdued";
+const MetricDisplayCard: React.FC<MetricDisplayCardProps> = ({
+  title,
+  value,
+  iconSource,
+  valueTone,
+  helpText,
+}) => {
+  const calculatedTone = () => {
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) return 'subdued';
+    return numericValue > 0 ? 'success' : 'subdued';
+  };
+
+  const displayTone = valueTone ?? calculatedTone();
 
   return (
     <Card>
-      <BlockStack gap="200">
-        <Grid>
-          <Grid.Cell columnSpan={{xs: 4, sm: 4, md: 4, lg: 4, xl: 4}}>
-            <BlockStack gap="100">
-              <Text as="h2" variant="bodyMd" tone="subdued">{title}</Text>
-              <Text as="p" variant="headingXl" tone={tone}>{value}</Text>
-              {helpText && <Text as="p" variant="bodySm" tone="subdued">{helpText}</Text>}
-            </BlockStack>
-          </Grid.Cell>
-          <Grid.Cell columnSpan={{xs: 2, sm: 2, md: 2, lg: 2, xl: 2}}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', height: '100%' }}>
-              <Icon source={iconSource} tone="base" />
-            </div>
-          </Grid.Cell>
-        </Grid>
+      <BlockStack gap="400">
+        <InlineStack align="start" blockAlign="start" gap="400" wrap={false}>
+          <BlockStack gap="100" inlineAlign="start">
+            <Text as="h2" variant="bodyMd" tone="subdued">
+              {title}
+            </Text>
+            <Text as="p" variant="headingXl" tone={displayTone}>
+              {value}
+            </Text>
+          </BlockStack>
+          <div style={{ marginLeft: 'auto' }}>
+            <Icon source={iconSource} tone="base" />
+          </div>
+        </InlineStack>
+        {helpText && (
+          <Text as="p" variant="bodySm" tone="subdued">
+            {helpText}
+          </Text>
+        )}
       </BlockStack>
     </Card>
   );
 };
 
+// The main grid component that lays out all the metrics.
 interface MetricsGridProps {
   totalProducts: number;
   lowStockItemsCount: number;
   totalInventoryUnits: number;
-  // Add more metrics as needed, e.g.:
-  // estimatedStockoutDays?: number; // Average stockout days for low items
-  // totalSalesVelocity?: number; // Sum of sales velocity
 }
 
 export default function MetricsGrid({
   totalProducts,
   lowStockItemsCount,
-  totalInventoryUnits
+  totalInventoryUnits,
 }: MetricsGridProps) {
+  const hasLowStock = lowStockItemsCount > 0;
+  const lowStockTone = hasLowStock ? 'critical' : 'success';
+  const lowStockHelpText = hasLowStock
+    ? "Items needing attention"
+    : "All items are well stocked";
+
   return (
-    // Responsive grid: 1 column on xs, 2 on sm, 3 on md and up.
-    <Grid gap={{xs: "400", sm: "400", md: "400", lg: "400", xl: "400"}} columns={{ xs: 1, sm: 2, md: 3 }}>
+    // FIX 2: The 'gap' prop must be an object for responsive values.
+    <Grid gap={{ xs: "400", sm: "400", md: "400" }} columns={{ xs: 1, sm: 2, md: 3 }}>
       <Grid.Cell>
         <MetricDisplayCard
           title="Total Products"
@@ -66,9 +94,9 @@ export default function MetricsGrid({
         <MetricDisplayCard
           title="Low Stock Items"
           value={lowStockItemsCount}
-          iconSource={CartIcon}
-          valueTone={lowStockItemsCount > 0 ? "critical" : "success"}
-          helpText={lowStockItemsCount > 0 ? "Items needing attention" : "All items well stocked"}
+          iconSource={AlertCircleIcon}
+          valueTone={lowStockTone}
+          helpText={lowStockHelpText}
         />
       </Grid.Cell>
       <Grid.Cell>
