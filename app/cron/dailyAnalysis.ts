@@ -5,7 +5,6 @@ import cron from 'node-cron';
 import prisma from '~/db.server'; // Assuming db.server.ts exports prisma correctly
 import { performDailyProductSync } from '~/dailyAnalysis'; // The product sync function
 import { getDemandForecast } from '../services/ai.server'; // AI demand forecast function
-import { PrismaClient } from '@prisma/client';
 
 
 

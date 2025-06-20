@@ -11,7 +11,7 @@ import {
   useRouteError, // Import useRouteError
   isRouteErrorResponse, // Import for typed error handling
 } from "@remix-run/react";
-import { AppProvider, Page, Banner, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
+import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
 import enTranslations from "@shopify/polaris/locales/en.json";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Import Polaris CSS with ?url
 

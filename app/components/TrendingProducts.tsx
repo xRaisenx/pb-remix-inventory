@@ -1,6 +1,6 @@
 // app/components/TrendingProducts.tsx
-import React, { useState } from "react";
-import { Card, Grid, Text, Badge, BlockStack, Thumbnail } from "@shopify/polaris";
+import React from "react";
+import { Card, Grid, Text, Badge, BlockStack } from "@shopify/polaris";
 import type { Product } from "~/types"; // Assuming Product type includes 'trending', 'salesVelocity', 'variants' with sku/inventory.
 
 interface TrendingProductsProps {
