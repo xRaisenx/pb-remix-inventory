@@ -7,7 +7,8 @@ import { Page, Card, TextField, Button, Banner, BlockStack, Text, Spinner, Empty
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
 import { z } from "zod";
-import type { Warehouse } from "@prisma/client";
+
+import type { Warehouse } from "~/types";
 
 // Zod schema for validation
 const WarehouseSchema = z.object({

@@ -4,7 +4,8 @@ import { Link, Form, useLoaderData, useNavigation } from "@remix-run/react"; // 
 import { Page, Card, DataTable, Text, Button, EmptyState, InlineStack } from "@shopify/polaris"; // Added InlineStack
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
-import type { Warehouse } from "@prisma/client";
+
+import type { Warehouse } from "~/types";
 
 interface LoaderData {
   warehouses: Warehouse[];
