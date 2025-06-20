@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation }
 from '@shopify/polaris';
-import { HomeMajor, OrdersMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, BellMajor } // Example icons
+import { HomeMajor, OrdersMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, Bell } // Example icons
 from '@shopify/polaris-icons';
 import { useLocation } from '@remix-run/react'; // To determine active navigation link
 
@@ -56,7 +56,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       secondaryMenu={
         <TopBar.Menu
           activatorContent={
-            <BellMajor /> // Placeholder for notifications or other actions
+            <Bell /> // Placeholder for notifications or other actions
           }
           open={isSecondaryMenuOpen}
           onOpen={toggleIsSecondaryMenuOpen}

@@ -3,7 +3,7 @@
 client_id = "919e88ca96685994550e0a9bc9236584"
 name = "focused-policy-app"
 handle = "focused-policy-app-6"
-application_url = "https://timer-libraries-retailer-guinea.trycloudflare.com"
+application_url = "https://missile-thing-ball-wed.trycloudflare.com"
 embedded = true
 
 [build]
@@ -18,7 +18,7 @@ api_version = "2025-04"
 scopes = "write_products,read_products,read_inventory,read_locations"
 
 [auth]
-redirect_urls = ["https://timer-libraries-retailer-guinea.trycloudflare.com/auth/callback", "https://timer-libraries-retailer-guinea.trycloudflare.com/auth/shopify/callback", "https://timer-libraries-retailer-guinea.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://missile-thing-ball-wed.trycloudflare.com/auth/callback", "https://missile-thing-ball-wed.trycloudflare.com/auth/shopify/callback", "https://missile-thing-ball-wed.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

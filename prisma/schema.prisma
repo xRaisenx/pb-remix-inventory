@@ -3,27 +3,29 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   // directUrl         = env("DIRECT_DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model Shop {
-  id                         String      @id @default(uuid())
-  shop                       String      @unique
+  id                         String                @id @default(uuid())
+  shop                       String                @unique
   accessToken                String
   emailForNotifications      String?
   slackWebhookUrl            String?
   telegramBotToken           String?
   telegramChatId             String?
   whatsAppApiCredentialsJson String?
-  lowStockThreshold          Int?        @default(10)
-  createdAt                  DateTime    @default(now())
-  updatedAt                  DateTime    @updatedAt
+  lowStockThreshold          Int?                  @default(10)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
   products                   Product[]
   sessions                   Session[]
   warehouses                 Warehouse[]
+  NotificationSettings       NotificationSettings?
+  NotificationLog            NotificationLog[]
 }
 
 model Session {
@@ -39,17 +41,18 @@ model Session {
 }
 
 model Product {
-  id          String      @id @default(uuid())
-  shopId      String
-  shopifyId   String      @unique
-  title       String
-  vendor      String
-  productType String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  inventory   Inventory[]
-  shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  variants    Variant[]
+  id             String           @id @default(uuid())
+  shopId         String
+  shopifyId      String           @unique
+  title          String
+  vendor         String
+  productType    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  inventory      Inventory[]
+  shop           Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variants       Variant[]
+  DemandForecast DemandForecast[]
 }
 
 model Warehouse {
@@ -94,36 +97,36 @@ model Variant {
 }
 
 model NotificationSettings {
-  id                  String    @id @default(uuid())
-  shopId              String    @unique
+  id     String @id @default(uuid())
+  shopId String @unique
 
   // Channel enables
-  email               Boolean   @default(false)
-  slack               Boolean   @default(false)
-  telegram            Boolean   @default(false)
-  mobilePush          Boolean   @default(false) // General toggle for mobile push
+  email      Boolean @default(false)
+  slack      Boolean @default(false)
+  telegram   Boolean @default(false)
+  mobilePush Boolean @default(false) // General toggle for mobile push
 
   // Channel-specific details
-  emailAddress        String?   // For email notifications
-  slackWebhookUrl     String?   // For Slack
-  telegramBotToken    String?   // For Telegram
-  telegramChatId      String?   // For Telegram
+  emailAddress     String? // For email notifications
+  slackWebhookUrl  String? // For Slack
+  telegramBotToken String? // For Telegram
+  telegramChatId   String? // For Telegram
   // mobilePushServiceDetails String? // If specific credentials/details needed for push
 
-  frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
+  frequency String @default("daily") // e.g., "immediate", "hourly", "daily"
 
   // Thresholds (can override Shop defaults or be primary)
-  lowStockThreshold   Int?
-  salesVelocityThreshold Float?
+  lowStockThreshold           Int?
+  salesVelocityThreshold      Float?
   criticalStockThresholdUnits Int? // New: e.g., if inventory is at or below this, it's critical
-  criticalStockoutDays      Int? // New: e.g., if stockout is in this many days or less, it's critical
+  criticalStockoutDays        Int? // New: e.g., if stockout is in this many days or less, it's critical
 
   // Inventory Sync
-  syncEnabled         Boolean   @default(false)
+  syncEnabled Boolean @default(false)
 
-  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DemandForecast {
@@ -144,16 +147,16 @@ model DemandForecast {
 }
 
 model NotificationLog {
-  id            String    @id @default(uuid())
-  shopId        String
-  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  channel       String // e.g., "Email", "Slack", "System"
-  recipient     String? // e.g., email address, Slack channel ID
-  message       String
-  status        String // e.g., "Sent", "Failed", "Simulated"
-  productId     String?
-  productTitle  String?
-  alertType     String? // e.g., "low_stock", "high_trend"
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(uuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel      String // e.g., "Email", "Slack", "System"
+  recipient    String? // e.g., email address, Slack channel ID
+  message      String
+  status       String // e.g., "Sent", "Failed", "Simulated"
+  productId    String?
+  productTitle String?
+  alertType    String? // e.g., "low_stock", "high_trend"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
