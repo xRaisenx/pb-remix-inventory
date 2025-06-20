@@ -10,6 +10,7 @@ import type { ProductForTable } from "./app.products";
 import React, { useState, useCallback, useEffect } from "react";
 import { ProductModal } from "../components/ProductModal";
 import { calculateProductMetrics } from "~/services/product.service"; // Import calculateProductMetrics
+import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service"; // Added import
 
 // [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
 // import polaris from '@shopify/polaris';
@@ -95,112 +96,43 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Response>
     }
 
     try {
-      // Fetch variant details including inventoryItemId and linked product/inventory/warehouse
-      const variantRecord = await prisma.variant.findUnique({
-          where: { id: variantId },
-          select: {
-              id: true,
-              inventoryItemId: true,
-              productId: true,
-              product: {
-                  select: {
-                      id: true,
-                      shopId: true,
-                      inventory: {
-                          select: {
-                              warehouse: {
-                                  select: {
-                                      shopifyLocationGid: true
-                                  }
-                              }
-                          },
-                          take: 1 // Assuming one inventory record per product is enough to find a linked location
-                      }
-                  }
-              }
-          }
-      });
-
-      if (!variantRecord) {
-          return json({ error: "Variant not found in local database." } as InventoryActionResponse, { status: 404 });
-      }
-      if (!variantRecord.inventoryItemId) {
-          return json({ error: "Variant is not linked to a Shopify Inventory Item. Cannot update in Shopify." } as InventoryActionResponse, { status: 400 });
-      }
-      const shopifyLocationGid = variantRecord.product?.inventory?.[0]?.warehouse?.shopifyLocationGid;
-      if (!shopifyLocationGid) {
-          return json({ error: "No linked Shopify Location found for this product's inventory. Cannot update in Shopify." } as InventoryActionResponse, { status: 400 });
-      }
-
-      // Call Shopify API to update inventory quantity at the found location
-      const response = await admin.graphql(
-        `#graphql
-        mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
-          inventorySetQuantities(input: $input) {
-            inventoryAdjustmentGroup { id }
-            userErrors { field message }
-          }
-        }`,
-        {
-          variables: {
-            input: {
-              changes: [{
-                inventoryItemId: variantRecord.inventoryItemId,
-                locationId: shopifyLocationGid,
-                quantity: newQuantity
-              }],
-              reason: "inventory_update_from_app",
-              setQuantitiesOperationId: `inv-update-${variantId}-${Date.now()}` // Unique ID
-            }
-          }
-        }
+      // Call the centralized inventory update service
+      const updateResult = await updateInventoryQuantityInShopifyAndDB(
+        session.shop,
+        variantId,
+        newQuantity
       );
 
-      const responseData = await response.json() as {
-        data?: {
-          inventorySetQuantities?: {
-            inventoryAdjustmentGroup?: { id: string }; // Corrected field name
-            userErrors?: Array<{ field: string; message: string }>;
-          };
-        };
-        errors?: Array<{ message: string }>;
-      };
-
-      if (responseData.errors && responseData.errors.length > 0) {
-        console.error("GraphQL execution errors on inventorySetQuantities:", responseData.errors);
-        return json({ error: `Shopify API error: ${responseData.errors[0].message}` } as InventoryActionResponse, { status: 500 });
-      }
-
-      const inventoryData = responseData.data?.inventorySetQuantities;
-      if (inventoryData && hasUserErrors(inventoryData)) {
-        const userErrors = (inventoryData.userErrors ?? []).map(e => ({
-          message: e.message,
-          field: Array.isArray(e.field) ? e.field : (e.field ? [e.field] : null) // Ensure field is string[] or null
-        }));
-        console.error("UserErrors on inventorySetQuantities:", userErrors);
+      if (!updateResult.success) {
         return json({
-          error: `Shopify rejected update: ${userErrors[0]?.message || 'Unknown user error.'}`,
-          userErrors: userErrors
-        } as InventoryActionResponse, { status: 400 });
+          error: updateResult.error || "Failed to update inventory.",
+          userErrors: updateResult.userErrors // Pass along userErrors if any
+        } as InventoryActionResponse, { status: updateResult.userErrors ? 400 : 500 });
       }
 
-      if (inventoryData && hasInventoryAdjustment(inventoryData)) {
-        console.log("Successfully updated inventory in Shopify for variant:", variantRecord.id);
+      // If the service call was successful, proceed with product metrics recalculation
+      // The service already updated the local DB variant quantity.
+      // We need the productId to recalculate product metrics.
+      const updatedVariant = await prisma.variant.findUnique({
+        where: { id: variantId },
+        select: { productId: true }
+      });
 
-        // Update local Prisma DB for the specific variant and potentially the related Inventory record
-        // Note: Updating the Variant's inventoryQuantity directly might not be the best approach
-        // if inventory is managed per location in the Inventory table.
-        // A better approach is to update the specific Inventory record for the product+warehouse.
-        // For now, let's update the Variant's total quantity for simplicity based on the modal's current design,
-        // but acknowledge this might need refinement if multi-location inventory is fully supported.
-         await prisma.variant.update({
-           where: { id: variantRecord.id },
-           data: { inventoryQuantity: newQuantity },
-         });
+      if (!updatedVariant?.productId) {
+        // This case should ideally not happen if updateInventoryQuantityInShopifyAndDB succeeded
+        // and found the variant.
+        console.error(`Product ID not found for variant ${variantId} after successful inventory update.`);
+        // Return success for inventory, but maybe log this anomaly.
+        return json({
+          success: true,
+          message: updateResult.message || "Inventory updated, but could not re-calculate product metrics (product ID missing).",
+          inventoryAdjustmentGroupId: updateResult.inventoryAdjustmentGroupId
+        } as InventoryActionResponse);
+      }
 
-        // Re-calculate and update product metrics after inventory change
-        const productToUpdate = await prisma.product.findUnique({
-          where: { id: variantRecord.productId },
+      // Re-calculate and update product metrics after inventory change
+      const productToUpdate = await prisma.product.findUnique({
+        where: { id: updatedVariant.productId },
           include: {
             variants: { select: { inventoryQuantity: true } }, // Need all variants for total inventory
             shop: { include: { NotificationSettings: true } } // Need shop settings for thresholds
@@ -242,12 +174,19 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Response>
         } as InventoryActionResponse);
       }
 
-      console.warn("Inventory update via Shopify completed, but no clear success/error state:", responseData);
-      return json({ error: "Inventory update response from Shopify was inconclusive." } as InventoryActionResponse, { status: 200 });
+      // The service was successful, so we can return success.
+      // The message from the service is more specific.
+      return json({
+        success: true,
+        message: updateResult.message || "Inventory updated successfully and product metrics recalculated.",
+        inventoryAdjustmentGroupId: updateResult.inventoryAdjustmentGroupId
+      } as InventoryActionResponse);
 
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to update inventory via Shopify due to a server error.";
-      console.error(`Failed to update Shopify inventory for variant ${variantId}:`, error);
+      // This catch block now primarily catches errors from the product metrics recalculation
+      // or unexpected errors from the service call that weren't handled by its try/catch.
+      const message = error instanceof Error ? error.message : "An unexpected error occurred during the inventory update process.";
+      console.error(`Error in inventory update action for variant ${variantId}:`, error);
       return json({ error: message } as InventoryActionResponse, { status: 500 });
     }
   }

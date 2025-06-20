@@ -2,8 +2,10 @@
 
 import cron from 'node-cron';
 import prisma from '~/db.server';
-import { performDailyProductSync } from '~/dailyAnalysis';
+import { performDailyProductSync } from '~/dailyAnalysis'; // This function will need to accept session and shop
 import { getDemandForecast } from '../services/ai.server';
+import { Session } from "@shopify/shopify-api"; // Import Session type
+import shopify from "~/shopify.server"; // To potentially use shopify.api.session methods if needed
 
 async function sendEmailNotification(to: string, subject: string, body: string) {
   console.log("--- SIMULATING EMAIL SEND ---");
@@ -33,21 +35,9 @@ const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000;
 async function runDailyTasks() {
   console.log(`[CRON JOB - ${new Date().toISOString()}] Starting daily tasks routine...`);
 
-  // Section 1: Synchronize Shopify products with the local database.
-  // This step ensures that local product data is up-to-date before performing analysis.
-  console.log("[CRON JOB] Initiating daily product synchronization...");
-  try {
-    await performDailyProductSync();
-    console.log("[CRON JOB] Daily product synchronization completed successfully.");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[CRON JOB] Critical error during daily product sync: ${errorMessage}`, error);
-    // Depending on severity, might decide to return or throw to stop further execution.
-    // For now, it logs and continues to other tasks.
-  }
-
+  // Section 1: Synchronize Shopify products with the local database (Moved inside shop loop).
   // Section 2: Perform AI Demand Forecasting and Low Stock Checks for each active shop.
-  console.log("[CRON JOB] Starting AI demand forecasting and low stock checks for all relevant shops...");
+  console.log("[CRON JOB] Starting daily product synchronization, AI demand forecasting, and low stock checks for all relevant shops...");
   try {
     const shops = await prisma.shop.findMany({
       where: { accessToken: { not: undefined } }, // Only process shops with an access token (active)
@@ -76,19 +66,64 @@ async function runDailyTasks() {
     });
 
     if (shops.length === 0) {
-      console.log("[CRON JOB] No active shops found to process for AI analysis.");
-      // No return here, let it finish the "Daily tasks finished" log.
+      console.log("[CRON JOB] No active shops found to process.");
     } else {
-        console.log(`[CRON JOB] Starting AI demand forecasting and low stock checks for ${shops.length} shops.`);
+        console.log(`[CRON JOB] Processing ${shops.length} shops.`);
 
         for (const shop of shops) {
           console.log(`[CRON JOB] Processing shop: ${shop.shop} (ID: ${shop.id})`);
+
+          // --- Start: Product Synchronization for this shop ---
+          console.log(`[CRON JOB] -- Initiating product synchronization for ${shop.shop}...`);
+          const offlineSessionRecord = await prisma.session.findFirst({
+            where: {
+              shop: shop.shop,
+              isOnline: false,
+              accessToken: { not: null },
+              // Optional: Add expires check if your sessions have an expiry that needs to be valid
+              // expires: { gt: new Date() }
+            },
+            orderBy: { expires: 'desc' }, // Get the most recent valid one
+          });
+
+          if (offlineSessionRecord && offlineSessionRecord.accessToken) {
+            // Reconstruct the session object
+            // The Session constructor or a helper like customAppSession is preferred.
+            // Manual construction:
+            const session = new Session({
+                id: offlineSessionRecord.id,
+                shop: offlineSessionRecord.shop,
+                state: offlineSessionRecord.state,
+                isOnline: offlineSessionRecord.isOnline,
+                accessToken: offlineSessionRecord.accessToken,
+                scope: offlineSessionRecord.scope || '', // Ensure scope is not null
+                // expires: offlineSessionRecord.expires ? new Date(offlineSessionRecord.expires) : undefined, // Ensure expires is Date or undefined
+                // onlineAccessInfo: offlineSessionRecord.onlineAccessInfo ? JSON.parse(offlineSessionRecord.onlineAccessInfo as string) : undefined,
+            });
+            // Ensure all required fields for the Session object are present from your Prisma model.
+            // You might need to adjust the Session constructor call based on its actual signature
+            // or use shopify.api.session.customAppSession if it fits better.
+
+            try {
+              // Assuming performDailyProductSync is updated to accept shop and session
+              await performDailyProductSync(shop.shop, session);
+              console.log(`[CRON JOB] -- Daily product synchronization completed successfully for ${shop.shop}.`);
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              console.error(`[CRON JOB] -- Critical error during daily product sync for ${shop.shop}: ${errorMessage}`, error);
+            }
+          } else {
+            console.warn(`[CRON JOB] -- No valid offline session found for shop ${shop.shop}. Skipping product synchronization.`);
+          }
+          // --- End: Product Synchronization ---
+
+
           const lowStockThreshold = shop.lowStockThreshold ?? 10;
 
           // AI Demand Forecasting for products of the current shop
           const shopProducts = await prisma.product.findMany({
             where: { shopId: shop.id },
-            take: 100,
+            take: 100, // Consider if this limit is appropriate for all shops
             select: { id: true, title: true }
           });
           
