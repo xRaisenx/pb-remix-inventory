@@ -1,6 +1,44 @@
 // app/services/ai.server.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "~/db.server";
+import type { Prisma as PrismaTypes } from '@prisma/client';
+
+// Structured Response Types
+export interface AIProductResponseItem {
+  id: string; // Internal product ID
+  shopifyProductId?: string; // Shopify GID for links
+  name: string;
+  imageUrl?: string; // Placeholder for now
+  price?: string;
+  inventory?: number;
+  salesVelocity?: number | null;
+  stockoutRisk?: string; // e.g., "Low", "Medium", "High" or days
+}
+
+export interface AIListResponseItem {
+  id: string; // Typically internal product ID
+  name: string;
+  imageUrl?: string; // Placeholder
+  metric1?: string; // e.g., "Inventory: 50"
+  metric2?: string; // e.g., "Sales Velocity: 5/day"
+  shopifyProductId?: string; // For linking
+}
+
+export interface AISummaryResponseData {
+    totalProducts?: number;
+    lowStockItems?: number; // Count of items with status 'Low' or 'Critical'
+    totalInventoryValue?: number; // Requires price and quantity
+    activeAlertsCount?: number; // Could be sum of low/critical/trending etc.
+    averageSalesVelocity?: number; // Overall average
+}
+
+export type AIStructuredResponse =
+  | { type: 'text'; content: string; suggestedQuestions?: string[] }
+  | { type: 'product'; product: AIProductResponseItem; suggestedQuestions?: string[] }
+  | { type: 'list'; title: string; items: AIListResponseItem[]; suggestedQuestions?: string[] }
+  | { type: 'summary'; summary: AISummaryResponseData; suggestedQuestions?: string[] }
+  | { type: 'error'; message: string };
+
 
 /**
  * Generates a demand forecast for a given product using Google Gemini AI.
@@ -10,6 +48,7 @@ import prisma from "~/db.server";
  * @throws Error if GEMINI_API_KEY is not set, product not found, or if AI model fails.
  */
 export async function getDemandForecast(productId: string): Promise<string> {
+  // ... (existing getDemandForecast implementation - unchanged for this subtask)
   const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!geminiApiKey) {
     console.error("GEMINI_API_KEY environment variable is not set.");
@@ -45,75 +84,139 @@ export async function getDemandForecast(productId: string): Promise<string> {
   }
 }
 
-export async function getAiChatResponse(userQuery: string, shopId: string): Promise<string> {
+const defaultSuggestedQuestions = [
+    "Which products are low on stock?",
+    "What's my total inventory value?",
+    "Show me trending products.",
+    "What is the sales velocity for [product name]?",
+];
+
+export async function getAiChatResponse(userQuery: string, shopId: string): Promise<AIStructuredResponse> {
   const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!geminiApiKey) {
     console.error("GEMINI_API_KEY missing for getAiChatResponse.");
-    // User-friendly message, as this is called from a chat interface
-    return "AI service is not configured (missing API key). Please contact support.";
+    return { type: 'error', message: "AI service is not configured (missing API key). Please contact support." };
   }
 
-  const shop = await prisma.shop.findUnique({ where: { id: shopId } });
+  const shop = await prisma.shop.findUnique({
+    where: { id: shopId },
+    include: { notificationSettings: true }
+  });
   if (!shop) {
     console.error(`Shop not found for ID: ${shopId} in getAiChatResponse.`);
-    return "Could not retrieve your shop information. Please try again.";
+    return { type: 'error', message: "Could not retrieve your shop information. Please try again." };
   }
-  const lowStockThreshold = shop.lowStockThreshold ?? 10; // Use shop's threshold or default
+
+  const lowStockThreshold = shop.notificationSettings?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
+  const criticalStockThreshold = shop.notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+
 
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
   const lowerCaseQuery = userQuery.toLowerCase();
 
   try {
-    if (lowerCaseQuery.includes("low inventory") || lowerCaseQuery.includes("low stock")) {
-      const lowStockItems = await prisma.inventory.findMany({
+    if (lowerCaseQuery.includes("low inventory") || lowerCaseQuery.includes("low stock") || lowerCaseQuery.includes("critical stock")) {
+      const products = await prisma.product.findMany({
         where: {
-            quantity: { lt: lowStockThreshold },
-            warehouse: { shopId: shop.id }
+          shopId: shop.id,
+          OR: [ { status: 'Low' }, { status: 'Critical' } ]
         },
-        take: 5, // Limit for chat response brevity
-        include: {
-            product: { select: { title: true } },
-            warehouse: { select: { name: true } }
-        },
-        orderBy: { quantity: 'asc' }
+        take: 10, // Limit for chat response brevity
+        include: { variants: { select: { inventoryQuantity: true }}},
+        orderBy: { status: 'asc' } // Show critical first, then low
       });
-      if (lowStockItems.length === 0) {
-        return `No products are currently below the low stock threshold of ${lowStockThreshold} units.`;
+
+      if (products.length === 0) {
+        return {
+            type: 'text',
+            content: `No products are currently marked as Low or Critical stock based on the threshold of ${lowStockThreshold} (low) and ${criticalStockThreshold} (critical) units.`,
+            suggestedQuestions: defaultSuggestedQuestions
+        };
       }
-      const summary = lowStockItems.map(item => `${item.product.title} (${item.quantity} units in ${item.warehouse.name})`).join(", ");
-      return `Found ${lowStockItems.length} low stock item(s): ${summary}. Consider restocking soon.`;
-    }
-
-    if (lowerCaseQuery.includes("total products")) {
-      const count = await prisma.product.count({ where: { shopId: shop.id } });
-      return `You have a total of ${count} products in your catalog.`;
-    }
-
-    if (lowerCaseQuery.includes("total inventory") || lowerCaseQuery.includes("total units")) {
-      const agg = await prisma.inventory.aggregate({
-        _sum: { quantity: true },
-        where: { warehouse: { shopId: shop.id } }
+      const listItems: AIListResponseItem[] = products.map(p => {
+        const totalInventory = p.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+        return {
+          id: p.id,
+          name: p.title,
+          metric1: `Inventory: ${totalInventory}`,
+          metric2: `Status: ${p.status}`,
+          shopifyProductId: p.shopifyId,
+          // imageUrl: p.imageUrl // if available
+        };
       });
-      return `You have a total of ${agg._sum.quantity ?? 0} units across all your inventory records.`;
+      return {
+        type: 'list',
+        title: 'Low & Critical Stock Items',
+        items: listItems,
+        suggestedQuestions: ["What are my top selling products?", "Summarize my inventory health."]
+      };
     }
+
+    if (lowerCaseQuery.includes("total products") || lowerCaseQuery.includes("inventory summary") || lowerCaseQuery.includes("total inventory value")) {
+      const productsForSummary = await prisma.product.findMany({
+        where: { shopId },
+        select: { status: true, variants: { select: { price: true, inventoryQuantity: true } } }
+      });
+      let totalInventoryValue = 0;
+      let lowStockCount = 0;
+      let criticalStockCount = 0;
+      productsForSummary.forEach(p => {
+          p.variants.forEach(v => {
+            if (v.price && v.inventoryQuantity) {
+                totalInventoryValue += Number(v.price) * v.inventoryQuantity;
+            }
+          });
+          if (p.status === 'Low') lowStockCount++;
+          if (p.status === 'Critical') criticalStockCount++;
+      });
+      const summaryData: AISummaryResponseData = {
+        totalProducts: productsForSummary.length,
+        lowStockItems: lowStockCount + criticalStockCount,
+        totalInventoryValue: parseFloat(totalInventoryValue.toFixed(2)),
+        // activeAlertsCount: lowStockCount + criticalStockCount, // Example
+      };
+      return { type: 'summary', summary: summaryData, suggestedQuestions: defaultSuggestedQuestions };
+    }
+
+    // Example for specific product query - needs more robust intent parsing
+    if (lowerCaseQuery.startsWith("show product") || lowerCaseQuery.startsWith("details for")) {
+        const productNameQuery = userQuery.split(" ").slice(2).join(" "); // very basic parsing
+        const product = await prisma.product.findFirst({
+            where: { shopId: shop.id, title: { contains: productNameQuery, mode: 'insensitive' } },
+            include: { variants: { select: { price: true, inventoryQuantity: true, sku: true }}}
+        });
+        if (product) {
+            const totalInventory = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+            const productItem: AIProductResponseItem = {
+                id: product.id,
+                shopifyProductId: product.shopifyId,
+                name: product.title,
+                price: product.variants[0]?.price?.toString() ?? 'N/A',
+                inventory: totalInventory,
+                salesVelocity: product.salesVelocityFloat,
+                stockoutRisk: product.status ?? 'Unknown', // Map status to risk
+                // imageUrl: product.imageUrl,
+            };
+            return { type: 'product', product: productItem, suggestedQuestions: [`What's the sales trend for ${product.title}?`, "Any alerts for this product?"] };
+        } else {
+            return { type: 'text', content: `Sorry, I couldn't find a product named "${productNameQuery}". Please try the exact name.`, suggestedQuestions: defaultSuggestedQuestions };
+        }
+    }
+
 
     // Fallback to general Gemini query
-    // Refined prompt to be more specific and guide the AI
-    const prompt = `You are "Planet Beauty AI Inventory Assistant". A user from shop named "${shop.shop}" (ID: ${shopId}) asked: "${userQuery}".
-    Provide a helpful, concise answer ONLY related to Shopify inventory management, product data, sales trends, or stock levels.
-    If the query is about a specific product not mentioned, or data you don't have access to (like live sales, detailed customer data, or specific marketing campaign details), state that you need more specific product information or that you cannot access that type of data.
-    If the query is clearly unrelated to inventory, product management, or sales trends for an e-commerce beauty store, politely state that you can only assist with inventory-related questions for their Shopify store.
-    Do not make up data if you don't have it. Be brief.`;
-
+    const prompt = `As "Planet Beauty AI Inventory Assistant" for shop "${shop.shop}", answer concisely about Shopify inventory, products, sales, or stock based on: "${userQuery}". If unrelated or needing unavailable data (live sales, marketing details), state limitations or ask for product specifics. Be brief.`;
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    return text.trim() || "I'm sorry, I couldn't process that request. Please try rephrasing.";
+    return {
+        type: 'text',
+        content: text.trim() || "I'm sorry, I couldn't process that request. Please try rephrasing.",
+        suggestedQuestions: defaultSuggestedQuestions
+    };
 
   } catch (error: any) {
     console.error(`Error in getAiChatResponse for shop ${shopId}, query "${userQuery}":`, error);
-    // Avoid leaking detailed error messages to the chat UI
-    return "I encountered an error while trying to understand that. Please try again later.";
+    return { type: 'error', message: "I encountered an error while trying to understand that. Please try again later." };
   }
 }

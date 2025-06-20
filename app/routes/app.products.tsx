@@ -109,31 +109,76 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const variantId = formData.get("variantId") as string;
     const newQuantityStr = formData.get("newQuantity") as string;
 
-    if (!variantId || newQuantityStr === null) {
-      return json({ error: "Missing variantId or newQuantity" }, { status: 400 });
+    // Validate variantId
+    if (!variantId || typeof variantId !== 'string' || variantId.trim() === "") {
+      return json({ error: "Invalid or missing Variant ID." }, { status: 400 });
+    }
+
+    // Validate newQuantity
+    if (newQuantityStr === null || newQuantityStr.trim() === "") {
+      return json({ error: "Missing new quantity." }, { status: 400 });
     }
     const newQuantity = parseInt(newQuantityStr, 10);
-    if (isNaN(newQuantity)) {
-      return json({ error: "Invalid quantity" }, { status: 400 });
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      return json({ error: "Invalid quantity: must be a non-negative integer." }, { status: 400 });
     }
 
     try {
-      // Ensure this variant belongs to the current shop indirectly if needed, or add direct shopId check
+      // Optional: Verify variantId belongs to the shop before updating
+      // This would require an additional query like:
+      // const variant = await prisma.variant.findFirst({
+      //   where: { id: variantId, product: { shopId: shopRecord.id } }
+      // });
+      // if (!variant) return json({ error: "Variant not found or does not belong to this shop." }, { status: 404 });
+
       const updatedVariant = await prisma.variant.update({
-        where: { id: variantId },
-        data: { inventoryQuantity: newQuantity }, // Directly set new quantity
+        where: { id: variantId }, // Assuming variantId is unique across shops or security handled by session
+        data: { inventoryQuantity: newQuantity },
       });
 
       // TODO: Potentially re-calculate and update parent Product's status
       // This might be better handled by a background job or a more complex update logic here.
+      // For now, also trigger a product metric update for the specific product.
+      if (updatedVariant && updatedVariant.productId) {
+        const productToUpdate = await prisma.product.findUnique({
+          where: { id: updatedVariant.productId },
+          include: { variants: { select: { inventoryQuantity: true } } }
+        });
+        if (productToUpdate) {
+          // Dynamically import to avoid circular dependency issues if product.service imports from this file indirectly
+          const { calculateProductMetrics, updateAllProductMetricsForShop } = await import("~/services/product.service");
+
+          const lowStockThresholdUnits = shopRecord.notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+          const criticalStockThresholdUnits = Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+          const criticalStockoutDays = 3;
+          const shopSettings = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
+
+          const metrics = calculateProductMetrics(productToUpdate, shopSettings);
+          const salesVelocityThresholdForTrending = shopRecord.notificationSettings?.salesVelocityThreshold ?? 50;
+          const trending = productToUpdate.salesVelocityFloat !== null && productToUpdate.salesVelocityFloat > salesVelocityThresholdForTrending;
+
+          await prisma.product.update({
+            where: { id: productToUpdate.id },
+            data: {
+              stockoutDays: metrics.stockoutDays,
+              status: metrics.status,
+              trending: trending,
+            },
+          });
+        }
+      }
 
       return json({ success: true, updatedVariant });
-    } catch (error) {
-      console.error("Failed to update inventory:", error);
-      return json({ error: "Failed to update inventory" }, { status: 500 });
+    } catch (e: any) {
+      console.error("Failed to update inventory:", e);
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        // Record not found
+        return json({ error: "Variant not found. Failed to update inventory." }, { status: 404 });
+      }
+      return json({ error: "Failed to update inventory due to a server error." }, { status: 500 });
     }
   }
-  return json({ error: "Invalid intent" }, { status: 400 });
+  return json({ error: "Invalid intent." }, { status: 400 });
 };
 
 
