@@ -1,6 +1,7 @@
 // app/services/shopify.sync.server.ts
 import shopify from '~/shopify.server';
 import prisma from '~/db.server';
+import { Session } from "@shopify/shopify-api"; // Import Session
 // Updated API version import path
 import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, InventoryLevel as ShopifyInventoryLevel, Location as ShopifyLocation } from '@shopify/graphql-admin-api/2024-10'; // Using 2024-10
 import { updateAllProductMetricsForShop } from './product.service'; // Adjust path if needed
@@ -75,15 +76,15 @@ interface TransformedInventory {
 }
 
 // Function to fetch all locations and ensure they exist in Prisma, returning a map
-// Using 'any' for admin client type for now, can be refined with specific Shopify client types if available globally
-async function getOrSyncLocations(admin: any, shopId: string): Promise<Map<string, string>> {
+// Using 'any' for GraphQL client type for now, can be refined
+async function getOrSyncLocations(client: any, shopId: string): Promise<Map<string, string>> {
   const locationsMap = new Map<string, string>(); // ShopifyLocationGid -> Prisma Warehouse ID
   let hasNextPage = true;
   let cursor: string | null = null;
   const locations: ShopifyLocationNode[] = [];
 
   while (hasNextPage) {
-    const response = await admin.graphql(
+    const response = await client( // Changed from admin.graphql
       `#graphql
       query GetLocations($cursor: String) {
         locations(first: 250, after: $cursor) { # Shopify limits to 250 by default
@@ -134,16 +135,12 @@ async function getOrSyncLocations(admin: any, shopId: string): Promise<Map<strin
   return locationsMap;
 }
 
-export async function syncProductsAndInventory(shopDomain: string) {
-  // Use authenticate.admin with the shop domain to get the admin client and session
-  const { admin, session } = await shopify.authenticate.admin(shopDomain);
-  if (!admin || !session) {
-    // This case should ideally not happen if called after successful authentication flow
-    console.error(`Failed to authenticate with Shopify for shop ${shopDomain} during sync.`);
-    throw new Error(`Failed to authenticate with Shopify for shop ${shopDomain}.`);
-  }
-  const shopId = await getShopId(shopDomain); // New call
-  const locationsMap = await getOrSyncLocations(admin, shopId);
+export async function syncProductsAndInventory(shopDomain: string, session: Session) { // Added session parameter
+  // Create a new GraphQL client from the session
+  const client = new shopify.api.clients.Graphql({ session });
+
+  const shopId = await getShopId(shopDomain);
+  const locationsMap = await getOrSyncLocations(client, shopId); // Pass client instead of admin
 
   let hasNextPage = true;
   let cursor = null;
@@ -151,7 +148,7 @@ export async function syncProductsAndInventory(shopDomain: string) {
   console.log(`Starting product sync for shop: ${shopDomain} (ID: ${shopId})`);
 
   while (hasNextPage) {
-    const response = await admin.graphql(
+    const response = await client( // Changed from admin.graphql
       `#graphql
       query GetProducts($cursor: String) {
         products(first: 10, after: $cursor) {

@@ -7,7 +7,8 @@ import { AppProvider, Page, BlockStack, Frame } from '@shopify/polaris'; // Impo
 import enTranslations from '@shopify/polaris/locales/en.json';
 import { authenticate } from "~/shopify.server";
 import AppLayout from '../components/AppLayout'; // Ensure this component exists
-import React, { useState } from "react";
+import React from "react"; // Removed useState as it's no longer needed here
+// import React, { useState } from "react"; // Original line if useState was used for other things
 
 /**
  * This loader protects all routes under `/app` and provides session data.
@@ -25,35 +26,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
  * This is the main layout for the authenticated part of the app.
  */
 
-// Custom Toast component (as useToast might not be available)
-function Toast({ content, onDismiss }: { content: string; onDismiss: () => void }) {
-  React.useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-  return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#333', color: '#fff', padding: '12px 24px', borderRadius: 8, zIndex: 9999 }}>
-      {content}
-    </div>
-  );
-}
-
 export default function App() {
   // useLoaderData now correctly receives the session object from the loader.
   const { session } = useLoaderData<typeof loader>();
 
-  // Add state for toast (if using custom toast)
-  const [toastActive, setToastActive] = useState(false);
-  const [toastContent, setToastContent] = useState('');
-
-  // Function to show toast (if using custom toast)
-  // This function would need to be passed down via Context if used in nested routes
-  // For now, it's just defined here.
-  // const showToast = (message: string) => {
-  //   setToastContent(message);
-  //   setToastActive(true);
-  // };
-
+  // Custom toast, related state, and functions have been removed.
 
   return (
     <AppProvider i18n={enTranslations}>
@@ -65,13 +42,12 @@ export default function App() {
           <Page>
             {/* BlockStack for vertical spacing */}
             <BlockStack gap="400"> {/* Added gap for spacing between sections */}
-              <Outlet />
+              <Outlet /> {/* session prop is available via useLoaderData in nested routes if needed */}
             </BlockStack>
           </Page>
         </AppLayout>
       </Frame>
-      {/* Render custom toast if active */}
-      {toastActive && <Toast content={toastContent} onDismiss={() => setToastActive(false)} />}
+      {/* Custom toast rendering removed */}
     </AppProvider>
   );
 }

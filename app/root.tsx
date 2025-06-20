@@ -14,7 +14,7 @@ import {
 import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
 import enTranslations from "@shopify/polaris/locales/en.json";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css";
-import appStyles from "~/styles/app.css"; // Import your global styles
+import appStyles from "~/styles/app.css?url"; // Import your global styles
 
 export const meta: MetaFunction = () => {
   return [

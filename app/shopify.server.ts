@@ -10,6 +10,7 @@ import prisma from "./db.server"; // Assumes prisma client is initialized in db.
 
 // Custom type import from your CUSTOM file (for getProductById)
 import type { Product as AppProductType } from './types';
+import { calculateProductMetrics } from '~/services/product.service'; // Added import
 
 // Shopify App Configuration
 // This merges settings from both files, prioritizing the NEW file's structure and newer practices.
@@ -111,60 +112,28 @@ export async function getProductById(request: Request, productId: string): Promi
 
     const salesVelocityFloat = localProduct?.salesVelocityFloat ?? 0;
 
-    // Calculate currentTotalInventory
-    const currentTotalInventory = shopifyProduct.variants.edges.reduce(
-      (sum: number, edge: any) => sum + (edge.node.inventoryQuantity || 0),
-      0
-    );
+    // Prepare data for calculateProductMetrics
+    const productForMetrics = {
+      salesVelocityFloat: salesVelocityFloat,
+      variants: shopifyProduct.variants.edges.map((edge: any) => ({
+        inventoryQuantity: edge.node.inventoryQuantity || 0,
+      })),
+      // Add other fields if calculateProductMetrics expects them, e.g., from localProduct
+      // For now, assuming it primarily needs salesVelocityFloat and variant inventories
+      // and shopSettings for thresholds.
+    };
 
-    // Calculate stockoutDays
-    let stockoutDays: number | null = null;
-    if (salesVelocityFloat > 0) {
-      stockoutDays = currentTotalInventory / salesVelocityFloat;
-    } else if (salesVelocityFloat === 0 && currentTotalInventory > 0) {
-      stockoutDays = Infinity; // Has stock, but no sales
-    } else {
-      stockoutDays = 0; // No stock, or no sales velocity data
-    }
+    const shopSettingsForMetrics = {
+      lowStockThresholdUnits,
+      criticalStockThresholdUnits,
+      criticalStockoutDays,
+      // salesVelocityThresholdForTrending is handled separately below
+    };
 
-    // Determine status
-    let status: AppProductType['status'] = 'Unknown';
-    if (stockoutDays !== null && stockoutDays !== Infinity) {
-      if (currentTotalInventory <= criticalStockThresholdUnits || (stockoutDays <= criticalStockoutDays && salesVelocityFloat > 0)) {
-        status = 'Critical';
-      } else if (currentTotalInventory <= lowStockThresholdUnits || (stockoutDays <= (lowStockThresholdUnits / (salesVelocityFloat || 1)) && salesVelocityFloat > 0)) {
-        status = 'Low';
-      } else {
-        status = 'Healthy';
-      }
-    } else if (stockoutDays === Infinity) {
-      if (currentTotalInventory <= criticalStockThresholdUnits) {
-        status = 'Critical';
-      } else if (currentTotalInventory <= lowStockThresholdUnits) {
-        status = 'Low';
-      } else {
-        status = 'Healthy';
-      }
-    } else {
-      if (currentTotalInventory === 0) {
-        status = 'Critical';
-      } else {
-        if (currentTotalInventory <= criticalStockThresholdUnits) {
-          status = 'Critical';
-        } else if (currentTotalInventory <= lowStockThresholdUnits) {
-          status = 'Low';
-        } else if (currentTotalInventory > lowStockThresholdUnits) {
-          status = 'Healthy';
-        }
-      }
-    }
-    // Final override: if inventory is 0, it's critical
-    if (currentTotalInventory === 0) {
-        status = 'Critical';
-    }
+    // Call calculateProductMetrics
+    const metrics = calculateProductMetrics(productForMetrics, shopSettingsForMetrics);
 
-
-    // Determine trending
+    // Determine trending (kept separate as per current logic)
     const trending = salesVelocityFloat > salesVelocityThresholdForTrending;
 
     // Map the Shopify product data to your AppProductType
@@ -182,10 +151,10 @@ export async function getProductById(request: Request, productId: string): Promi
           locationId: edge.node.inventoryItem?.inventoryLevels?.edges?.[0]?.node?.location?.id || undefined,
         },
       })),
-      salesVelocity: salesVelocityFloat, // Use calculated value
-      stockoutDays: stockoutDays === Infinity ? null : (stockoutDays !== null ? parseFloat(stockoutDays.toFixed(2)) : null), // Use calculated value
-      status: status, // Use calculated value
-      trending: trending, // Use calculated value
+      salesVelocity: salesVelocityFloat,
+      stockoutDays: metrics.stockoutDays === Infinity ? null : metrics.stockoutDays, // Use metrics result
+      status: metrics.status as AppProductType['status'], // Use metrics result, cast if necessary
+      trending: trending,
     };
   }
   return null;
