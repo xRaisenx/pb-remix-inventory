@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  directUrl         = env("DIRECT_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl         = env("DIRECT_DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
@@ -91,4 +91,69 @@ model Variant {
   product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, sku])
+}
+
+model NotificationSettings {
+  id                  String    @id @default(uuid())
+  shopId              String    @unique
+
+  // Channel enables
+  email               Boolean   @default(false)
+  slack               Boolean   @default(false)
+  telegram            Boolean   @default(false)
+  mobilePush          Boolean   @default(false) // General toggle for mobile push
+
+  // Channel-specific details
+  emailAddress        String?   // For email notifications
+  slackWebhookUrl     String?   // For Slack
+  telegramBotToken    String?   // For Telegram
+  telegramChatId      String?   // For Telegram
+  // mobilePushServiceDetails String? // If specific credentials/details needed for push
+
+  frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
+
+  // Thresholds (can override Shop defaults or be primary)
+  lowStockThreshold   Int?
+  salesVelocityThreshold Float?
+  criticalStockThresholdUnits Int? // New: e.g., if inventory is at or below this, it's critical
+  criticalStockoutDays      Int? // New: e.g., if stockout is in this many days or less, it's critical
+
+  // Inventory Sync
+  syncEnabled         Boolean   @default(false)
+
+  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model DemandForecast {
+  /// Unique identifier for the forecast record.
+  id              String   @id @default(uuid())
+  /// The ID of the product this forecast pertains to.
+  productId       String
+  /// Relation to the Product model.
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// The predicted demand quantity.
+  predictedDemand Float
+  /// The forecast period in days (e.g., 7 for weekly, 30 for monthly).
+  periodDays      Int
+  /// A score indicating the confidence in the prediction (e.g., 0.0 to 1.0).
+  confidenceScore Float
+  /// Timestamp of when the forecast record was created.
+  createdAt       DateTime @default(now())
+}
+
+model NotificationLog {
+  id            String    @id @default(uuid())
+  shopId        String
+  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel       String // e.g., "Email", "Slack", "System"
+  recipient     String? // e.g., email address, Slack channel ID
+  message       String
+  status        String // e.g., "Sent", "Failed", "Simulated"
+  productId     String?
+  productTitle  String?
+  alertType     String? // e.g., "low_stock", "high_trend"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }

@@ -7,7 +7,11 @@ import { authenticate } from "~/shopify.server"; // Corrected path
 import { Metrics } from "~/components/Metrics"; // Corrected path
 import { TrendingProducts } from "~/components/TrendingProducts"; // Corrected path
 import { ProductAlerts } from "~/components/ProductAlerts";
+// Import the new types
+import type { DashboardAlertProduct, DashboardTrendingProduct, DashboardProductVariant } from "~/types";
+import { DashboardVisualizations } from "~/components/DashboardVisualizations"; // Import the new component
 import { AIAssistant } from "~/components/AIAssistant";
+import { QuickActions } from "~/components/QuickActions"; // Import the new QuickActions component
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request); // admin method for backend auth
@@ -37,30 +41,32 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const trendingProducts = await prisma.product.findMany({
     where: { shopId, trending: true },
     take: 3,
-    // Select fields needed by TrendingProducts component, including variants for SKU/price
-    select: { id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true, variants: { select: { sku: true, price: true }, take: 1 } }
-  });
+    select: {
+      id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true,
+      variants: { select: { sku: true, price: true }, take: 1 }
+    }
+  }) as DashboardTrendingProduct[]; // Assert type for clarity, Prisma select matches
 
   const lowStockProductsForAlerts = await prisma.product.findMany({
     where: { shopId, status: { in: ['Low', 'Critical'] } },
-    select: { id: true, title: true, status: true }, // Add 'inventory' if you have a direct field or calculate it
+    select: { id: true, title: true, status: true },
     take: 3
-  });
+  }) as DashboardAlertProduct[]; // Assert type
 
-  // Using 'trending: true' as a proxy for high sales for alerts for now
+  // Using 'trending: true' which is now reliable for high sales alerts
   const highSalesTrendProducts = await prisma.product.findMany({
-    where: { shopId, trending: true }, // Replace with actual high sales velocity logic later if different from 'trending'
-    select: { id: true, title: true, salesVelocityFloat: true, stockoutDays: true },
+    where: { shopId, trending: true },
+    select: { id: true, title: true, salesVelocityFloat: true, stockoutDays: true }, // Fields match DashboardAlertProduct
     take: 3
-  });
+  }) as DashboardAlertProduct[]; // Assert type
 
   return json({
     totalProducts,
     lowStockItemsCount,
     totalInventoryUnits,
-    trendingProducts,
-    lowStockProductsForAlerts,
-    highSalesTrendProducts,
+    trendingProducts, // Type is DashboardTrendingProduct[]
+    lowStockProductsForAlerts, // Type is DashboardAlertProduct[]
+    highSalesTrendProducts, // Type is DashboardAlertProduct[]
     shopDisplayName: session.shop
   });
 }
@@ -75,12 +81,21 @@ export default function DashboardIndex() {
           lowStockItemsCount={data.lowStockItemsCount}
           totalInventoryUnits={data.totalInventoryUnits}
         />
+        {/* Render the new DashboardVisualizations component */}
+        <DashboardVisualizations /* Pass mock data here if needed in the future */ />
         <ProductAlerts
-          lowStockProducts={data.lowStockProductsForAlerts as any} // Cast as any if Prisma types don't perfectly match AlertProduct
-          highSalesTrendProducts={data.highSalesTrendProducts as any} // Cast as any for same reason
+          lowStockProducts={data.lowStockProductsForAlerts}
+          highSalesTrendProducts={data.highSalesTrendProducts}
         />
-        <TrendingProducts products={data.trendingProducts as any} />
-        <AIAssistant />
+        <TrendingProducts products={data.trendingProducts} />
+        <Grid>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4, xl: 4 }}>
+            <QuickActions />
+          </Grid.Cell>
+          <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 8, xl: 8 }}>
+            <AIAssistant />
+          </Grid.Cell>
+        </Grid>
       </BlockStack>
     </Page>
   );

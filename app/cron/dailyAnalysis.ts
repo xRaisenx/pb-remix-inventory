@@ -5,13 +5,15 @@ import prisma from '~/db.server';
 import { performDailyProductSync } from '~/dailyAnalysis';
 import { getDemandForecast } from '../services/ai.server';
 
-/**
- * Expected structure for the output of the AI demand forecast service.
- */
-interface AIDemandForecastOutput {
-  predictedDemand: number;
-  confidenceScore?: number;
-  // Potentially other fields, but these are the ones used.
+async function sendEmailNotification(to: string, subject: string, body: string) {
+  console.log("--- SIMULATING EMAIL SEND ---");
+  console.log(`To: ${to}`);
+  console.log(`Subject: ${subject}`);
+  console.log(`Body: ${body}`);
+  console.log("--- END OF SIMULATED EMAIL ---");
+  // In a real implementation, this would use an email library like Nodemailer.
+  // For now, it just logs to the console.
+  return Promise.resolve();
 }
 
 // Define the cron schedule (e.g., daily at midnight)
@@ -60,6 +62,7 @@ async function runDailyTasks() {
         notificationSettings: { // Fetch related notification settings
           select: {
             email: true,
+            emailAddress: true, // Ensure this line is added/present
             slack: true,
             telegram: true, // Example: if you plan to support it
             // mobilePush: true, // Example
@@ -94,32 +97,22 @@ async function runDailyTasks() {
             
             for (const product of shopProducts) {
               try {
-                const forecastOutput = await getDemandForecast(product.id);
-                let demandData: AIDemandForecastOutput;
+                const forecastString = await getDemandForecast(product.id);
+                const parsedDemand = parseFloat(forecastString);
 
-                if (typeof forecastOutput === 'string') {
-                  const parsedDemand = parseFloat(forecastOutput);
-                  if (isNaN(parsedDemand)) {
-                    console.error(`[CRON JOB] -- Failed to parse forecast string to number for product ${product.id}: "${forecastOutput}"`);
-                    continue; // Skip this product's forecast storage
-                  }
-                  demandData = { predictedDemand: parsedDemand };
-                  console.log(`[CRON JOB] -- Parsed forecast for '${product.title}' (PrismaID: ${product.id}): Demand=${demandData.predictedDemand}`);
-                } else if (typeof forecastOutput === 'object' && forecastOutput !== null && 'predictedDemand' in forecastOutput) {
-                  // Type assertion after check, now safer with defined interface
-                  demandData = forecastOutput as AIDemandForecastOutput;
-                  console.log(`[CRON JOB] -- Received forecast object for '${product.title}' (PrismaID: ${product.id}): Demand=${demandData.predictedDemand}, Confidence=${demandData.confidenceScore ?? 'N/A'}`);
-                } else {
-                  console.error(`[CRON JOB] -- Unexpected forecast output type for product ${product.id}: ${typeof forecastOutput}`);
-                  continue; // Skip this product's forecast storage
+                if (isNaN(parsedDemand)) {
+                  console.error(`[CRON JOB] -- Failed to parse forecast string to number for product ${product.id}: "${forecastString}"`);
+                  continue;
                 }
+
+                console.log(`[CRON JOB] -- Parsed forecast for '${product.title}' (PrismaID: ${product.id}): Demand=${parsedDemand}`);
 
                 await prisma.demandForecast.create({
                   data: {
                     productId: product.id,
-                    predictedDemand: demandData.predictedDemand,
-                    periodDays: 30, // Defaulting to 30 days for the forecast period
-                    confidenceScore: demandData.confidenceScore ?? 0.5, // Defaulting confidence if not provided
+                    predictedDemand: parsedDemand, // Use parsedDemand directly
+                    periodDays: 30,
+                    confidenceScore: 0.5, // Default confidence score
                   },
                 });
                 console.log(`[CRON JOB] -- Successfully stored AI demand forecast for product '${product.title}' (PrismaID: ${product.id}).`);
@@ -174,13 +167,29 @@ async function runDailyTasks() {
 
               let notificationSentOrAttempted = false;
 
-              // Simulate Email Notification
+              // Simulate Email Notification (Updated Logic)
               if (settings.email) {
                 notificationSentOrAttempted = true;
-                if (shop.emailForNotifications) {
-                  console.log(`[INFO] [Notification Simulation] Would send EMAIL to ${shop.emailForNotifications} for low stock of '${product.title}' (ID: ${product.id}, Qty: ${quantity}) at warehouse '${warehouse.name}' in shop ${shop.shop}.`);
+                const recipientEmail = settings.emailAddress || shop.emailForNotifications;
+
+                if (recipientEmail) {
+                  const subject = `Low Stock Alert: ${product.title}`;
+                  const body = `Hello,
+This is an automated alert from Planet Beauty AI Inventory.
+The product '${product.title}' (ID: ${product.id}) is low on stock at warehouse '${warehouse.name}'.
+Current quantity: ${quantity}.
+Low stock threshold: <${lowStockThreshold}.
+
+Please review your inventory.
+
+Thank you,
+Planet Beauty AI Inventory App`;
+
+                  await sendEmailNotification(recipientEmail, subject, body);
+                  // Log success of simulated send if desired, e.g.:
+                  console.log(`[INFO] Simulated email notification sent to ${recipientEmail} for low stock of '${product.title}'.`);
                 } else {
-                  console.warn(`[WARN] Email notification enabled for shop ${shop.shop} (ID: ${shop.id}), but no 'emailForNotifications' is configured.`);
+                  console.warn(`[WARN] Email notification enabled for shop ${shop.shop} (ID: ${shop.id}), but no email address is configured in NotificationSettings or Shop settings.`);
                 }
               }
 

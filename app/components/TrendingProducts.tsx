@@ -3,27 +3,27 @@ import { Grid, BlockStack } from '@shopify/polaris';
 import { Card } from '~/components/common/Card';
 import { Text } from '~/components/common/Text';
 import { Badge } from '~/components/common/Badge';
+// Import the centralized types
+import type { DashboardTrendingProduct, DashboardProductVariant } from '~/types';
 
-// Define the expected structure for a product, especially the variants part for SKU and price.
-// This should align with what the loader in app._index.tsx provides.
-interface ProductVariant {
-  sku: string | null;
-  price: string; // Assuming price is a string, adjust if it's a number
-}
+// interface ProductVariant { // Remove local definition
+//   sku: string | null;
+//   price: string;
+// }
 
-interface ProductForTrending {
-  id: string;
-  title: string;
-  vendor: string;
-  shopifyId: string; // Not directly used in display but good for keying or future links
-  salesVelocityFloat: number | null;
-  status: string | null; // Used for "Inventory Status"
-  trending: boolean | null;
-  variants: Array<ProductVariant> | null; // Array of variants
-}
+// interface ProductForTrending { // Remove local definition
+//   id: string;
+//   title: string;
+//   vendor: string;
+//   shopifyId: string;
+//   salesVelocityFloat: number | null;
+//   status: string | null;
+//   trending: boolean | null;
+//   variants: Array<DashboardProductVariant> | null; // Ensure this uses the imported type if it was named differently
+// }
 
 interface TrendingProductsProps {
-  products: Array<ProductForTrending>;
+  products: Array<DashboardTrendingProduct>; // Use the imported type
 }
 
 export const TrendingProducts: React.FC<TrendingProductsProps> = ({ products }) => {
