@@ -2,7 +2,8 @@
 
 import { CustomCard } from '~/components/common/Card';
 import { Icon, Grid, Box, Text, BlockStack } from '@shopify/polaris';
-import { ProductsIcon, AlertIcon, AnalyticsIcon } from '@shopify/polaris-icons';
+// Import specific icons from polaris-icons
+import { ProductsMajor, AlertMajor, AnalyticsMajor } from '@shopify/polaris-icons';
 import React from 'react';
 
 interface MetricsProps {
@@ -27,7 +28,7 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               height="32px"
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={ProductsIcon} tone="success" />
+                <Icon source={ProductsMajor} tone="success" /> {/* Using imported ProductsMajor */}
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{totalProducts}</Text>
@@ -48,7 +49,7 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               height="32px"
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AlertIcon} tone="critical" />
+                <Icon source={AlertMajor} tone="critical" /> {/* Using imported AlertMajor */}
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{lowStockItemsCount}</Text>
@@ -69,7 +70,7 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               height="32px"
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AnalyticsIcon} tone="info" />
+                <Icon source={AnalyticsMajor} tone="info" /> {/* Using imported AnalyticsMajor */}
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{totalInventoryUnits}</Text>

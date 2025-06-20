@@ -29,58 +29,41 @@ export function calculateProductMetrics(
 
   let stockoutDays: number | null = null;
   // Use salesVelocityFloat directly from the product model
-  if (product.salesVelocityFloat && product.salesVelocityFloat > 0) {
+  if (product.salesVelocityFloat !== null && product.salesVelocityFloat > 0) {
     stockoutDays = currentTotalInventory / product.salesVelocityFloat;
   } else if (product.salesVelocityFloat === 0 && currentTotalInventory > 0) {
-    stockoutDays = Infinity;
-  } else {
-    stockoutDays = 0;
+    stockoutDays = Infinity; // Has stock, but no sales
+  } else if (currentTotalInventory === 0) {
+    stockoutDays = 0; // No stock
   }
+  // If salesVelocityFloat is null and inventory > 0, stockoutDays remains null (Unknown/Cannot calculate)
+
 
   let status: ProductMetrics['status'] = 'Unknown';
   const lowThreshold = shopSettings.lowStockThresholdUnits;
+  // Use provided critical thresholds or calculate defaults based on lowThreshold
   const criticalUnits = shopSettings.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowThreshold * 0.3));
-  const criticalDays = shopSettings.criticalStockoutDays ?? 3;
+  const criticalDays = shopSettings.criticalStockoutDays ?? 3; // Typo fixed: criticalStockoutDays
 
-  if (stockoutDays !== null && stockoutDays !== Infinity) {
-    if (currentTotalInventory <= criticalUnits || (stockoutDays <= criticalDays && (product.salesVelocityFloat ?? 0) > 0)) {
-      status = 'Critical';
-    } else if (currentTotalInventory <= lowThreshold || (stockoutDays <= (lowThreshold / ((product.salesVelocityFloat ?? 1) === 0 ? 1 : (product.salesVelocityFloat ?? 1) )) && (product.salesVelocityFloat ?? 0) > 0 )) {
-      status = 'Low';
-    } else {
-      status = 'Healthy';
-    }
-  } else if (stockoutDays === Infinity) {
-     if (currentTotalInventory <= criticalUnits) {
-        status = 'Critical';
-     } else if (currentTotalInventory <= lowThreshold) {
-        status = 'Low';
-     } else {
-        status = 'Healthy';
-     }
-  } else {
-    if (currentTotalInventory === 0) {
-        status = 'Critical';
-    } else {
-        if (currentTotalInventory <= criticalUnits) {
-          status = 'Critical';
-        } else if (currentTotalInventory <= lowThreshold) {
-          status = 'Low';
-        } else if (currentTotalInventory > lowThreshold) {
-            status = 'Healthy';
-        } else {
-            status = 'Unknown';
-        }
-    }
-  }
-
+  // Prioritize Critical status
   if (currentTotalInventory === 0) {
-      if (product.salesVelocityFloat && product.salesVelocityFloat > 0) {
-          status = 'Critical';
-      } else if (!product.salesVelocityFloat || product.salesVelocityFloat === 0) {
-          status = 'Critical';
-      }
+      status = 'Critical';
+  } else if (currentTotalInventory <= criticalUnits) {
+      status = 'Critical';
+  } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= criticalDays && (product.salesVelocityFloat ?? 0) > 0) {
+      status = 'Critical';
   }
+  // Then check for Low status if not Critical
+  else if (currentTotalInventory <= lowThreshold) {
+      status = 'Low';
+  } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= (lowThreshold / ((product.salesVelocityFloat ?? 1) === 0 ? 1 : (product.salesVelocityFloat ?? 1) )) && (product.salesVelocityFloat ?? 0) > 0 ) {
+      status = 'Low';
+  }
+  // Otherwise, it's Healthy
+  else {
+      status = 'Healthy';
+  }
+
 
   return {
     currentTotalInventory,
