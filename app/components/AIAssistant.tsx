@@ -31,7 +31,7 @@ export default function AIAssistant() {
   ]);
   const scrollableRef = useRef<HTMLDivElement>(null); // For auto-scrolling
 
-  const handleInputChange = useCallback(setInputValue, []);
+  const handleInputChange = useCallback(setInputValue, [setInputValue]);
 
   const handleSendMessage = useCallback(() => {
     if (inputValue.trim() === "") return;
@@ -57,7 +57,7 @@ export default function AIAssistant() {
     if (fetcher.formAction) {
       fetcher.submit(null, { method: 'get', action: fetcher.formAction });
     }
-  }, [fetcher.data, fetcher.formAction]); // Added fetcher.formAction to dependency array
+  }, [fetcher.data, fetcher.formAction, fetcher]); // Added fetcher.formAction to dependency array
 
   useEffect(() => { // Auto-scroll to bottom
     const scrollableElement = scrollableRef.current?.querySelector('[data-polaris-scrollable]');
