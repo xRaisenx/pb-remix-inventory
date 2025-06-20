@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   directUrl         = env("DIRECT_DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
@@ -12,25 +12,25 @@ datasource db {
 model Shop {
   id                         String      @id @default(uuid())
   shop                       String      @unique
-  accessToken                String?     // Can be null if shop created before offline token
+  accessToken                String
   emailForNotifications      String?
-  // slackWebhookUrl, telegramBotToken, telegramChatId moved to NotificationSettings
-  // whatsAppApiCredentialsJson String? // Removed as per subtask note
+  slackWebhookUrl            String?
+  telegramBotToken           String?
+  telegramChatId             String?
+  whatsAppApiCredentialsJson String?
   lowStockThreshold          Int?        @default(10)
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
   products                   Product[]
   sessions                   Session[]
   warehouses                 Warehouse[]
-  notificationSettings NotificationSettings?
 }
 
 model Session {
   id          String    @id
   shopId      String
-  isOnline    Boolean   // Explicitly store if the session is online or offline
   state       String
-  accessToken String?   // Online sessions won't have an access token here
+  accessToken String
   scope       String?
   expires     DateTime?
   createdAt   DateTime  @default(now())
@@ -45,108 +45,50 @@ model Product {
   title       String
   vendor      String
   productType String?
-  salesVelocityFloat    Float?
-  stockoutDays      Int?
-  status            String?
-  trending          Boolean? @default(false)
-  category           String?
-  lastRestockedDate  DateTime?
-  notes              String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   inventory   Inventory[]
   shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants    Variant[]
-  demandForecasts DemandForecast[]
 }
 
 model Warehouse {
-  id                  String      @id @default(uuid())
-  name                String
-  location            String
-  shopifyLocationGid  String @unique // <-- Add @unique here
-  shopId              String
-  shop                Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  inventory           Inventory[]
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                 String      @id @default(uuid())
+  name               String
+  location           String
+  shopifyLocationGid String      @unique
+  shopId             String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  inventory          Inventory[]
+  shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, name])
 }
 
 model Inventory {
-  id          String      @id @default(uuid())
+  id          String    @id @default(uuid())
   productId   String
   warehouseId String
   quantity    Int
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   @@unique([productId, warehouseId])
 }
 
 model Variant {
-  id              String      @id @default(uuid())
-  productId       String
-  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  shopifyId       String
-  sku             String?
-  price           Decimal
+  id                String   @id @default(uuid())
+  productId         String
+  shopifyId         String
+  sku               String?
+  price             Decimal
   inventoryQuantity Int
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, sku])
-}
-
-model NotificationSettings {
-  id                  String    @id @default(uuid())
-  shopId              String    @unique
-
-  // Channel enables
-  email               Boolean   @default(false)
-  slack               Boolean   @default(false)
-  telegram            Boolean   @default(false)
-  mobilePush          Boolean   @default(false) // General toggle for mobile push
-
-  // Channel-specific details
-  emailAddress        String?   // For email notifications
-  slackWebhookUrl     String?   // For Slack
-  telegramBotToken    String?   // For Telegram
-  telegramChatId      String?   // For Telegram
-  // mobilePushServiceDetails String? // If specific credentials/details needed for push
-
-  frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
-
-  // Thresholds (can override Shop defaults or be primary)
-  lowStockThreshold   Int?
-  salesVelocityThreshold Float?
-  criticalStockThresholdUnits Int? // New: e.g., if inventory is at or below this, it's critical
-  criticalStockoutDays      Int? // New: e.g., if stockout is in this many days or less, it's critical
-
-  // Inventory Sync
-  syncEnabled         Boolean   @default(false)
-
-  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-}
-
-model DemandForecast {
-  /// Unique identifier for the forecast record.
-  id              String   @id @default(uuid())
-  /// The ID of the product this forecast pertains to.
-  productId       String
-  /// Relation to the Product model.
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  /// The predicted demand quantity.
-  predictedDemand Float
-  /// The forecast period in days (e.g., 7 for weekly, 30 for monthly).
-  periodDays      Int
-  /// A score indicating the confidence in the prediction (e.g., 0.0 to 1.0).
-  confidenceScore Float
-  /// Timestamp of when the forecast record was created.
-  createdAt       DateTime @default(now())
 }
