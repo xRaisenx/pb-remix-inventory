@@ -1,5 +1,5 @@
 // app/components/ProductModal.tsx
-import { Modal, Text, BlockStack, TextField, Button, Grid, FormLayout, Select, Spinner, Banner, InlineStack } from "@shopify/polaris";
+import { Modal, TextField, FormLayout, Select, Banner } from "@shopify/polaris";
 import { useCallback, useState, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
 import type { ShopifyProduct } from "~/types"; // Import updated type
@@ -50,7 +50,6 @@ export default function ProductModal({
   onUpdateInventoryAction,
   isUpdating,
 }: ProductModalProps) {
-  const fetcher = useFetcher<ProductDetailsFetcherData>();
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

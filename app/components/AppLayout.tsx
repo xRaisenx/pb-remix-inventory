@@ -7,7 +7,6 @@ interface Props {
 }
 
 const AppLayout: React.FC<Props> = ({ children }) => {
-  const app = useAppBridge();
 
   return (
       <Frame>
