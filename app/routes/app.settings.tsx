@@ -36,12 +36,20 @@ const SettingsSchema = z.object({
   whatsAppPhoneNumberId: z.string().optional(),
   whatsAppAccessToken: z.string().optional(),
   enableWhatsAppNotifications: z.preprocess((val) => val === "on", z.boolean()).optional(),
+  // AI Configuration Fields
+  aiProvider: z.string().optional(), // 'gemini', 'anthropic', 'none'
+  geminiApiKey: z.string().optional(),
+  anthropicApiKey: z.string().optional(),
 });
 
 // --- Loader Data and Action Data Types ---
 interface LoaderData {
-  settings: Partial<Shop & { whatsAppApiCredentialsJson?: any }>; // Fields from Shop model + gemini status
-  geminiApiKeySet: boolean;
+  settings: Partial<Shop & {
+    whatsAppApiCredentialsJson?: any;
+    aiProvider?: string | null; // Ensure these can be null from DB
+    geminiApiKey?: string | null;
+    anthropicApiKey?: string | null;
+  }>;
   error?: string;
 }
 
@@ -57,9 +65,26 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnTyp
   const shopDomain = session.shop;
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    const shop = await prisma.shop.findUnique({
+      where: { shop: shopDomain },
+      // Select all relevant fields including new AI fields
+      select: {
+        id: true, // Assuming other parts of the app might need id from settings
+        shop: true,
+        lowStockThreshold: true,
+        emailForNotifications: true,
+        slackWebhookUrl: true,
+        telegramBotToken: true,
+        telegramChatId: true,
+        whatsAppApiCredentialsJson: true,
+        aiProvider: true,
+        geminiApiKey: true,
+        anthropicApiKey: true,
+        // Add other fields from Shop model as needed by the settings page
+      }
+    });
     if (!shop) {
-      return json({ settings: {}, geminiApiKeySet: !!process.env.GEMINI_API_KEY, error: "Shop not found." }, { status: 404 });
+      return json({ settings: {}, error: "Shop not found." }, { status: 404 });
     }
 
     let whatsAppCreds = {};
@@ -72,19 +97,22 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnTyp
       }
     }
 
-    // Explicitly type the settings object for clarity if needed
-    const typedSettings: Partial<Shop & { whatsAppApiCredentialsJson?: any }> = {
+    // Explicitly type the settings object for clarity
+    const typedSettings: LoaderData['settings'] = {
       ...shop,
       whatsAppApiCredentialsJson: whatsAppCreds, // Use parsed object
+      // Ensure AI fields are explicitly part of the settings object passed to frontend
+      aiProvider: shop.aiProvider,
+      geminiApiKey: shop.geminiApiKey,
+      anthropicApiKey: shop.anthropicApiKey,
     };
 
     return json({
       settings: typedSettings,
-      geminiApiKeySet: !!process.env.GEMINI_API_KEY,
     });
   } catch (e) {
     console.error("Settings loader error:", e);
-    return json({ settings: {}, geminiApiKeySet: !!process.env.GEMINI_API_KEY, error: "Failed to load settings." }, { status: 500 });
+    return json({ settings: {}, error: "Failed to load settings." }, { status: 500 });
   }
 };
 
@@ -105,7 +133,9 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<ReturnTyp
     lowStockThreshold, emailForNotifications, enableEmailNotifications,
     slackWebhookUrl, enableSlackNotifications,
     telegramBotToken, telegramChatId, enableTelegramNotifications,
-    whatsAppProviderInfo, whatsAppPhoneNumberId, whatsAppAccessToken, enableWhatsAppNotifications
+    whatsAppProviderInfo, whatsAppPhoneNumberId, whatsAppAccessToken, enableWhatsAppNotifications,
+    // Destructure new AI fields
+    aiProvider, geminiApiKey, anthropicApiKey
   } = validationResult.data;
 
   try {
@@ -131,6 +161,10 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<ReturnTyp
         telegramBotToken: enableTelegramNotifications ? (telegramBotToken || null) : null,
         telegramChatId: enableTelegramNotifications ? (telegramChatId || null) : null,
         whatsAppApiCredentialsJson: whatsAppCredentials,
+        // Save new AI fields
+        aiProvider: aiProvider === 'none' ? null : aiProvider, // Store 'none' as null or keep as 'none' based on preference
+        geminiApiKey: geminiApiKey || null, // Save as null if empty
+        anthropicApiKey: anthropicApiKey || null, // Save as null if empty
       },
     });
     return json({ success: true, message: "Settings saved successfully!" });
@@ -147,7 +181,7 @@ export default function SettingsPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  const { settings = {}, geminiApiKeySet, error: loaderError } = loaderData || {};
+  const { settings = {}, error: loaderError } = loaderData || {};
 
   // Ensure initialWhatsAppCreds is an object, even if whatsAppApiCredentialsJson is null/undefined from DB
   const initialWhatsAppCreds = typeof settings.whatsAppApiCredentialsJson === 'object' && settings.whatsAppApiCredentialsJson !== null
@@ -186,11 +220,38 @@ export default function SettingsPage() {
           <Card>
             <BlockStack gap="400">
               <Text as="h3" variant="headingMd">AI Configuration</Text>
-              <Text as="p" variant="bodyMd">
-              Gemini API Key Status: {geminiApiKeySet ?
-                <Text as="span" tone="success">Set via environment variable</Text> :
-                <Text as="span" tone="critical">Not Set (AI features may be limited)</Text>}
-            </Text>
+              <FormLayout>
+                <Select
+                  label="AI Provider"
+                  name="aiProvider"
+                  options={[
+                    { label: "None", value: "none" },
+                    { label: "Gemini (Google)", value: "gemini" },
+                    { label: "Anthropic (Claude)", value: "anthropic" },
+                  ]}
+                  value={settings.aiProvider ?? "none"}
+                  error={actionData?.errors?.aiProvider?.[0]}
+                  helpText="Select your preferred AI provider for chat and analysis features."
+                />
+                <TextField
+                  label="Gemini API Key"
+                  name="geminiApiKey"
+                  type="password"
+                  value={settings.geminiApiKey ?? ""}
+                  autoComplete="off"
+                  error={actionData?.errors?.geminiApiKey?.[0]}
+                  helpText={settings.aiProvider === 'gemini' ? "Enter your Google Gemini API Key." : "Only used if Gemini is selected as provider."}
+                />
+                <TextField
+                  label="Anthropic API Key"
+                  name="anthropicApiKey"
+                  type="password"
+                  value={settings.anthropicApiKey ?? ""}
+                  autoComplete="off"
+                  error={actionData?.errors?.anthropicApiKey?.[0]}
+                  helpText={settings.aiProvider === 'anthropic' ? "Enter your Anthropic Claude API Key." : "Only used if Anthropic is selected as provider."}
+                />
+              </FormLayout>
             </BlockStack>
           </Card>
 
@@ -227,22 +288,22 @@ export default function SettingsPage() {
               <Checkbox
                 label="Enable Telegram Notifications"
                 name="enableTelegramNotifications"
-                checked={!!initialWhatsAppCreds.providerInfo || !!initialWhatsAppCreds.phoneNumberId || !!initialWhatsAppCreds.accessToken}
+                checked={!!settings.telegramBotToken && !!settings.telegramChatId} // Check based on actual fields for Telegram
                 onChange={(checked) => {/* Handle change if needed */}}
               />
-              <TextField label="Telegram Bot Token" name="telegramBotToken" value={settings.telegramBotToken ?? ""} autoComplete="off" error={actionData?.errors?.telegramBotToken} />
-              <TextField label="Telegram Chat ID" name="telegramChatId" value={settings.telegramChatId ?? ""} autoComplete="off" error={actionData?.errors?.telegramChatId} />
+              <TextField label="Telegram Bot Token" name="telegramBotToken" value={settings.telegramBotToken ?? ""} autoComplete="off" error={actionData?.errors?.telegramBotToken?.[0]} />
+              <TextField label="Telegram Chat ID" name="telegramChatId" value={settings.telegramChatId ?? ""} autoComplete="off" error={actionData?.errors?.telegramChatId?.[0]} />
               <Divider />
               {/* WhatsApp */}
               <Checkbox
                 label="Enable WhatsApp Notifications"
                 name="enableWhatsAppNotifications"
-                checked={!!initialWhatsAppCreds.providerInfo || !!initialWhatsAppCreds.phoneNumberId || !!initialWhatsAppCreds.accessToken}
+                checked={!!initialWhatsAppCreds.providerInfo || !!initialWhatsAppCreds.phoneNumberId || !!initialWhatsAppCreds.accessToken} // This logic seems okay
                 onChange={(checked) => {/* Handle change if needed */}}
               />
-              <TextField label="WhatsApp Provider Info (Optional)" name="whatsAppProviderInfo" value={initialWhatsAppCreds.providerInfo ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppProviderInfo} />
-              <TextField label="WhatsApp Phone Number ID" name="whatsAppPhoneNumberId" value={initialWhatsAppCreds.phoneNumberId ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppPhoneNumberId} />
-              <TextField label="WhatsApp Access Token" name="whatsAppAccessToken" type="password" value={initialWhatsAppCreds.accessToken ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppAccessToken} />
+              <TextField label="WhatsApp Provider Info (Optional)" name="whatsAppProviderInfo" value={initialWhatsAppCreds.providerInfo ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppProviderInfo?.[0]} />
+              <TextField label="WhatsApp Phone Number ID" name="whatsAppPhoneNumberId" value={initialWhatsAppCreds.phoneNumberId ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppPhoneNumberId?.[0]} />
+              <TextField label="WhatsApp Access Token" name="whatsAppAccessToken" type="password" value={initialWhatsAppCreds.accessToken ?? ""} autoComplete="off" error={actionData?.errors?.whatsAppAccessToken?.[0]} />
             </BlockStack>
             </BlockStack>
           </Card>

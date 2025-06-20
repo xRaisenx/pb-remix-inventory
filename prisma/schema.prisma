@@ -19,6 +19,9 @@ model Shop {
   telegramChatId             String?
   whatsAppApiCredentialsJson String?
   lowStockThreshold          Int?        @default(10)
+  aiProvider                 String?     // e.g., 'gemini', 'anthropic', 'none'
+  geminiApiKey               String?
+  anthropicApiKey            String?
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
   products                   Product[]

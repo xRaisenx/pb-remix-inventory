@@ -26,15 +26,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const aiText = await getAiChatResponse(query, shopRecord.id); // Pass shopRecord.id (UUID)
-      // Check if aiText indicates a known error type from the service to adjust status
-      if (aiText.startsWith("AI service is not configured") || aiText.startsWith("Could not retrieve your shop information")) {
-        return json({ error: aiText }, { status: 503 }); // Service Unavailable or config error
-      }
-      return json({ response: aiText });
+      // getAiChatResponse now returns a structured object
+      const structuredResponse = await getAiChatResponse(query, shopRecord.id);
+
+      // The frontend (AIAssistant.tsx) expects the response under the key 'aiResponse'
+      // and can handle different types of messages, including errors sent from getAiChatResponse.
+      // No need to check for specific error strings here anymore.
+      return json({ aiResponse: structuredResponse });
     } catch (error: any) {
+      // This catch block handles unexpected errors thrown by getAiChatResponse itself
+      // or other issues within this try block (e.g., if prisma call failed before this point).
       console.error("AI Chat Action Error in app.aiQuery.tsx:", error);
-      return json({ error: error.message || "The AI service encountered an unexpected problem." }, { status: 500 });
+      return json({ error: error.message || "The AI service encountered an unexpected problem processing your request." }, { status: 500 });
     }
   }
 
