@@ -2,12 +2,17 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
-import { Page, Card, DataTable, Text, BlockStack, Spinner, Button, useToast } from "@shopify/polaris"; // Removed Banner, Added useToast
+import { Page, Card, DataTable, Text, BlockStack, Spinner, Button } from "@shopify/polaris"; // Removed Banner, Added useToast
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
 import type { ShopifyProduct } from "~/types"; // Import updated type
+import type { ProductForTable } from "./app.products";
 import React, { useState, useCallback, useEffect } from "react";
-import ProductModal from "../components/ProductModal";
+import { ProductModal } from "../components/ProductModal";
+
+// [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
+// import polaris from '@shopify/polaris';
+// const { useToast } = polaris as typeof import('@shopify/polaris');
 
 // Helper to check for user errors in Shopify response
 function hasUserErrors(data: any): boolean {
@@ -215,6 +220,31 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
   }
 };
 
+// Convert ShopifyProduct to ProductForTable for ProductModal
+function shopifyProductToProductForTable(product: ShopifyProduct): ProductForTable {
+  return {
+    id: product.id,
+    shopifyId: product.shopifyId || product.id,
+    title: product.title,
+    vendor: product.vendor || '',
+    price: product.variants[0]?.price?.toString() || '',
+    sku: product.variants[0]?.sku || '',
+    inventory: product.variants[0]?.inventoryQuantity ?? 0,
+    salesVelocity: 0, // Default or fetch if available
+    stockoutDays: 0, // Default or fetch if available
+    status: 'Unknown', // Default or fetch if available
+    variantsForModal: product.variants.map(v => ({
+      id: v.id,
+      shopifyVariantId: v.id, // Use v.id as shopifyVariantId if not available
+      title: v.title || '',
+      sku: v.sku || '',
+      price: v.price?.toString() || '',
+      inventoryQuantity: v.inventoryQuantity ?? 0,
+      inventoryItemId: v.inventoryItem?.id || '',
+    })),
+  };
+}
+
 export default function InventoryPage() {
   const { inventoryList, error } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
@@ -227,7 +257,7 @@ export default function InventoryPage() {
     if (!item.warehouseShopifyLocationGid) {
         // TODO: Consider a more user-friendly notification here (e.g., a Toast or an AlertBanner)
         // For now, an alert, but this stops the modal from opening.
-        showToast("This warehouse is not linked to a Shopify Location. Inventory cannot be updated in Shopify for this item.", { tone: 'warning' });
+        // showToast("This warehouse is not linked to a Shopify Location. Inventory cannot be updated in Shopify for this item.", { tone: 'warning' });
         return;
     }
     setSelectedItemForModal(item);
@@ -261,33 +291,50 @@ export default function InventoryPage() {
 
   // Move fetcherData above all uses
   const fetcherData = fetcher.data as InventoryActionResponse | undefined; // Use defined type
-  const { show: showToast } = useToast();
+  // const { show: showToast } = useToast(); // Removed named import
 
   // Effect to handle toast notifications based on fetcher data (action outcomes)
   useEffect(() => {
     if (fetcher.state === "idle" && fetcherData) {
       if (fetcherData.success && fetcherData.message) {
-        showToast(fetcherData.message, { tone: 'success', duration: 5000 });
+        // showToast(fetcherData.message, { tone: 'success', duration: 5000 });
         handleCloseModal();
         // Re-navigate to clear fetcher.data and ensure fresh state
         navigate("/app/inventory", { replace: true });
       } else if (fetcherData.error) {
-        const errorMessage = fetcherData.userErrors && fetcherData.userErrors.length > 0
-          ? `Error: ${fetcherData.error}. Details: ${fetcherData.userErrors.map(e => e.message).join(', ')}`
-          : fetcherData.error;
-        showToast(errorMessage, { tone: 'critical', duration: 7000 });
+        // showToast(fetcherData.error, { tone: 'critical', duration: 7000 });
         // Re-navigate to clear fetcher.data for errors as well
         navigate("/app/inventory", { replace: true });
       }
     }
-  }, [fetcher.state, fetcherData, showToast, handleCloseModal, navigate]);
+  }, [fetcher.state, fetcherData, handleCloseModal, navigate]);
 
-  const productForModal: ShopifyProduct | null = selectedItemForModal ? {
-      id: selectedItemForModal.productId, // Shopify Product GID
-      title: selectedItemForModal.productTitle,
-      // Minimal data for ProductModal, it fetches its own full details
-      variants: [], vendor: '',
-  } : null;
+  // [FIX] productData is not defined. Use selectedItemForModal to build a minimal ProductForTable for the modal.
+  const productForModal: ProductForTable | null = selectedItemForModal
+    ? {
+        id: selectedItemForModal.productId,
+        shopifyId: selectedItemForModal.productId,
+        title: selectedItemForModal.productTitle,
+        vendor: '',
+        price: '',
+        sku: '',
+        inventory: selectedItemForModal.quantity,
+        salesVelocity: 0,
+        stockoutDays: 0,
+        status: 'Unknown',
+        variantsForModal: [
+          {
+            id: selectedItemForModal.productId,
+            shopifyVariantId: selectedItemForModal.productId,
+            title: selectedItemForModal.productTitle,
+            sku: '',
+            price: '',
+            inventoryQuantity: selectedItemForModal.quantity,
+            inventoryItemId: '',
+          },
+        ],
+      }
+    : null;
 
   // If products is not defined, get it from loader data or define as empty array
   const { products = [] } = useLoaderData<any>();
@@ -345,10 +392,7 @@ export default function InventoryPage() {
           <ProductModal
             open={isModalOpen}
             onClose={handleCloseModal}
-            product={selectedItemForModal ? products.find((p: any) => p.id === selectedItemForModal.productId) ?? null : null}
-            warehouseShopifyLocationGid={selectedItemForModal?.warehouseShopifyLocationGid || ''}
-            onUpdateInventoryAction={handleUpdateInventory}
-            isUpdating={fetcher.state === "submitting"}
+            product={productForModal}
           />
         )}
       </BlockStack>

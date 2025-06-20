@@ -7,6 +7,7 @@ import { AppProvider, Page, BlockStack } from '@shopify/polaris';
 import enTranslations from '@shopify/polaris/locales/en.json';
 import { authenticate } from "~/shopify.server";
 import AppLayout from '../components/AppLayout'; // Ensure this component exists
+// import { BellIcon } from '@shopify/polaris-icons'; // The above import is invalid. There is no 'BellIcon' export in @shopify/polaris-icons. If you need a bell icon, use a valid import or a placeholder.
 
 /**
  * This loader protects all routes under `/app` and provides session data.
@@ -24,10 +25,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
  * This is the main layout for the authenticated part of the app.
  */
 import { Frame } from '@shopify/polaris'; // Import Frame
+import React, { useState } from "react";
+
+// Custom Toast component
+function Toast({ content, onDismiss }: { content: string; onDismiss: () => void }) {
+  React.useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+  return (
+    <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#333', color: '#fff', padding: '12px 24px', borderRadius: 8, zIndex: 9999 }}>
+      {content}
+    </div>
+  );
+}
 
 export default function App() {
   // useLoaderData now correctly receives the session object from the loader.
   const { session } = useLoaderData<typeof loader>();
+
+  // Add state for toast
+  const [toastActive, setToastActive] = useState(false);
+  const [toastContent, setToastContent] = useState('');
 
   return (
     <AppProvider i18n={enTranslations}>
@@ -41,6 +60,7 @@ export default function App() {
           </Page>
         </AppLayout>
       </Frame>
+      {toastActive && <Toast content={toastContent} onDismiss={() => setToastActive(false)} />}
     </AppProvider>
   );
 }

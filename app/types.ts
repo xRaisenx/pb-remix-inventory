@@ -114,7 +114,8 @@ export interface ShopifyProduct {
 export interface DashboardAlertProduct {
   id: string; // Internal App Product ID
   title: string;
-  // inventory?: number; // This was optional; status is primarily used.
+  // [FIX] inventory was missing but is used in ProductAlerts. Add as optional number.
+  inventory?: number; // Current inventory for alert display
   status?: string | null; // 'Low', 'Critical'
   salesVelocityFloat?: number | null; // For high sales trend alerts
   stockoutDays?: number | null;       // For high sales trend alerts

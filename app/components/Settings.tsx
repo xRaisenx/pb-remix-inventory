@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   AppProvider,
@@ -27,6 +26,19 @@ interface SettingsProps {
   setNotificationSettings: React.Dispatch<React.SetStateAction<NotificationSettingsType>>;
 }
 
+// Custom Toast component
+function Toast({ content, onDismiss }: { content: string; onDismiss: () => void }) {
+  React.useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+  return (
+    <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#333', color: '#fff', padding: '12px 24px', borderRadius: 8, zIndex: 9999 }}>
+      {content}
+    </div>
+  );
+}
+
 export default function Settings({ notificationSettings, setNotificationSettings }: SettingsProps) {
   const [toastActive, setToastActive] = useState(false);
   const [toastContent, setToastContent] = useState('');
@@ -47,16 +59,9 @@ export default function Settings({ notificationSettings, setNotificationSettings
 
   const testNotification = (channel: string) => {
     const message = `Test notification for ${channel}`;
-    console.log(`${channel.charAt(0).toUpperCase() + channel.slice(1)} test sent: ${message}`);
     setToastContent(`${channel.charAt(0).toUpperCase() + channel.slice(1)} test sent`);
     setToastActive(true);
   };
-
-  const toastMarkup = toastActive ? (
-    <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300">
-      {toastContent}
-    </div>
-  ) : null;
 
   const saveSettings = () => {
     console.log('Settings saved:', notificationSettings);
@@ -237,7 +242,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
           </Button>
         </BlockStack>
       </Card>
-      {toastMarkup}
+      {toastActive && <Toast content={toastContent} onDismiss={() => setToastActive(false)} />}
     </AppProvider>
   );
 }

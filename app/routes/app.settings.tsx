@@ -3,7 +3,7 @@ import { Form, useLoaderData, useFetcher, useNavigation } from "@remix-run/react
 import {
   Page,
   Layout,
-  AlphaCard,
+  Card,
   FormLayout,
   TextField,
   Checkbox,
@@ -18,7 +18,11 @@ import { Prisma } from "@prisma/client"; // For Prisma.Decimal type, though not 
 import type { NotificationSettings as NotificationSettingsPrismaType, Shop as ShopPrismaType } from '@prisma/client';
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import React from "react"; // Required for JSX
+import React, { useState } from "react"; // Required for JSX
+
+// [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
+// import polaris from '@shopify/polaris';
+// const { useToast } = polaris as typeof import('@shopify/polaris');
 
 // TypeScript Interfaces
 interface NotificationSettingsFormData {
@@ -210,7 +214,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (intent === 'sendTestEmail') {
     const settings = await prisma.notificationSettings.findUnique({ where: { shopId } });
-    if (!settings?.emailEnabled || !settings.emailAddress) {
+    // FIX: Prisma model uses 'email' not 'emailEnabled'.
+    if (!settings?.email || !settings.emailAddress) {
       return json({ error: 'Email notifications are not enabled or no email address is configured.', submittedValues });
     }
     console.log(`Test email would be sent to: ${settings.emailAddress}`);
@@ -221,14 +226,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 
+// Custom Toast component
+function Toast({ content, onDismiss }: { content: string; onDismiss: () => void }) {
+  React.useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+  return (
+    <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#333', color: '#fff', padding: '12px 24px', borderRadius: 8, zIndex: 9999 }}>
+      {content}
+    </div>
+  );
+}
+
 // Page Component
 export default function SettingsPage() {
   const { settings: initialSettings, error: loaderError, success: loaderSuccess } = useLoaderData<LoaderData>();
   const fetcher = useFetcher<typeof action>();
-
-  // Use state for form values to allow repopulation from actionData.submittedValues
-  // This makes them controlled components.
   const [formState, setFormState] = React.useState<NotificationSettingsFormData>(initialSettings);
+
+  // Add state for toast
+  const [toastActive, setToastActive] = useState(false);
+  const [toastContent, setToastContent] = useState('');
 
   React.useEffect(() => {
     if (fetcher.data?.submittedValues) {
@@ -250,22 +269,8 @@ export default function SettingsPage() {
         criticalStockoutDays: values.criticalStockoutDays && values.criticalStockoutDays !== 'null' ? parseInt(values.criticalStockoutDays as string, 10) : null,
         syncEnabled: values.syncEnabled === 'on',
       });
-    } else if (fetcher.state === 'idle' && !fetcher.data && actionResponse?.success) {
-      // After a successful save (indicated by actionResponse.success),
-      // and fetcher is idle with no new data (implying it was a successful POST, not a validation error return)
-      // Re-initialize formState from initialSettings which would have been reloaded by Remix if we used a redirect,
-      // or if we want to ensure it reflects DB state after a successful save without redirect.
-      // However, if action returns submittedValues on success, this might be redundant or cause quick flicker.
-      // For now, let's rely on submittedValues if present, or initialSettings if not.
-      // This logic might need refinement based on whether action returns submittedValues on success.
-      // If success implies a full reload/redirect, this specific else-if might not be hit often with new data.
-      setFormState(initialSettings);
-    } else if (fetcher.state === 'idle' && !fetcher.data && !actionResponse?.success && !actionResponse?.errors) {
-      // If idle, no data, and no success/error (e.g. initial load or after a test notification that doesn't return submittedValues)
-      setFormState(initialSettings);
     }
   }, [fetcher.data, fetcher.state, initialSettings]);
-
 
   const handleInputChange = (field: keyof NotificationSettingsFormData) => (value: string | boolean) => {
     setFormState(prev => ({ ...prev, [field]: value }));
@@ -279,13 +284,18 @@ export default function SettingsPage() {
 
 
   const actionResponse = fetcher.data;
-  const displayError = actionResponse?.errors?.general || loaderError ;
-  const fieldErrors = actionResponse?.errors || {};
-  const displaySuccess = actionResponse?.success || loaderSuccess;
+  const displayError = (actionResponse && 'errors' in actionResponse ? actionResponse.errors?.general : undefined) || loaderError;
+  const fieldErrors = (actionResponse && 'errors' in actionResponse ? actionResponse.errors : {}) as Record<string, string>;
+  const displaySuccess = (actionResponse && 'success' in actionResponse ? actionResponse.success : undefined) || loaderSuccess;
 
-  // Determine if the form is currently submitting for the main save action
   const isSaving = fetcher.state === "submitting" && fetcher.formData?.get('intent') === 'saveSettings';
   const isSendingTest = fetcher.state === "submitting" && fetcher.formData?.get('intent')?.toString().startsWith('sendTest');
+
+  // Example: show toast on some event
+  // function handleShowToast(msg: string) {
+  //   setToastContent(msg);
+  //   setToastActive(true);
+  // }
 
   return (
     <Page title="Settings">
@@ -298,7 +308,7 @@ export default function SettingsPage() {
         <BlockStack gap={{xs: "800", sm: "400"}}>
           <Layout>
             <Layout.Section>
-              <AlphaCard roundedAbove="sm">
+              <Card roundedAbove="sm">
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">Notification Channels</Text>
 
@@ -330,12 +340,16 @@ export default function SettingsPage() {
 
                   <Checkbox label="Enable Mobile Push Notifications (General)" name="mobilePushEnabled" checked={formState.mobilePushEnabled} onChange={v => handleInputChange('mobilePushEnabled')(v)} />
                 </BlockStack>
-              </AlphaCard>
+              </Card>
             </Layout.Section>
 
+            {/*
+              FIX: The following section was previously mis-nested. The <BlockStack> must be closed before closing <Layout.Section>.
+              Reason: Each <Layout.Section> must only contain its own children and be closed before the next <Layout.Section> starts.
+            */}
             <Layout.Section variant="oneThird">
               <BlockStack gap={{ xs: "800", sm: "400" }}>
-                <AlphaCard roundedAbove="sm">
+                <Card roundedAbove="sm">
                     <BlockStack gap="400">
                         <Text as="h2" variant="headingMd">Alert Thresholds</Text>
                         <TextField
@@ -367,37 +381,55 @@ export default function SettingsPage() {
                             helpText="Stockout in this many days or less is critical."
                         />
                     </BlockStack>
-                </AlphaCard>
-                <AlphaCard roundedAbove="sm">
+                </Card>
+                <Card roundedAbove="sm">
                     <BlockStack gap="400">
                         <Text as="h2" variant="headingMd">Notification Frequency</Text>
                         <Select
-                            label="Send notifications" name="frequency"
+                            label="Send notifications"
+                            name="frequency"
                             options={[
-                                { label: 'Immediately', value: 'immediate' }, { label: 'Hourly Digest', value: 'hourly' }, { label: 'Daily Digest', value: 'daily' },
+                                { label: 'Immediately', value: 'immediate' },
+                                { label: 'Hourly Digest', value: 'hourly' },
+                                { label: 'Daily Digest', value: 'daily' },
                             ]}
-                            value={formState.frequency} onChange={v => handleInputChange('frequency')(v)} error={fieldErrors.frequency}
+                            value={formState.frequency} onChange={(v) => handleInputChange('frequency')(v)}
                         />
                     </BlockStack>
-                </AlphaCard>
-                 <AlphaCard roundedAbove="sm">
+                </Card>
+                <Card roundedAbove="sm">
                     <BlockStack gap="400">
                         <Text as="h2" variant="headingMd">Inventory Sync</Text>
-                         <Checkbox
-                            label="Enable Real-Time Shopify Inventory Sync" name="syncEnabled"
-                            checked={formState.syncEnabled} onChange={v => handleInputChange('syncEnabled')(v)}
+                        <Checkbox
+                            label="Enable Real-Time Shopify Inventory Sync"
+                            name="syncEnabled"
+                            checked={formState.syncEnabled} onChange={(v) => handleInputChange('syncEnabled')(v)}
                             helpText="Allow the app to sync inventory changes to/from Shopify."
                         />
                     </BlockStack>
-                </AlphaCard>
+                </Card>
               </BlockStack>
             </Layout.Section>
+
+            {/*
+              FIX: The following section was previously duplicated and mis-nested. Only one Inventory Sync section is needed outside the oneThird column.
+              Reason: Prevent duplicate UI and ensure correct nesting.
+            */}
             <Layout.Section>
-                 <Button submit variant="primary" fullWidth loading={isSaving} onClick={() => fetcher.submit(formStateToFormData(formState, 'saveSettings'), { method: 'post' })}>Save Settings</Button>
+              <Button 
+                submit 
+                variant="primary" 
+                fullWidth 
+                loading={isSaving} 
+                onClick={() => fetcher.submit(formStateToFormData(formState, 'saveSettings'), { method: 'post' })}
+              >
+                Save Settings
+              </Button>
             </Layout.Section>
           </Layout>
         </BlockStack>
       </fetcher.Form>
+      {toastActive && <Toast content={toastContent} onDismiss={() => setToastActive(false)} />}
     </Page>
   );
 }
@@ -416,42 +448,18 @@ function formStateToFormData(formState: NotificationSettingsFormData, intent: st
     }
     return formData;
 }
-                    </BlockStack>
-                </AlphaCard>
-                <AlphaCard roundedAbove="sm">
-                    <BlockStack gap="400">
-                        <Text as="h2" variant="headingMd">Notification Frequency</Text>
-                        <Select
-                            label="Send notifications"
-                            name="frequency"
-                            options={[
-                                { label: 'Immediately', value: 'immediate' },
-                                { label: 'Hourly Digest', value: 'hourly' },
-                                { label: 'Daily Digest', value: 'daily' },
-                            ]}
-                            defaultValue={settings.frequency}
-                        />
-                    </BlockStack>
-                </AlphaCard>
-                 <AlphaCard roundedAbove="sm">
-                    <BlockStack gap="400">
-                        <Text as="h2" variant="headingMd">Inventory Sync</Text>
-                         <Checkbox
-                            label="Enable Real-Time Shopify Inventory Sync"
-                            name="syncEnabled"
-                            defaultChecked={settings.syncEnabled}
-                            helpText="Allow the app to sync inventory changes to/from Shopify."
-                        />
-                    </BlockStack>
-                </AlphaCard>
-              </BlockStack>
+// Duplicate and broken JSX below this point. It is unreachable and causes syntax errors.
+// Reason: The file already returns from the main component and helper function above. The following code is a duplicate and should not exist in a valid React file.
+// If you want to keep for reference, it is commented out. Remove to resolve errors.
+/*
             </Layout.Section>
             <Layout.Section>
-                <Button submit variant="primary" fullWidth loading={isSaving}>Save Settings</Button>
+                <Button submit variant="primary" fullWidth loading={isSaving} onClick={() => fetcher.submit(formStateToFormData(formState, 'saveSettings'), { method: 'post' })}>Save Settings</Button>
             </Layout.Section>
           </Layout>
         </BlockStack>
       </fetcher.Form>
     </Page>
   );
-}
+*/
+// End of file

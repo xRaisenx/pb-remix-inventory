@@ -1,8 +1,21 @@
 import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation }
 from '@shopify/polaris';
-import { HomeMajor, OrdersMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, Bell } // Example icons
-from '@shopify/polaris-icons';
+// The following icon imports are invalid in @shopify/polaris-icons v12+ and will cause build errors.
+// Commented out to prevent TypeScript errors. See https://github.com/Shopify/polaris-icons for valid exports.
+// import { HomeMajor, OrdersMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, Bell } // Example icons
+// from '@shopify/polaris-icons';
+//
+// The above import is invalid in the current version of @shopify/polaris-icons. See:
+// https://github.com/Shopify/polaris-icons#usage
+//
+// Instead, you should import icons individually if needed, or use custom SVGs or placeholders.
+// For now, we will use placeholder strings for icons and comment out all icon usages.
+//
+// If you want to use a valid icon, import it like:
+// import {{IconName}} from '@shopify/polaris-icons';
+//
+// For now, all icon usages below are replaced with string placeholders or emoji.
 import { useLocation } from '@remix-run/react'; // To determine active navigation link
 
 interface AppLayoutProps {
@@ -56,7 +69,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       secondaryMenu={
         <TopBar.Menu
           activatorContent={
-            <Bell /> // Placeholder for notifications or other actions
+            // <Bell /> // Placeholder for notifications or other actions
+            <span role="img" aria-label="bell">🔔</span> // Unicode bell as placeholder
           }
           open={isSecondaryMenuOpen}
           onOpen={toggleIsSecondaryMenuOpen}
@@ -71,35 +85,36 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     />
   );
 
+  // Navigation items: icon props must be valid Polaris icon names or components. The following are commented out and replaced with string names as placeholders.
   const navigationItems = [
     {
       url: '/app',
       label: 'Dashboard',
-      icon: HomeMajor,
+      icon: '🏠', // Home icon placeholder
       selected: location.pathname === '/app',
     },
     {
       url: '/app/products',
       label: 'Products',
-      icon: ProductsMajor,
+      icon: '📦', // Products icon placeholder
       selected: location.pathname.startsWith('/app/products'),
     },
     {
       url: '/app/reports',
       label: 'Reports',
-      icon: AnalyticsMajor,
+      icon: '📊', // Analytics icon placeholder
       selected: location.pathname === '/app/reports',
     },
     {
       url: '/app/alerts',
       label: 'Alerts',
-      icon: BellMajor, // Using Bell as a stand-in for general alerts
+      icon: '🔔', // Bell icon placeholder
       selected: location.pathname === '/app/alerts',
     },
     {
       url: '/app/settings',
       label: 'Settings',
-      icon: SettingsMajor,
+      icon: '⚙️', // Settings icon placeholder
       selected: location.pathname === '/app/settings',
     },
   ];
