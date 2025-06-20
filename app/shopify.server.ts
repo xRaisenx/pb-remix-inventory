@@ -49,7 +49,20 @@ export const sessionStorage = shopify.sessionStorage; // Exporting the configure
 
 // Your custom function `getProductById` from the CUSTOM file
 export async function getProductById(request: Request, productId: string): Promise<AppProductType | null> {
-  const { admin } = await authenticate.admin(request); // Uses the exported `authenticate`
+  const { admin, session } = await authenticate.admin(request); // Uses the exported `authenticate`
+
+  // Fetch shop settings
+  const shopData = await prisma.shop.findUnique({
+    where: { shop: session.shop },
+    include: { notificationSettings: true },
+  });
+
+  // Sensible defaults for thresholds, similar to product.service.ts
+  const lowStockThresholdUnits = shopData?.notificationSettings?.lowStockThreshold ?? shopData?.lowStockThreshold ?? 10;
+  const criticalStockThresholdUnits = shopData?.notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+  const criticalStockoutDays = shopData?.notificationSettings?.criticalStockoutDays ?? 3;
+  const salesVelocityThresholdForTrending = shopData?.notificationSettings?.salesVelocityThreshold ?? 50;
+
   const response = await admin.graphql(
     `#graphql
     query GetProductById($id: ID!) {
@@ -88,6 +101,71 @@ export async function getProductById(request: Request, productId: string): Promi
   const responseJson = await response.json();
   if (responseJson.data && responseJson.data.product) {
     const shopifyProduct = responseJson.data.product;
+
+    // Fetch local product data to get salesVelocityFloat
+    // The productId passed to this function is the Shopify GID e.g. "gid://shopify/Product/12345"
+    const localProduct = await prisma.product.findUnique({
+      where: { shopifyId: shopifyProduct.id }, // Assuming 'shopifyId' field stores the GID
+    });
+
+    const salesVelocityFloat = localProduct?.salesVelocityFloat ?? 0;
+
+    // Calculate currentTotalInventory
+    const currentTotalInventory = shopifyProduct.variants.edges.reduce(
+      (sum: number, edge: any) => sum + (edge.node.inventoryQuantity || 0),
+      0
+    );
+
+    // Calculate stockoutDays
+    let stockoutDays: number | null = null;
+    if (salesVelocityFloat > 0) {
+      stockoutDays = currentTotalInventory / salesVelocityFloat;
+    } else if (salesVelocityFloat === 0 && currentTotalInventory > 0) {
+      stockoutDays = Infinity; // Has stock, but no sales
+    } else {
+      stockoutDays = 0; // No stock, or no sales velocity data
+    }
+
+    // Determine status
+    let status: AppProductType['status'] = 'Unknown';
+    if (stockoutDays !== null && stockoutDays !== Infinity) {
+      if (currentTotalInventory <= criticalStockThresholdUnits || (stockoutDays <= criticalStockoutDays && salesVelocityFloat > 0)) {
+        status = 'Critical';
+      } else if (currentTotalInventory <= lowStockThresholdUnits || (stockoutDays <= (lowStockThresholdUnits / (salesVelocityFloat || 1)) && salesVelocityFloat > 0)) {
+        status = 'Low';
+      } else {
+        status = 'Healthy';
+      }
+    } else if (stockoutDays === Infinity) {
+      if (currentTotalInventory <= criticalStockThresholdUnits) {
+        status = 'Critical';
+      } else if (currentTotalInventory <= lowStockThresholdUnits) {
+        status = 'Low';
+      } else {
+        status = 'Healthy';
+      }
+    } else {
+      if (currentTotalInventory === 0) {
+        status = 'Critical';
+      } else {
+        if (currentTotalInventory <= criticalStockThresholdUnits) {
+          status = 'Critical';
+        } else if (currentTotalInventory <= lowStockThresholdUnits) {
+          status = 'Low';
+        } else if (currentTotalInventory > lowStockThresholdUnits) {
+          status = 'Healthy';
+        }
+      }
+    }
+    // Final override: if inventory is 0, it's critical
+    if (currentTotalInventory === 0) {
+        status = 'Critical';
+    }
+
+
+    // Determine trending
+    const trending = salesVelocityFloat > salesVelocityThresholdForTrending;
+
     // Map the Shopify product data to your AppProductType
     return {
       id: shopifyProduct.id,
@@ -103,12 +181,10 @@ export async function getProductById(request: Request, productId: string): Promi
           locationId: edge.node.inventoryItem?.inventoryLevels?.edges?.[0]?.node?.location?.id || undefined,
         },
       })),
-      // Assuming these fields are part of your AppProductType definition
-      // Provide default or placeholder values as appropriate
-      salesVelocity: 0,
-      stockoutDays: 0,
-      status: 'Healthy', // Or derive based on inventory or other logic
-      trending: false,
+      salesVelocity: salesVelocityFloat, // Use calculated value
+      stockoutDays: stockoutDays === Infinity ? null : (stockoutDays !== null ? parseFloat(stockoutDays.toFixed(2)) : null), // Use calculated value
+      status: status, // Use calculated value
+      trending: trending, // Use calculated value
     };
   }
   return null;

@@ -2,22 +2,20 @@
 import { Banner, BlockStack, Button, Text, useToast } from '@shopify/polaris';
 import { useFetcher } from '@remix-run/react';
 import React, { useEffect } from 'react';
+import type { DashboardAlertProduct } from '~/types'; // Import the centralized type
 
-// Assuming Product type similar to what's fetched in loader
-interface AlertProduct {
-  id: string;
-  title: string;
-  // For low stock
-  inventory?: number; // This might need to come from summing variants if status isn't enough
-  status?: string | null;
-  // For high sales
-  salesVelocityFloat?: number | null;
-  stockoutDays?: number | null;
-}
+// interface AlertProduct { // Remove local definition
+//   id: string;
+//   title: string;
+//   inventory?: number;
+//   status?: string | null;
+//   salesVelocityFloat?: number | null;
+//   stockoutDays?: number | null;
+// }
 
 interface ProductAlertsProps {
-  lowStockProducts: AlertProduct[];
-  highSalesTrendProducts: AlertProduct[];
+  lowStockProducts: DashboardAlertProduct[];
+  highSalesTrendProducts: DashboardAlertProduct[];
 }
 
 export const ProductAlerts: React.FC<ProductAlertsProps> = ({ lowStockProducts, highSalesTrendProducts }) => {
