@@ -1,5 +1,5 @@
 // app/components/Alerts.tsx
-import { Banner, Card, Text, Link, BlockStack, Button } from "@shopify/polaris";
+import { Banner, Text, Link, BlockStack, Button } from "@shopify/polaris";
 import { useNavigate } from "@remix-run/react";
 
 // Defines the structure for an alert item
