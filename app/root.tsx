@@ -14,6 +14,7 @@ import {
 import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
 import enTranslations from "@shopify/polaris/locales/en.json";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Import Polaris CSS with ?url
+import aiAssistantCardStyles from "./styles/ai_assistant_cards.css?url"; // Import custom card styles
 
 export const meta: MetaFunction = () => {
   return [
@@ -25,6 +26,7 @@ export const meta: MetaFunction = () => {
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
+  { rel: "stylesheet", href: aiAssistantCardStyles }, // Add custom card styles to links
 ]; // Updated to use imported CSS URL
 
 export default function App() {
