@@ -1,5 +1,5 @@
 // app/components/ProductAlerts.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Card,
   Banner,
@@ -70,7 +70,7 @@ const ProductAlerts: React.FC<ProductAlertsProps> = ({
             // Using Bleed to make Banner take full width if Card has padding
             <Bleed marginInline="400" key={index}>
               <Banner
-                title={alert.type.replace('-', ' ').replace(/\w/g, l => l.toUpperCase())} // Format title
+                title={alert.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} // Format title
                 tone={getToneForAlertType(alert.type)}
                 icon={renderAlertIcon(alert.type)}
               >
