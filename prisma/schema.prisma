@@ -24,6 +24,7 @@ model Shop {
   products                   Product[]
   sessions                   Session[]
   warehouses                 Warehouse[]
+  notificationSettings NotificationSettings?
 }
 
 model Session {
@@ -46,6 +47,10 @@ model Product {
   title       String
   vendor      String
   productType String?
+  salesVelocityFloat    Float?
+  stockoutDays      Int?
+  status            String?
+  trending          Boolean? @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   inventory   Inventory[]
@@ -92,4 +97,19 @@ model Variant {
   updatedAt       DateTime    @updatedAt
 
   @@unique([productId, sku])
+}
+
+model NotificationSettings {
+  id                  String    @id @default(uuid())
+  shopId              String    @unique // Each shop has one notification settings
+  email               Boolean   @default(false)
+  slack               Boolean   @default(false)
+  telegram            Boolean   @default(false)
+  mobilePush          Boolean   @default(false)
+  frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
+  lowStockThreshold   Int?      // Overrides shop-level if set
+  salesVelocityThreshold Float? // Threshold for high sales velocity alerts
+  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }

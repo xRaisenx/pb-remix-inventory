@@ -1,62 +1,65 @@
-// app/components/TrendingProducts.tsx
-import React from "react";
-import { Card, Grid, Text, Badge, BlockStack } from "@shopify/polaris";
-import type { Product } from "~/types"; // Assuming Product type includes 'trending', 'salesVelocity', 'variants' with sku/inventory.
+import React from 'react';
+import { Grid, BlockStack } from '@shopify/polaris';
+import { Card } from '~/components/common/Card';
+import { Text } from '~/components/common/Text';
+import { Badge } from '~/components/common/Badge';
 
-interface TrendingProductsProps {
-  products: Product[];
-  title?: string;
+// Define the expected structure for a product, especially the variants part for SKU and price.
+// This should align with what the loader in app._index.tsx provides.
+interface ProductVariant {
+  sku: string | null;
+  price: string; // Assuming price is a string, adjust if it's a number
 }
 
-export default function TrendingProducts({ products, title = "Trending Products" }: TrendingProductsProps) {
-  const trendingProducts = products.filter(p => p.trending);
+interface ProductForTrending {
+  id: string;
+  title: string;
+  vendor: string;
+  shopifyId: string; // Not directly used in display but good for keying or future links
+  salesVelocityFloat: number | null;
+  status: string | null; // Used for "Inventory Status"
+  trending: boolean | null;
+  variants: Array<ProductVariant> | null; // Array of variants
+}
 
-  if (trendingProducts.length === 0) {
+interface TrendingProductsProps {
+  products: Array<ProductForTrending>;
+}
+
+export const TrendingProducts: React.FC<TrendingProductsProps> = ({ products }) => {
+  if (!products || products.length === 0) {
     return (
-      <Card>
-        <BlockStack gap="200"> {/* Removed inlineAlign and align, simpler for just text */}
-          <div style={{padding: 'var(--p-space-400)', textAlign: 'center'}}> {/* Added padding and centering for the message */}
-            <Text as="p" tone="subdued">No trending products at the moment.</Text>
-          </div>
-        </BlockStack>
+      <Card sectioned>
+        <Text as="p" color="subdued" alignment="center">
+          No trending products at the moment.
+        </Text>
       </Card>
     );
   }
 
-  // Determine number of columns based on products, up to 3
-  const columns = Math.min(trendingProducts.length, 3) as (1|2|3);
-
-
   return (
     <BlockStack gap="400">
-      <Text variant="headingMd" as="h2">{title}</Text>
-      <Grid columns={{ xs: 1, sm: 2, md: columns, lg: columns, xl: columns }}> {/* Ensured columns prop is valid for all breakpoints */}
-        {trendingProducts.map((product) => {
-          const firstVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-          const sku = firstVariant?.sku ?? "N/A";
-          const totalInventory = product.variants?.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0) ?? 0;
-          // Assuming product image URL might be available on product.imageUrl or firstVariant.imageUrl
-          // For now, a placeholder or no image. If using an image:
-          // const imageUrl = product.imageUrl || firstVariant?.imageUrl; // Example
-
-          return (
-            <Grid.Cell key={product.id}>
-              <Card> {/* Default Card padding will apply */}
-                <BlockStack gap="200">
-                  {/* {imageUrl && <Thumbnail source={imageUrl} alt={product.title} size="large" />} */}
-                  <Text variant="headingMd" as="h3" truncate>{product.title}</Text> {/* Changed to headingMd and added truncate */}
-                  <Badge tone="success">Trending</Badge>
-                  <Text as="p" variant="bodyMd" tone="subdued">SKU: {sku}</Text> {/* Changed to bodyMd for consistency */}
-                  <Text as="p" variant="bodyMd" tone="subdued">Inventory: {totalInventory}</Text> {/* Changed to bodyMd */}
-                  {product.salesVelocity !== undefined && ( // Check if salesVelocity is available
-                     <Text as="p" variant="bodyMd" tone="subdued">Sales Velocity: {product.salesVelocity.toFixed(2)} units/day</Text>
-                  )}
-                </BlockStack>
-              </Card>
-            </Grid.Cell>
-          );
-        })}
+      <Text variant="headingMd" as="h2">Trending Products</Text>
+      <Grid> {/* Removed explicit columns, let Grid auto-flow or adjust columnSpan in Grid.Cell */}
+        {products.map(product => (
+          <Grid.Cell key={product.id} columnSpan={{ xs: 6, sm: 3, md: 4, lg: 4, xl: 4 }}>
+            <Card title={product.title} sectioned> {/* Ensure Card handles title prop */}
+              <BlockStack gap="200">
+                <Text as="p" variant="bodySm" color="subdued">
+                  SKU: {product.variants?.[0]?.sku || 'N/A'}
+                </Text>
+                <Text as="p" variant="bodySm">
+                  Inventory Status: {product.status || 'N/A'}
+                </Text>
+                <Text as="p" variant="bodySm">
+                  Sales Velocity: {product.salesVelocityFloat?.toFixed(2) || '0.00'} units/day
+                </Text>
+                {product.trending && <Badge customStatus="default">Trending</Badge>}
+              </BlockStack>
+            </Card>
+          </Grid.Cell>
+        ))}
       </Grid>
     </BlockStack>
   );
-}
+};
