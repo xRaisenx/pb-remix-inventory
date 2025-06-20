@@ -227,7 +227,7 @@ export default function InventoryPage() {
     if (!item.warehouseShopifyLocationGid) {
         // TODO: Consider a more user-friendly notification here (e.g., a Toast or an AlertBanner)
         // For now, an alert, but this stops the modal from opening.
-        alert("This warehouse is not linked to a Shopify Location. Inventory cannot be updated in Shopify for this item.");
+        showToast("This warehouse is not linked to a Shopify Location. Inventory cannot be updated in Shopify for this item.", { tone: 'warning' });
         return;
     }
     setSelectedItemForModal(item);
