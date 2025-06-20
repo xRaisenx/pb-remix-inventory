@@ -1,173 +1,144 @@
-// app/components/ProductModal.tsx
-import { Modal, TextField, FormLayout, Select, Banner } from "@shopify/polaris";
+import { Modal, TextField, FormLayout, Select, Banner, Text, BlockStack } from "@shopify/polaris";
 import { useCallback, useState, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
-import type { ShopifyProduct } from "~/types"; // Import updated type
-
-interface ProductDetailsFetcherData {
-  product?: {
-    id: string; // Product GID
-    title: string;
-    variants: {
-      edges: Array<{ 
-        node: {
-          id: string; // Variant GID
-          title: string;
-          sku: string | null;
-          price: string;
-          inventoryQuantity: number | null;
-          inventoryItem: {
-            id: string; // InventoryItem GID
-          };
-        }
-      }>;
-    };
-  };
-  error?: string;
-  details?: any; // For GraphQL errors
-}
+import type { ProductForTable } from "~/routes/app.products"; // Adjust path as needed
 
 interface ProductModalProps {
   open: boolean;
   onClose: () => void;
-  product: ShopifyProduct | null; // Using the updated type definition
-  warehouseShopifyLocationGid: string | null; // Shopify Location GID of the selected warehouse
-  onUpdateInventoryAction: (data: {
-    productId: string; // Shopify Product GID
-    variantId: string; // Shopify Variant GID
-    inventoryItemId: string; // Shopify InventoryItem GID
-    shopifyLocationGid: string; // Shopify Location GID (from warehouse context)
-    quantity: number;
-  }) => void;
-  isUpdating: boolean; // Indicates if an update is in progress
+  product: ProductForTable | null;
 }
 
-export default function ProductModal({
+export const ProductModal: React.FC<ProductModalProps> = ({
   open,
   onClose,
   product,
-  warehouseShopifyLocationGid,
-  onUpdateInventoryAction,
-  isUpdating,
-}: ProductModalProps) {
+}) => {
+  const fetcher = useFetcher();
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState<string>(""); // Store as string for TextField
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Effect to reset form when modal opens or product changes
+  useEffect(() => {
+    if (open && product && product.variantsForModal.length > 0) {
+      // Default to first variant if available
+      const firstVariant = product.variantsForModal[0];
+      setSelectedVariantId(firstVariant.id);
+      setQuantity((firstVariant.inventoryQuantity ?? 0).toString());
+    } else if (!open) {
+      setSelectedVariantId(null);
+      setQuantity("");
+      setError(null);
+      setSuccess(null);
+    }
+  }, [open, product]);
+
+  // Effect to handle fetcher state (e.g., after submission)
+  useEffect(() => {
+    if (fetcher.data) {
+      if ((fetcher.data as any).error) {
+        setError((fetcher.data as any).error);
+        setSuccess(null);
+      } else if ((fetcher.data as any).success) {
+        setSuccess("Inventory updated successfully!");
+        setError(null);
+        // Optionally close modal on success, or keep it open
+        // onClose();
+      }
+    }
+  }, [fetcher.data, onClose]);
+
 
   const handleVariantChange = useCallback((variantId: string) => {
     setSelectedVariantId(variantId);
+    const selectedVar = product?.variantsForModal.find(v => v.id === variantId);
+    setQuantity((selectedVar?.inventoryQuantity ?? 0).toString());
     setError(null);
-  }, []);
+    setSuccess(null);
+  }, [product]);
 
   const handleQuantityChange = useCallback((value: string) => {
-    const parsedValue = parseInt(value, 10);
-    setQuantity(isNaN(parsedValue) ? null : parsedValue);
+    setQuantity(value);
+    setError(null); // Clear error when user types
+    setSuccess(null);
   }, []);
 
-  const handleSubmit = useCallback(
-    (event: React.FormEvent) => {
-      event.preventDefault();
-      if (!selectedVariantId || quantity === null) return;
-
-      setIsLoading(true);
-      setError(null);
-      setSuccess(false);
-
-      const variant = product?.variants.find(
-        (v) => v.id === selectedVariantId
-      );
-
-      if (!variant) {
-        setError("Selected variant not found.");
-        setIsLoading(false);
+  const handleSubmit = () => {
+    if (!selectedVariantId || quantity === "" ) {
+        setError("Please select a variant and enter a quantity.");
         return;
-      }
-
-      const productId = product?.id ?? "";
-      const variantId = variant.id;
-      const inventoryItemId = variant.inventoryItem?.id ?? "";
-
-      onUpdateInventoryAction({
-        productId,
-        variantId,
-        inventoryItemId,
-        shopifyLocationGid: warehouseShopifyLocationGid!,
-        quantity,
-      }); // Remove .then/.catch/.finally, assume onUpdateInventoryAction is sync or handle async outside
-    },
-    [
-      selectedVariantId,
-      quantity,
-      product,
-      onUpdateInventoryAction,
-      warehouseShopifyLocationGid,
-    ]
-  );
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedVariantId(null);
-      setQuantity(null);
-      setError(null);
-      setSuccess(false);
     }
-  }, [open]);
+    const numQuantity = parseInt(quantity, 10);
+    if (isNaN(numQuantity) || numQuantity < 0) {
+        setError("Please enter a valid non-negative quantity.");
+        return;
+    }
+
+    fetcher.submit(
+      {
+        intent: 'updateInventory',
+        variantId: selectedVariantId,
+        newQuantity: numQuantity.toString(), // Send as string, action will parse
+      },
+      { method: 'post', action: '/app/products' } // Action route
+    );
+  };
+
+  const selectedVariantDetails = product?.variantsForModal.find(v => v.id === selectedVariantId);
+  const restockingSuggestion = product ? Math.ceil((product.salesVelocity || 0) * 5) : 0; // 5 days of sales
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Update Product Inventory"
+      title={product?.title || "Update Product Inventory"}
       primaryAction={{
-        content: "Save",
-        onAction: () => handleSubmit({ preventDefault: () => {} } as React.FormEvent),
-        loading: isLoading,
-        disabled: isLoading || !selectedVariantId || quantity === null,
+        content: "Save Inventory",
+        onAction: handleSubmit,
+        loading: fetcher.state === "submitting",
+        disabled: !selectedVariantId || quantity === "" || fetcher.state === "submitting",
       }}
-      secondaryActions={[
-        {
-          content: "Cancel",
-          onAction: onClose,
-        },
-      ]}
+      secondaryActions={[{ content: "Cancel", onAction: onClose }]}
     >
       <Modal.Section>
-        {error && (
-          <Banner tone="critical" onDismiss={() => setError(null)}>
-            {error}
-          </Banner>
-        )}
-        {success && (
-          <Banner tone="success" onDismiss={() => setSuccess(false)}>
-            Inventory updated successfully!
-          </Banner>
-        )}
+        {error && <Banner tone="critical" onDismiss={() => setError(null)}>{error}</Banner>}
+        {success && <Banner tone="success" onDismiss={() => setSuccess(null)}>{success}</Banner>}
+
+        <BlockStack gap="300">
+          <Text as="p" variant="bodyMd"><strong>Vendor:</strong> {product?.vendor}</Text>
+          <Text as="p" variant="bodyMd"><strong>Status:</strong> {product?.status}</Text>
+          <Text as="p" variant="bodyMd"><strong>Sales Velocity:</strong> {product?.salesVelocity?.toFixed(2)} units/day</Text>
+          <Text as="p" variant="bodyMd"><strong>Est. Stockout:</strong> {product?.stockoutDays?.toFixed(0)} days</Text>
+          <Text as="p" variant="bodyMd"><strong>Restocking Suggestion (5 days):</strong> {restockingSuggestion} units</Text>
+          <hr/>
+        </BlockStack>
+
         <FormLayout>
           <Select
-            label="Variant"
+            label="Select Variant"
             options={
-              product?.variants.map((v) => ({
-                label: v.title ?? v.id,
-                value: v.id,
+              product?.variantsForModal.map(v => ({
+                label: `${v.sku || 'N/A'} (Current: ${v.inventoryQuantity ?? 0})`,
+                value: v.id
               })) || []
             }
             onChange={handleVariantChange}
-            value={selectedVariantId ?? undefined}
-            disabled={isLoading}
+            value={selectedVariantId || undefined} // Ensure value is string or undefined
+            disabled={fetcher.state === "submitting"}
           />
           <TextField
-            label="Quantity"
-            value={quantity !== null ? quantity.toString() : ""}
+            label="New Inventory Quantity"
+            value={quantity}
             onChange={handleQuantityChange}
             type="number"
             min={0}
-            disabled={isLoading}
+            disabled={fetcher.state === "submitting" || !selectedVariantId}
             autoComplete="off"
           />
         </FormLayout>
       </Modal.Section>
     </Modal>
   );
-}
+};

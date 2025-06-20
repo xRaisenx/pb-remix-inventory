@@ -1,6 +1,6 @@
 // app/root.tsx
 
-import type { LinksFunction, MetaFunction } from "@remix-run/node"; // Added LinksFunction
+import type { LinksFunction, MetaFunction } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -8,28 +8,43 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useRouteError, // Import useRouteError
-  isRouteErrorResponse, // Import for typed error handling
+  useRouteError,
+  isRouteErrorResponse,
 } from "@remix-run/react";
-import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
+import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Import Polaris CSS with ?url
-import aiAssistantCardStyles from "./styles/ai_assistant_cards.css?url"; // Import custom card styles
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import appStyles from "~/styles/app.css?url"; // Global styles from main
+import aiAssistantCardStyles from "./styles/ai_assistant_cards.css?url"; // Custom card styles from feature branch
 
 export const meta: MetaFunction = () => {
   return [
     { charset: "utf-8" },
-    { title: "Planet Beauty AI Inventory" }, // Updated title
+    { title: "Planet Beauty AI Inventory" },
     { viewport: "width=device-width,initial-scale=1" },
   ];
 };
 
+// MERGE FIX: Included stylesheets from both branches.
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
-  { rel: "stylesheet", href: aiAssistantCardStyles }, // Add custom card styles to links
-]; // Updated to use imported CSS URL
+  { rel: "stylesheet", href: appStyles },
+  { rel: "stylesheet", href: aiAssistantCardStyles },
+];
 
 export default function App() {
+  // Using the theme from the feature branch
+  const AppTheme = {
+    colorScheme: "light" as const,
+    logo: {
+      width: 124,
+      accessibilityLabel: 'Planet Beauty',
+    },
+    colors: {
+      primary: '#d81b60',
+    }
+  };
+
   return (
     <html lang="en">
       <head>
@@ -37,7 +52,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <AppProvider i18n={enTranslations}>
+        <AppProvider i18n={enTranslations} theme={AppTheme}>
           <Outlet />
         </AppProvider>
         <ScrollRestoration />
@@ -48,7 +63,7 @@ export default function App() {
   );
 }
 
-// Global ErrorBoundary
+// Global ErrorBoundary (kept as is, it's well-structured)
 export function ErrorBoundary() {
   const error = useRouteError();
   console.error('ErrorBoundary caught:', error);
@@ -63,17 +78,15 @@ export function ErrorBoundary() {
     errorMessage = error.message;
   }
 
-  // It's important for the ErrorBoundary to render the full HTML structure
-  // so that Polaris styles are applied correctly.
   return (
     <html lang="en">
       <head>
-        <title>{errorTitle}</title> {/* Set a title for the error page */}
-        <Meta /> {/* Include meta tags, viewport, etc. */}
-        <Links /> {/* Include CSS links */}
+        <title>{errorTitle}</title>
+        <Meta />
+        <Links />
       </head>
       <body>
-        <AppProvider i18n={enTranslations}> {/* AppProvider is crucial here */}
+        <AppProvider i18n={enTranslations}>
           <Page>
             <EmptyState
               heading={errorTitle}
@@ -86,7 +99,7 @@ export function ErrorBoundary() {
             </EmptyState>
           </Page>
         </AppProvider>
-        <Scripts /> {/* Scripts might be needed for some recovery or logging */}
+        <Scripts />
         {process.env.NODE_ENV === "development" && <LiveReload />}
       </body>
     </html>

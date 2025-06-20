@@ -14,10 +14,8 @@ model Shop {
   shop                       String      @unique
   accessToken                String?     // Can be null if shop created before offline token
   emailForNotifications      String?
-  slackWebhookUrl            String?
-  telegramBotToken           String?
-  telegramChatId             String?
-  whatsAppApiCredentialsJson String?
+  // slackWebhookUrl, telegramBotToken, telegramChatId moved to NotificationSettings
+  // whatsAppApiCredentialsJson String? // Removed as per subtask note
   lowStockThreshold          Int?        @default(10)
   aiProvider                 String?     // e.g., 'gemini', 'anthropic', 'none'
   geminiApiKey               String?
@@ -27,6 +25,7 @@ model Shop {
   products                   Product[]
   sessions                   Session[]
   warehouses                 Warehouse[]
+  notificationSettings NotificationSettings?
 }
 
 model Session {
@@ -49,11 +48,19 @@ model Product {
   title       String
   vendor      String
   productType String?
+  salesVelocityFloat    Float?
+  stockoutDays      Int?
+  status            String?
+  trending          Boolean? @default(false)
+  category           String?
+  lastRestockedDate  DateTime?
+  notes              String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   inventory   Inventory[]
   shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants    Variant[]
+  demandForecasts DemandForecast[]
 }
 
 model Warehouse {
@@ -95,4 +102,54 @@ model Variant {
   updatedAt       DateTime    @updatedAt
 
   @@unique([productId, sku])
+}
+
+model NotificationSettings {
+  id                  String    @id @default(uuid())
+  shopId              String    @unique
+
+  // Channel enables
+  email               Boolean   @default(false)
+  slack               Boolean   @default(false)
+  telegram            Boolean   @default(false)
+  mobilePush          Boolean   @default(false) // General toggle for mobile push
+
+  // Channel-specific details
+  emailAddress        String?   // For email notifications
+  slackWebhookUrl     String?   // For Slack
+  telegramBotToken    String?   // For Telegram
+  telegramChatId      String?   // For Telegram
+  // mobilePushServiceDetails String? // If specific credentials/details needed for push
+
+  frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
+
+  // Thresholds (can override Shop defaults or be primary)
+  lowStockThreshold   Int?
+  salesVelocityThreshold Float?
+  criticalStockThresholdUnits Int? // New: e.g., if inventory is at or below this, it's critical
+  criticalStockoutDays      Int? // New: e.g., if stockout is in this many days or less, it's critical
+
+  // Inventory Sync
+  syncEnabled         Boolean   @default(false)
+
+  shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model DemandForecast {
+  /// Unique identifier for the forecast record.
+  id              String   @id @default(uuid())
+  /// The ID of the product this forecast pertains to.
+  productId       String
+  /// Relation to the Product model.
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// The predicted demand quantity.
+  predictedDemand Float
+  /// The forecast period in days (e.g., 7 for weekly, 30 for monthly).
+  periodDays      Int
+  /// A score indicating the confidence in the prediction (e.g., 0.0 to 1.0).
+  confidenceScore Float
+  /// Timestamp of when the forecast record was created.
+  createdAt       DateTime @default(now())
 }

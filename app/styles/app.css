@@ -1,8 +1,51 @@
-/* Main app styles. Add your CSS here. */
-
 body {
-  font-family: system-ui, sans-serif;
-  margin: 0;
-  padding: 0;
-  background: #f9f9f9;
+  background-color: #f5f7fa;
 }
+
+/* Custom App Styles */
+
+/* TopBar Background */
+/* Polaris Frame > TopBar typically uses CSS variables. Let's try overriding those. */
+/* The specific variable might be --p-color-bg-top-bar, --p-color-bg-app-bar or similar. */
+/* This is a common one for the top bar surface color */
+div[class*="Polaris-Frame__TopBar"] {
+  --p-color-bg-surface-secondary: #c94f6d; /* Attempting to override the TopBar background */
+  /* If the above doesn't work, a more direct override might be needed, like: */
+  /* background-color: #c94f6d !important; */
+}
+
+/* To ensure text and icons on the custom TopBar background are legible (e.g., white) */
+/* This assumes default icon/text colors need to be inverted on the new dark background. */
+/* The primary theme color might affect this, so careful testing is needed. */
+div[class*="Polaris-Frame__TopBar"] button[class*="Polaris-TopBar__MenuButton"],
+div[class*="Polaris-Frame__TopBar"] span[class*="Polaris-Icon"] svg,
+div[class*="Polaris-Frame__TopBar"] .Polaris-TopBar-UserMenu__Details > .Polaris-Text,
+div[class*="Polaris-Frame__TopBar"] .Polaris-TopBar-UserMenu__Name {
+  /* Example: making top bar icons and text white/lighter if the new background is dark */
+  /* This might need adjustment based on specific elements and their default colors */
+   color: var(--p-color-text-on-critical); /* Using a Polaris token that implies white/light text */
+}
+/* For SVGs specifically, `fill` might be needed if `color` doesn't work */
+div[class*="Polaris-Frame__TopBar"] span[class*="Polaris-Icon"] svg {
+    fill: var(--p-color-icon-on-critical); /* Using a Polaris token for icons on dark/colored backgrounds */
+}
+
+
+/* Navigation Active Item Styling */
+/* Target the container of the selected navigation item to change its background */
+ul[class*="Polaris-Navigation__Section"] li:has(a[class*="Polaris-Navigation__Item--selected"]) {
+  background-color: #fff1f2;
+  /* Add border-radius if it's not inheriting nicely from parent */
+   border-radius: var(--p-border-radius-100, 3px);
+}
+
+/* The selected item's text and icon should already use the primary color from the theme. */
+/* If not, these can be uncommented and adjusted: */
+/*
+.Polaris-Navigation__Item--selected .Polaris-Navigation__Icon svg {
+  fill: var(--p-color-text-interactive); // Should be #d81b60 from theme
+}
+.Polaris-Navigation__Item--selected .Polaris-Navigation__Text {
+  color: var(--p-color-text-interactive); // Should be #d81b60 from theme
+}
+*/
