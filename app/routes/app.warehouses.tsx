@@ -1,6 +1,6 @@
 // app/routes/app.warehouses.tsx
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node"; // Added redirect
-import { Link, Form, useLoaderData, useNavigation } from "@remix-run/react"; // Added Form, useNavigation
+import { Form, useLoaderData } from "@remix-run/react"; // Added Form, useNavigation
 import { Page, Card, DataTable, Text, Button, EmptyState, InlineStack } from "@shopify/polaris"; // Added InlineStack
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
@@ -15,7 +15,7 @@ interface LoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
   // Note: Flash messages for actionError/actionSuccess are commented out for simplicity.
@@ -39,7 +39,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
   const formData = await request.formData();
   const formAction = formData.get("_action") as string;

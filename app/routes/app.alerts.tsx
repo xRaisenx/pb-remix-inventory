@@ -25,7 +25,7 @@ interface LoaderData {
 const LOW_STOCK_THRESHOLD = 10; // Define the threshold here
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
   try {

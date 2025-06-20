@@ -1,6 +1,6 @@
 // app/routes/app.inventory.tsx
 
-import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
+import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import { Page, Card, DataTable, Text, BlockStack, Spinner, Banner, Button } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
@@ -150,7 +150,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
   try {
@@ -193,7 +193,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function InventoryPage() {
-  const { inventoryList, lowStockThreshold, error, success, message } = useLoaderData<LoaderData>();
+  const { inventoryList, error } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const navigate = useNavigate();
 
@@ -237,7 +237,7 @@ export default function InventoryPage() {
   }, [fetcher, selectedItemForModal]);
 
   // Move fetcherData above all uses
-  const fetcherData = (fetcher.data ?? {}) as { success?: boolean; error?: string; message?: string };
+  const fetcherData = React.useMemo(() => (fetcher.data ?? {}) as { success?: boolean; error?: string; message?: string }, [fetcher.data]);
 
   // Effect to close modal on successful fetcher submission
   useEffect(() => {

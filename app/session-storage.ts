@@ -1,7 +1,7 @@
 // <reference types="@shopify/shopify-app-remix" />
 // import { PrismaSessionStorage } from '@shopify/shopify-app-remix';
 
-import { PrismaClient, Session as PrismaSession } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { Session } from "@shopify/shopify-api";
 
 export interface SessionStorage {

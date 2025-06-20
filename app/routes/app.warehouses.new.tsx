@@ -2,7 +2,7 @@
 
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
-import { Page, Card, TextField, Button, Banner, BlockStack, Text, Select } from "@shopify/polaris"; // Added Select
+import { Page, Card, TextField, Button, Banner, Select } from "@shopify/polaris"; // Added Select
 import { authenticate } from "~/shopify.server";
 import { Prisma } from "@prisma/client";
 import prisma  from "~/db.server";
@@ -63,7 +63,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnTyp
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
   const formData = await request.formData();
 
