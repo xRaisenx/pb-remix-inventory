@@ -1,12 +1,12 @@
 // app/components/Metrics.tsx
 import React from "react";
-import { Card, Grid, Text, Icon, BlockStack } from "@shopify/polaris";
+import { Card, Grid, Text, Icon, BlockStack, type IconSource } from "@shopify/polaris";
 import { CartIcon, InventoryIcon } from "@shopify/polaris-icons";
 
 interface MetricItemProps {
   title: string;
   value: string | number;
-  iconSource: import type("@shopify/polaris").IconSource;
+  iconSource: IconSource;
   valueTone?: 'critical' | 'success' | 'subdued'; // Only valid tones for Polaris Text
   helpText?: string;
 }
