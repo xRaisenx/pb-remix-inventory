@@ -1,21 +1,8 @@
+// --- START OF FILE app/components/AppLayout.tsx ---
 import React, { useState, useCallback } from 'react';
-import { Frame, TopBar, Navigation }
-from '@shopify/polaris';
-// The following icon imports are invalid in @shopify/polaris-icons v12+ and will cause build errors.
-// Commented out to prevent TypeScript errors. See https://github.com/Shopify/polaris-icons for valid exports.
-// import { HomeMajor, OrdersMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, Bell } // Example icons
-// from '@shopify/polaris-icons';
-//
-// The above import is invalid in the current version of @shopify/polaris-icons. See:
-// https://github.com/Shopify/polaris-icons#usage
-//
-// Instead, you should import icons individually if needed, or use custom SVGs or placeholders.
-// For now, we will use placeholder strings for icons and comment out all icon usages.
-//
-// If you want to use a valid icon, import it like:
-// import {{IconName}} from '@shopify/polaris-icons';
-//
-// For now, all icon usages below are replaced with string placeholders or emoji.
+import { Frame, TopBar, Navigation } from '@shopify/polaris';
+// Import specific icons from polaris-icons
+import { HomeMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, BellMajor } from '@shopify/polaris-icons';
 import { useLocation } from '@remix-run/react'; // To determine active navigation link
 
 interface AppLayoutProps {
@@ -52,16 +39,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     />
   );
 
-  // Attempting to apply custom background color for TopBar.
-  // Polaris TopBar doesn't have a direct 'backgroundColor' prop in its theme object structure usually.
-  // We might need CSS override. For now, this 'theme' prop on TopBar is illustrative.
-  // A more robust way is often via CSS custom properties or direct CSS.
-  const topBarTheme = {
-     // This is not a standard Polaris TopBar theme prop.
-     // backgroundColor: '#c94f6d', // Prototype header-bg color
-  };
-
-  // The TopBar itself. The custom background will be attempted via CSS in app.css
   const topBarMarkup = (
     <TopBar
       showNavigationToggle
@@ -69,8 +46,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       secondaryMenu={
         <TopBar.Menu
           activatorContent={
-            // <Bell /> // Placeholder for notifications or other actions
-            <span role="img" aria-label="bell">🔔</span> // Unicode bell as placeholder
+            <BellMajor /> // Using imported BellMajor icon
           }
           open={isSecondaryMenuOpen}
           onOpen={toggleIsSecondaryMenuOpen}
@@ -85,36 +61,36 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     />
   );
 
-  // Navigation items: icon props must be valid Polaris icon names or components. The following are commented out and replaced with string names as placeholders.
+  // Navigation items: using imported icons
   const navigationItems = [
     {
       url: '/app',
       label: 'Dashboard',
-      icon: '🏠', // Home icon placeholder
+      icon: HomeMajor, // Using imported HomeMajor icon
       selected: location.pathname === '/app',
     },
     {
       url: '/app/products',
       label: 'Products',
-      icon: '📦', // Products icon placeholder
+      icon: ProductsMajor, // Using imported ProductsMajor icon
       selected: location.pathname.startsWith('/app/products'),
     },
     {
       url: '/app/reports',
       label: 'Reports',
-      icon: '📊', // Analytics icon placeholder
+      icon: AnalyticsMajor, // Using imported AnalyticsMajor icon
       selected: location.pathname === '/app/reports',
     },
     {
       url: '/app/alerts',
       label: 'Alerts',
-      icon: '🔔', // Bell icon placeholder
+      icon: BellMajor, // Using imported BellMajor icon
       selected: location.pathname === '/app/alerts',
     },
     {
       url: '/app/settings',
       label: 'Settings',
-      icon: '⚙️', // Settings icon placeholder
+      icon: SettingsMajor, // Using imported SettingsMajor icon
       selected: location.pathname === '/app/settings',
     },
   ];
@@ -147,3 +123,4 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 };
 
 export default AppLayout; // Ensure default export if this is the main layout file used by Remix
+// --- END OF FILE app/components/AppLayout.tsx ---

@@ -28,7 +28,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const lowStockItemsCount = await prisma.product.count({
     where: {
       shopId,
-      status: "Low" // This relies on the 'status' field being accurately updated
+      status: { in: ["Low", "Critical"] } // Count both Low and Critical for this metric
     }
   });
 
@@ -49,7 +49,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const lowStockProductsForAlerts = await prisma.product.findMany({
     where: { shopId, status: { in: ['Low', 'Critical'] } },
-    select: { id: true, title: true, status: true },
+    select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } }, // Added variants to get inventory for alert display
     take: 3
   }) as DashboardAlertProduct[]; // Assert type
 

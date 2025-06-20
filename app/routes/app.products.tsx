@@ -3,7 +3,8 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSubmit } from "@remix-run/react"; // Added useSubmit
 import { Page, Layout, BlockStack, Card, Text, TextField, Icon, Banner, IndexTable, type IndexTableProps } from "@shopify/polaris"; // Combined imports
-import { SearchIcon } from '@shopify/polaris-icons'; // Corrected Icon import
+// Import specific icon from polaris-icons
+import { SearchMajor } from '@shopify/polaris-icons'; // Corrected Icon import
 import { useState, useMemo, useCallback } from "react";
 import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
@@ -11,6 +12,7 @@ import { authenticate } from "~/shopify.server";
 import { ProductModal } from "~/components/ProductModal";
 import { CustomBadge } from "~/components/common/Badge"; // Import CustomBadge
 import type { CustomStatus } from "~/components/common/Badge"; // Import CustomStatus type
+import { calculateProductMetrics } from "~/services/product.service"; // Import calculateProductMetrics
 
 // Define types for data structure
 interface ProductVariantForModal {
@@ -49,7 +51,7 @@ const mapProductStatusToBadgeCustomStatus = (prismaStatus: string | null): Custo
     case "healthy": return "positive";
     case "low": return "warning";
     case "critical": return "critical";
-    case "active": return "positive";
+    case "active": return "positive"; // Assuming 'active' is a healthy state
     default: return "default";
   }
 };
@@ -66,13 +68,33 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       include: {
         variants: { // Ensure variants are included for inventory, price, SKU, and modal
           orderBy: { createdAt: 'asc' }, // Consistent variant ordering
-        }
+        },
+        // Include NotificationSettings to get thresholds for status calculation if needed here
+        shop: { include: { NotificationSettings: true } }
       }
     });
 
     const productsForTable = productsFromDB.map(p => {
       const totalInventory = p.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
       const firstVariant = p.variants?.[0];
+
+      // Re-calculate status and stockoutDays here for display consistency with current settings
+      // This might be redundant if product.service.ts keeps these fields perfectly updated,
+      // but ensures the table reflects the current settings if they change.
+      const notificationSetting = p.shop.NotificationSettings?.[0];
+      const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? p.shop.lowStockThreshold ?? 10;
+      const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+      const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
+
+      const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
+
+      // Pass product with variants structure expected by calculateProductMetrics
+      const productWithVariantsForCalc = {
+        ...p, // Includes salesVelocityFloat, status, stockoutDays, trending from DB
+        variants: p.variants.map(v => ({ inventoryQuantity: v.inventoryQuantity || 0})),
+      };
+
+      const calculatedMetrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);
 
       return {
         id: p.id,
@@ -82,9 +104,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         price: firstVariant?.price?.toString() ?? '0.00',
         sku: firstVariant?.sku ?? 'N/A',
         inventory: totalInventory,
-        salesVelocity: p.salesVelocityFloat, // Already a number or null
-        stockoutDays: p.stockoutDays,     // Already a number or null
-        status: p.status, // Direct from schema
+        salesVelocity: p.salesVelocityFloat, // Use value from DB, updated by sync/cron
+        stockoutDays: p.stockoutDays,     // Use value from DB, updated by sync/cron
+        status: p.status, // Use value from DB, updated by sync/cron
         variantsForModal: p.variants.map(v => ({
           id: v.id,
           shopifyVariantId: v.shopifyId ?? '',
@@ -113,7 +135,7 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Response>
   const intent = formData.get("intent");
 
   if (intent === 'updateInventory') {
-    const variantId = formData.get("variantId") as string;
+    const variantId = formData.get("variantId") as string; // This is the Prisma Variant ID
     const newQuantityStr = formData.get("newQuantity") as string;
 
     if (!variantId || typeof variantId !== 'string' || variantId.trim() === "") {
@@ -128,65 +150,147 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Response>
     }
 
     try {
-      const updatedVariant = await prisma.variant.update({
-        where: { id: variantId }, // Assuming Prisma Variant ID is used
-        data: { inventoryQuantity: newQuantity },
+      // Find the variant to get its product ID and inventoryItemId
+      const variantToUpdate = await prisma.variant.findUnique({
+        where: { id: variantId },
+        select: { id: true, productId: true, inventoryItemId: true }
       });
 
-      if (updatedVariant && updatedVariant.productId) {
+      if (!variantToUpdate) {
+         return json({ error: "Variant not found." }, { status: 404 });
+      }
+      if (!variantToUpdate.inventoryItemId) {
+         return json({ error: "Variant is not linked to a Shopify Inventory Item. Cannot update in Shopify." }, { status: 400 });
+      }
+
+      // Find a warehouse linked to a Shopify Location for this product/variant
+      // This assumes inventory is managed per location. The modal currently updates a single variant's quantity.
+      // A more robust approach would be to select a warehouse in the modal.
+      // For now, let's find *any* inventory record for this product and use its warehouse's Shopify Location GID.
+      // This is a simplification; a real app needs location selection in the UI.
+      const inventoryRecord = await prisma.inventory.findFirst({
+          where: { productId: variantToUpdate.productId },
+          include: { warehouse: { select: { shopifyLocationGid: true } } }
+      });
+
+      if (!inventoryRecord?.warehouse?.shopifyLocationGid) {
+          return json({ error: "No linked Shopify Location found for this product's inventory. Cannot update in Shopify." }, { status: 400 });
+      }
+
+      // Call Shopify API to update inventory quantity at the found location
+      const { admin } = await authenticate.admin(request);
+      const response = await admin.graphql(
+        `#graphql
+        mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
+          inventorySetQuantities(input: $input) {
+            inventoryAdjustmentGroup { id }
+            userErrors { field message }
+          }
+        }`,
+        {
+          variables: {
+            input: {
+              changes: [{
+                inventoryItemId: variantToUpdate.inventoryItemId,
+                locationId: inventoryRecord.warehouse.shopifyLocationGid,
+                quantity: newQuantity
+              }],
+              reason: "inventory_update_from_app",
+              setQuantitiesOperationId: `inv-update-${variantId}-${Date.now()}` // Unique ID
+            }
+          }
+        }
+      );
+
+      const responseData = await response.json() as any; // Use any for complex response
+
+      if (responseData.errors && responseData.errors.length > 0) {
+        console.error("GraphQL execution errors on inventorySetQuantities:", responseData.errors);
+        return json({ error: `Shopify API error: ${responseData.errors[0].message}` }, { status: 500 });
+      }
+
+      const inventoryData = responseData.data?.inventorySetQuantities;
+      if (inventoryData && inventoryData.userErrors && inventoryData.userErrors.length > 0) {
+        const userErrors = inventoryData.userErrors.map((e: any) => ({
+          message: e.message,
+          field: Array.isArray(e.field) ? e.field : (e.field ? [e.field] : null)
+        }));
+        console.error("UserErrors on inventorySetQuantities:", userErrors);
+        return json({
+          error: `Shopify rejected update: ${userErrors[0]?.message || 'Unknown user error.'}`,
+          userErrors: userErrors
+        }, { status: 400 });
+      }
+
+      if (inventoryData && inventoryData.inventoryAdjustmentGroup?.id) {
+        console.log("Successfully updated inventory in Shopify for variant:", variantToUpdate.id);
+
+        // Update local Prisma DB for the specific variant and potentially the related Inventory record
+        // Note: Updating the Variant's inventoryQuantity directly might not be the best approach
+        // if inventory is managed per location in the Inventory table.
+        // A better approach is to update the specific Inventory record for the product+warehouse.
+        // However, the modal only provides variantId and newQuantity, not warehouseId.
+        // Let's update the Variant's total quantity for simplicity based on the modal's current design,
+        // but acknowledge this might need refinement if multi-location inventory is fully supported.
+         await prisma.variant.update({
+           where: { id: variantToUpdate.id },
+           data: { inventoryQuantity: newQuantity },
+         });
+
+        // Re-calculate and update product metrics after inventory change
         const productToUpdate = await prisma.product.findUnique({
-          where: { id: updatedVariant.productId },
-          include: { variants: { select: { inventoryQuantity: true, price: true, sku: true, id: true, shopifyId: true, title: true, inventoryItemId: true } } } // Ensure all needed fields for ProductWithVariants + salesVelocityFloat
+          where: { id: variantToUpdate.productId },
+          include: {
+            variants: { select: { inventoryQuantity: true } }, // Need all variants for total inventory
+            shop: { include: { NotificationSettings: true } } // Need shop settings for thresholds
+          }
         });
 
         if (productToUpdate) {
-          // product.service.ts is now more critical with the schema changes.
-          // Assuming calculateProductMetrics and updateAllProductMetricsForShop are adapted or this logic is brought here.
-          // For now, we'll assume a simplified update or that product.service.ts will be reviewed in a later step.
-          // The user's schema has salesVelocityFloat, stockoutDays, status, trending on Product.
-          // These should ideally be updated by a dedicated service (like product.service.ts)
-          // For the action, just updating the variant is the primary goal.
-          // A full metrics recalc might be too heavy here or better done by a background job / webhook.
-          // However, the original code DID try to update them. Let's try to keep that.
+           const notificationSetting = productToUpdate.shop.NotificationSettings?.[0];
+           const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
+           const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+           const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
+           const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
 
-          const { calculateProductMetrics } = await import("~/services/product.service"); // product.service.ts will need to be compatible.
+           const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
 
-          // Construct ProductWithVariants compatible object for calculateProductMetrics
-          const productWithVariantsForCalc = {
-            ...productToUpdate,
-            // salesVelocityFloat is on productToUpdate directly from schema
-            variants: productToUpdate.variants.map(v => ({ inventoryQuantity: v.inventoryQuantity || 0})),
-          };
+           const productWithVariantsForCalc = {
+             ...productToUpdate,
+             variants: productToUpdate.variants.map(v => ({ inventoryQuantity: v.inventoryQuantity || 0})),
+           };
 
-          // shopSettings for calculateProductMetrics
-          const shopSettings = {
-            lowStockThresholdUnits: shopRecord.lowStockThreshold ?? 10,
-            criticalStockThresholdUnits: shopRecord.notificationSettings?.[0]?.criticalStockThresholdUnits ?? Math.min(5, Math.floor((shopRecord.lowStockThreshold ?? 10) * 0.3)),
-            criticalStockoutDays: shopRecord.notificationSettings?.[0]?.criticalStockoutDays ?? 3,
-          };
+           const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);
+           const trending = (productToUpdate.salesVelocityFloat ?? 0) > salesVelocityThresholdForTrending;
 
-          const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettings);
-
-          const salesVelocityThresholdForTrending = shopRecord.notificationSettings?.[0]?.salesVelocityThreshold ?? 50;
-          const trending = (productToUpdate.salesVelocityFloat ?? 0) > salesVelocityThresholdForTrending;
-
-          await prisma.product.update({
-            where: { id: productToUpdate.id },
-            data: {
-              stockoutDays: metrics.stockoutDays,
-              status: metrics.status,
-              trending: trending,
-            },
-          });
+           await prisma.product.update({
+             where: { id: productToUpdate.id },
+             data: {
+               stockoutDays: metrics.stockoutDays,
+               status: metrics.status,
+               trending: trending,
+             },
+           });
         }
+
+
+        return json({
+          success: true,
+          message: "Inventory updated successfully in Shopify and local database.",
+          inventoryAdjustmentGroupId: inventoryData.inventoryAdjustmentGroup.id
+        });
       }
-      return json({ success: true, updatedVariant });
+
+      console.warn("Inventory update via Shopify completed, but no clear success/error state:", responseData);
+      return json({ error: "Inventory update response from Shopify was inconclusive." }, { status: 200 });
+
     } catch (e: unknown) {
       console.error("Failed to update inventory:", e);
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
-        return json({ error: "Variant not found. Failed to update inventory." }, { status: 404 });
+        return json({ error: "Variant not found in local database. Failed to update inventory." }, { status: 404 });
       }
-      return json({ error: "Failed to update inventory due to a server error." }, { status: 500 });
+      const message = e instanceof Error ? e.message : "Failed to update inventory due to a server error.";
+      return json({ error: message }, { status: 500 });
     }
   }
   return json({ error: "Invalid intent." }, { status: 400 });
@@ -197,7 +301,7 @@ export default function AppProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<ProductForTable | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   // Sort state from user's example - good addition
-  const [sortColumn, setSortColumn] = useState<keyof ProductForTable | 'vendor' | 'sku' | 'price' | 'inventory' | 'salesVelocity' | 'stockoutDays' | null>('title');
+  const [sortColumn, setSortColumn] = useState<keyof ProductForTable | null>('title'); // Use keyof ProductForTable
   const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('ascending');
 
   const navigate = useNavigate(); // For opening product in Shopify admin
@@ -215,18 +319,27 @@ export default function AppProductsPage() {
     }
     if (sortColumn) {
       result.sort((a, b) => {
-        const aValue = a[sortColumn as keyof ProductForTable]; // Type assertion
-        const bValue = b[sortColumn as keyof ProductForTable];
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
         let comparison = 0;
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          comparison = (aValue ?? 0) - (bValue ?? 0);
+
+        // Handle null/undefined for numeric/string comparisons
+        const aIsNull = aValue === null || aValue === undefined;
+        const bIsNull = bValue === null || bValue === undefined;
+
+        if (aIsNull && bIsNull) comparison = 0;
+        else if (aIsNull) comparison = -1; // Nulls come first in ascending
+        else if (bIsNull) comparison = 1;  // Nulls come first in ascending
+        else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue;
         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
           comparison = aValue.localeCompare(bValue);
-        } else if (aValue === null || aValue === undefined) {
-          comparison = -1; // nulls/undefined first
-        } else if (bValue === null || bValue === undefined) {
-          comparison = 1;  // nulls/undefined first
+        } else {
+            // Fallback for other types or mixed types, treat as strings
+             comparison = String(aValue).localeCompare(String(bValue));
         }
+
+
         return sortDirection === 'ascending' ? comparison : -comparison;
       });
     }
@@ -237,7 +350,8 @@ export default function AppProductsPage() {
 
   const handleSort = useCallback(
     (headingIndex: number, direction: 'ascending' | 'descending') => {
-      const columns: (keyof ProductForTable | 'vendor' | 'sku' | 'price' | 'inventory' | 'salesVelocity' | 'stockoutDays')[] =
+      // Map heading index back to sortable column key
+      const columns: (keyof ProductForTable)[] =
         ['title', 'vendor', 'sku', 'price', 'inventory', 'salesVelocity', 'stockoutDays', 'status'];
       setSortColumn(columns[headingIndex]);
       setSortDirection(direction);
@@ -246,14 +360,14 @@ export default function AppProductsPage() {
   );
 
   const headings: IndexTableProps['headings'] = [
-    { title: 'Product', id: 'title' },
-    { title: 'Vendor', id: 'vendor' },
-    { title: 'SKU', id: 'sku'},
-    { title: 'Price', id: 'price', numeric: true },
-    { title: 'Inventory', id: 'inventory', numeric: true },
-    { title: 'Sales Velocity (day)', id: 'salesVelocity', numeric: true },
-    { title: 'Stockout (days)', id: 'stockoutDays', numeric: true },
-    { title: 'Status', id: 'status' },
+    { title: 'Product', id: 'title', sortable: true },
+    { title: 'Vendor', id: 'vendor', sortable: true },
+    { title: 'SKU', id: 'sku', sortable: true},
+    { title: 'Price', id: 'price', numeric: true, sortable: true },
+    { title: 'Inventory', id: 'inventory', numeric: true, sortable: true },
+    { title: 'Sales Velocity (day)', id: 'salesVelocity', numeric: true, sortable: true },
+    { title: 'Stockout (days)', id: 'stockoutDays', numeric: true, sortable: true },
+    { title: 'Status', id: 'status', sortable: true },
   ];
 
   const rowMarkup = filteredAndSortedProducts.map(
@@ -313,7 +427,7 @@ export default function AppProductsPage() {
           labelHidden
           value={searchTerm}
           onChange={handleSearchChange}
-          prefix={<Icon source={SearchIcon} />} // Corrected Icon usage
+          prefix={<Icon source={SearchMajor} />} // Corrected Icon usage
           placeholder="Search by product title, vendor, or SKU"
           autoComplete="off"
         />
@@ -342,7 +456,7 @@ export default function AppProductsPage() {
           open={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           product={selectedProduct} // selectedProduct is ProductForTable
-          shopDomain={shopDomain}
+          // shopDomain={shopDomain} // shopDomain is not used by ProductModal
         />
       )}
     </Page>

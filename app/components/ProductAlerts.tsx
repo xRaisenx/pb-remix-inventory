@@ -3,35 +3,19 @@ import { Banner, BlockStack, Button, Text } from '@shopify/polaris';
 import { useFetcher } from '@remix-run/react';
 import React, { useEffect } from 'react';
 import type { DashboardAlertProduct } from '~/types'; // Import the centralized type
-import polaris from '@shopify/polaris';
-
 // [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
 // import polaris from '@shopify/polaris';
 // const { useToast } = polaris as typeof import('@shopify/polaris');
 
-// interface AlertProduct { // Remove local definition
-//   id: string;
-//   title: string;
-//   inventory?: number;
-//   status?: string | null;
-//   salesVelocityFloat?: number | null;
-//   stockoutDays?: number | null;
-// }
 
 interface ProductAlertsProps {
   lowStockProducts: DashboardAlertProduct[];
   highSalesTrendProducts: DashboardAlertProduct[];
 }
 
-// import polaris from '@shopify/polaris';
-// const { useToast } = polaris;
-// For TypeScript, you may need to cast the import as any if types are missing:
-// import polaris from '@shopify/polaris';
-// const { useToast } = polaris as any;
-
 export const ProductAlerts: React.FC<ProductAlertsProps> = ({ lowStockProducts, highSalesTrendProducts }) => {
   const fetcher = useFetcher();
-  // const { show: showToast } = useToast();
+  // const { show: showToast } = useToast(); // Commented out as per original code
 
   const handleSendNotification = (
     productId: string,
@@ -101,7 +85,7 @@ export const ProductAlerts: React.FC<ProductAlertsProps> = ({ lowStockProducts, 
           }}
           // onDismiss={() => {}}
         >
-          <p>Sales velocity: {product.salesVelocityFloat?.toFixed(2)} units/day. Estimated stockout in {product.stockoutDays?.toFixed(0)} days.</p>
+          <p>Sales velocity: {product.salesVelocityFloat?.toFixed(2)} units/day. Estimated stockout in ${product.stockoutDays?.toFixed(0)} days.</p>
         </Banner>
       ))}
       {(lowStockProducts.length === 0 && highSalesTrendProducts.length === 0) && (
