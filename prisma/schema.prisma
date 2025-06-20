@@ -18,8 +18,11 @@ model Session {
   expires     DateTime?
   accessToken String
   userId      BigInt?
+  shopId      String?   // Foreign key to Shop model's ID
+  shopRecord  Shop?     @relation("ShopSessions", fields: [shopId], references: [id])
 
   @@index([shop]) // Index on shop domain
+  @@index([shopId]) // Index for the foreign key
 }
 
 model Shop {
@@ -38,6 +41,7 @@ model Shop {
   NotificationSettings        NotificationSetting[]
   warehouses                  Warehouse[] // Link shops to warehouses
   notificationLogs            NotificationLog[] // Relation to NotificationLog
+  sessions                    Session[]               @relation("ShopSessions") // Relation to Sessions
 }
 
 model NotificationSetting {
@@ -105,6 +109,7 @@ model Variant {
   product           Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, shopifyId]) // Unique constraint on product and shopify variant ID
+  @@unique([productId, sku])      // Unique constraint on product and SKU (SKU can be null)
   @@index([productId])
   @@index([shopifyId]) // Index on shopifyId for faster lookups
 }
