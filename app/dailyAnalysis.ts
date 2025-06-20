@@ -1,7 +1,7 @@
 // app/dailyAnalysis.ts
 
 import prisma from "./db.server";
-import { shopifyApi, ApiVersion, GraphqlQueryError } from '@shopify/shopify-api';
+import { shopifyApi, ApiVersion, GraphqlQueryError, Session } from '@shopify/shopify-api'; // Added Session import
 
 // Define interfaces for better type safety with Shopify's GraphQL API responses
 interface ShopifyProductNode {
@@ -68,14 +68,20 @@ export async function syncShopifyProductsForShop(
       hostName: new URL(process.env.SHOPIFY_APP_URL!).hostname,
     });
 
+    // Construct a Session object as required by shopify.clients.Graphql
+    const sessionForGraphQL: Session = new Session({
+      id: `sync_session_offline_${shopDomain}`, // Or a more robust unique ID
+      shop: shopDomain,
+      state: "active_placeholder_state", // Needs a string state
+      isOnline: false,
+      accessToken: accessToken, // This is the shop's offline token
+      // scope: "read_products", // Optional: specify scopes if needed for validation, though client uses what token has
+      // expires: undefined, // Offline tokens typically don't expire in the same way
+      // userId: undefined, // Not typically used for offline admin access
+    });
+
     const adminApiClient = new shopify.clients.Graphql({
-      session: {
-        id: `sync_session_offline_${shopDomain}`, // Unique ID for this sync operation's session
-        shop: shopDomain,
-        accessToken: accessToken,
-        isOnline: false, // Offline token typically used for background jobs
-        state: "active", // Mock state, not strictly necessary for offline client
-      },
+      session: sessionForGraphQL,
     });
 
     let allShopifyProducts: ShopifyProductNode[] = [];
@@ -104,7 +110,7 @@ export async function syncShopifyProductsForShop(
           }
         }`;
 
-      const variables = { limit: productQueryLimit, cursor: endCursor };
+      const variables: { limit: number; cursor: string | null } = { limit: productQueryLimit, cursor: endCursor };
 
       try {
         // Perform the GraphQL query to Shopify

@@ -107,8 +107,9 @@ export async function getAiChatResponse(userQuery: string, shopId: string): Prom
     return { type: 'error', message: "Could not retrieve your shop information. Please try again." };
   }
 
-  const lowStockThreshold = shop.notificationSettings?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
-  const criticalStockThreshold = shop.notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+  const notificationSettings = shop.NotificationSettings?.[0];
+  const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
+  const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 
 
   const genAI = new GoogleGenerativeAI(geminiApiKey);

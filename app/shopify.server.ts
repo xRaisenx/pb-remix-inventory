@@ -58,10 +58,11 @@ export async function getProductById(request: Request, productId: string): Promi
   });
 
   // Sensible defaults for thresholds, similar to product.service.ts
-  const lowStockThresholdUnits = shopData?.notificationSettings?.lowStockThreshold ?? shopData?.lowStockThreshold ?? 10;
-  const criticalStockThresholdUnits = shopData?.notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
-  const criticalStockoutDays = shopData?.notificationSettings?.criticalStockoutDays ?? 3;
-  const salesVelocityThresholdForTrending = shopData?.notificationSettings?.salesVelocityThreshold ?? 50;
+  const notificationSettings = shopData?.NotificationSettings?.[0];
+  const lowStockThresholdUnits = notificationSettings?.lowStockThreshold ?? shopData?.lowStockThreshold ?? 10;
+  const criticalStockThresholdUnits = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+  const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
+  const salesVelocityThresholdForTrending = notificationSettings?.salesVelocityThreshold ?? 50;
 
   const response = await admin.graphql(
     `#graphql

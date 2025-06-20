@@ -137,7 +137,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const products = await prisma.product.findMany({
       where: { shopId: shop.id },
-      include: {
+      select: {
+        id: true, // Needed for any keying if done client side, good practice
+        title: true,
+        vendor: true, // Added vendor to select
+        status: true,
+        category: true,
+        trending: true,
+        stockoutDays: true,
+        salesVelocityFloat: true,
+        lastRestockedDate: true,
         variants: {
           select: {
             sku: true,
@@ -229,7 +238,7 @@ export default function AppReportsPage() {
           <BlockStack gap="400">
             <Text as="h2" variant="headingLg">Visual Inventory Summaries</Text>
             {error && (
-              <Text color="critical">Error loading visual summaries: {error}</Text>
+              <Text tone="critical">Error loading visual summaries: {error}</Text>
             )}
             {!error && visualSummary && (
               <BlockStack gap="300">
@@ -248,7 +257,7 @@ export default function AppReportsPage() {
                         <Text key={p.title} as="p">  - {p.title} (Velocity: {p.salesVelocityFloat?.toFixed(1) ?? 'N/A'})</Text>
                       ))}
                     </BlockStack>
-                  ) : <Text as="p" color="subdued">No trending products identified.</Text>}
+                  ) : <Text as="p" tone="subdued">No trending products identified.</Text>}
                 </div>
 
                 <div>
@@ -259,7 +268,7 @@ export default function AppReportsPage() {
                         <Text key={cat.category} as="p">  - {cat.category}: {cat.totalQuantity.toLocaleString()} units</Text>
                       ))}
                     </BlockStack>
-                  ) : <Text as="p" color="subdued">No category data available.</Text>}
+                  ) : <Text as="p" tone="subdued">No category data available.</Text>}
                 </div>
               </BlockStack>
             )}

@@ -1,8 +1,35 @@
-import { type AdminAppMetafield, type AdminAppMetafields, type AdminAppMetafieldResource } from '@shopify/shopify-app-remix/server';
 import shopify from '~/shopify.server';
 import prisma from '~/db.server';
-import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, InventoryLevel as ShopifyInventoryLevel, Location as ShopifyLocation } from '@shopify/graphql-admin-api/2025-04'; // Adjust API version if needed
+import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, InventoryLevel as ShopifyInventoryLevel, Location as ShopifyLocation } from '@shopify/graphql-admin-api/2024-04'; // Updated API version
 import { updateAllProductMetricsForShop } from './product.service'; // Adjust path if needed
+
+// Define interfaces for GraphQL responses if not already fully covered by imported types
+interface ShopifyLocationNode {
+  id: string;
+  name: string;
+}
+
+interface ShopifyLocationsEdge {
+  node: ShopifyLocationNode;
+}
+
+interface ShopifyLocationsPageInfo {
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+interface ShopifyLocationsData {
+  locations: {
+    edges: ShopifyLocationsEdge[];
+    pageInfo: ShopifyLocationsPageInfo;
+  };
+}
+
+interface GraphQLResponse<T> {
+  data: T;
+  errors?: Array<{ message: string; extensions?: { code?: string }; [key: string]: any }>;
+}
+
 
 // Helper function to get shop ID
 async function getShopId(shopDomain: string): Promise<string> {
@@ -42,11 +69,12 @@ interface TransformedInventory {
 }
 
 // Function to fetch all locations and ensure they exist in Prisma, returning a map
+// Using 'any' for admin client type for now, can be refined with specific Shopify client types if available globally
 async function getOrSyncLocations(admin: any, shopId: string): Promise<Map<string, string>> {
   const locationsMap = new Map<string, string>(); // ShopifyLocationGid -> Prisma Warehouse ID
   let hasNextPage = true;
-  let cursor = null;
-  const locations: ShopifyLocation[] = [];
+  let cursor: string | null = null;
+  const locations: ShopifyLocationNode[] = [];
 
   while (hasNextPage) {
     const response = await admin.graphql(
@@ -67,10 +95,20 @@ async function getOrSyncLocations(admin: any, shopId: string): Promise<Map<strin
       }`,
       { variables: { cursor } }
     );
-    const result = await response.json();
-    locations.push(...result.data.locations.edges.map((edge: any) => edge.node));
-    hasNextPage = result.data.locations.pageInfo.hasNextPage;
-    cursor = result.data.locations.pageInfo.endCursor;
+    const resultBody = await response.json() as GraphQLResponse<ShopifyLocationsData>;
+
+    if (resultBody.errors) {
+      console.error("Error fetching locations:", resultBody.errors);
+      throw new Error("Failed to fetch locations from Shopify.");
+    }
+    if (!resultBody.data || !resultBody.data.locations) {
+        console.warn("No location data returned from Shopify or unexpected structure.");
+        break;
+    }
+
+    locations.push(...resultBody.data.locations.edges.map((edge: ShopifyLocationsEdge) => edge.node));
+    hasNextPage = resultBody.data.locations.pageInfo.hasNextPage;
+    cursor = resultBody.data.locations.pageInfo.endCursor;
   }
 
   for (const loc of locations) {
@@ -147,10 +185,20 @@ export async function syncProductsAndInventory(shopDomain: string) {
       { variables: { cursor } }
     );
 
-    const result = await response.json();
-    const products = result.data.products.edges.map((edge: any) => edge.node);
+    const resultBody = await response.json(); // Keep this as any for now due to complex nested structure of product query
+    if (resultBody.errors) {
+        console.error("Error fetching products:", resultBody.errors);
+        throw new Error("Failed to fetch products from Shopify.");
+    }
+    if (!resultBody.data || !resultBody.data.products || !resultBody.data.products.edges) {
+        console.warn("No product data returned from Shopify or unexpected structure.");
+        hasNextPage = false; // Stop if no data
+        continue;
+    }
 
-    for (const shopifyProduct of products as ShopifyProduct[]) {
+    const products = resultBody.data.products.edges.map((edge: { node: ShopifyProduct }) => edge.node);
+
+    for (const shopifyProduct of products) { // Type is now inferred from the map
       const productData: TransformedProduct = {
         shopifyId: shopifyProduct.id,
         title: shopifyProduct.title,
@@ -170,8 +218,8 @@ export async function syncProductsAndInventory(shopDomain: string) {
       });
 
       if (shopifyProduct.variants && shopifyProduct.variants.edges) {
-        for (const variantEdge of shopifyProduct.variants.edges) {
-          const shopifyVariant = variantEdge.node as ShopifyVariant;
+        for (const variantEdge of shopifyProduct.variants.edges) { // variantEdge is implicitly any here
+          const shopifyVariant = variantEdge.node as ShopifyVariant; // Assert type for shopifyVariant
           const variantData: TransformedVariant = {
             shopifyId: shopifyVariant.id,
             sku: shopifyVariant.sku || undefined,
@@ -188,8 +236,8 @@ export async function syncProductsAndInventory(shopDomain: string) {
 
           // Sync inventory levels for this variant
           if (shopifyVariant.inventoryItem?.inventoryLevels?.edges) {
-            for (const levelEdge of shopifyVariant.inventoryItem.inventoryLevels.edges) {
-              const invLevel = levelEdge.node as ShopifyInventoryLevel & { location: { id: string }};
+            for (const levelEdge of shopifyVariant.inventoryItem.inventoryLevels.edges) { // levelEdge is implicitly any
+              const invLevel = levelEdge.node as ShopifyInventoryLevel & { location: { id: string }}; // Assert type for invLevel
               const warehouseId = locationsMap.get(invLevel.location.id);
               if (warehouseId) {
                 await prisma.inventory.upsert({

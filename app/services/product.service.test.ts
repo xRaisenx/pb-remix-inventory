@@ -16,12 +16,32 @@ vi.mock('~/db.server', () => ({ // Adjusted path for mocking
   },
 }));
 
-// Helper type for product input to calculateProductMetrics
-type ProductInput = Omit<PrismaProduct, 'createdAt' | 'updatedAt' | 'shopId' | 'shopifyId' | 'inventoryAlertSentAt' | 'stockoutAlertSentAt' | 'productType' | 'tags' | 'status' | 'stockoutDays' | 'trending' | 'salesVelocityThreshold'> & {
+// Helper type for product input to calculateProductMetrics - aligning with ProductWithVariantsAndSalesVelocity from service
+// This type needs to represent a complete Prisma Product object, with 'variants' added/overridden.
+type ProductInputForTest = PrismaProduct & {
     variants: Pick<PrismaVariant, 'inventoryQuantity'>[];
-    salesVelocityFloat: number | null;
+    // salesVelocityFloat is already part of PrismaProduct
 };
 
+// Default values for a mock product to ensure all fields are present
+const baseMockProduct: Omit<PrismaProduct, 'id' | 'title' | 'salesVelocityFloat'> = {
+  shopifyId: 'gid://shopify/Product/0',
+  vendor: 'Mock Vendor',
+  productType: 'Test Type',
+  status: 'active',
+  trending: false,
+  stockoutDays: null,
+  lastRestockedDate: null,
+  category: null,
+  tags: [],
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  shopId: 'shop_0',
+  // Fields from old schema that might have been omitted by ProductInput, ensure they are not causing issues
+  // inventoryAlertSentAt: null, // Example if these were part of your old ProductInput's Omit
+  // stockoutAlertSentAt: null,  // Example
+  // salesVelocityThreshold: null, // Example
+};
 
 describe('calculateProductMetrics', () => {
   const defaultShopSettings = {
@@ -31,7 +51,8 @@ describe('calculateProductMetrics', () => {
   };
 
   it('should calculate Healthy status for product with ample stock and good sales velocity', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prod1',
       title: 'Test Product 1',
       salesVelocityFloat: 10, // sells 10 units/day
@@ -47,7 +68,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should calculate Low status based on lowStockThresholdUnits', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prod2',
       title: 'Test Product 2',
       salesVelocityFloat: 5,
@@ -65,7 +87,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should calculate Critical status based on criticalStockThresholdUnits', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prod3',
       title: 'Test Product 3',
       salesVelocityFloat: 5,
@@ -80,7 +103,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should calculate Critical status based on criticalStockoutDays', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prod4',
       title: 'Test Product 4',
       salesVelocityFloat: 10,
@@ -131,7 +155,8 @@ describe('calculateProductMetrics', () => {
     // The `getProductById` has the same logic.
     // This specific test case might be redundant if the unit-based one covers it.
     // Let's ensure it becomes 'Low' when inventory is just at the threshold.
-    const productLowByUnits: ProductInput = {
+    const productLowByUnits: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodLowUnit', title: 'Test Low Unit', salesVelocityFloat: 1, variants: [{ inventoryQuantity: 10 }],
     };
     const metricsLow = calculateProductMetrics(productLowByUnits, defaultShopSettings);
@@ -139,7 +164,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should return stockoutDays as Infinity if salesVelocity is 0 and inventory > 0', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodInf', title: 'Test Product Inf', salesVelocityFloat: 0, variants: [{ inventoryQuantity: 50 }],
     };
     const metrics = calculateProductMetrics(product, defaultShopSettings);
@@ -148,7 +174,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should return stockoutDays as 0 if inventory is 0', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodZeroInv', title: 'Test Product Zero Inv', salesVelocityFloat: 10, variants: [{ inventoryQuantity: 0 }],
     };
     const metrics = calculateProductMetrics(product, defaultShopSettings);
@@ -156,7 +183,8 @@ describe('calculateProductMetrics', () => {
     expect(metrics.status).toBe('Critical'); // Inventory 0 is critical
   });
    it('should return stockoutDays as 0 if salesVelocity is null and inventory is 0', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodNullSVZeroInv', title: 'Test Product Null SV Zero Inv', salesVelocityFloat: null, variants: [{ inventoryQuantity: 0 }],
     };
     const metrics = calculateProductMetrics(product, defaultShopSettings);
@@ -165,7 +193,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should handle criticalStockThresholdUnits from shopSettings (e.g. different from default)', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodCritCustom', title: 'Test Crit Custom', salesVelocityFloat: 1, variants: [{ inventoryQuantity: 8 }],
     };
     const customSettings = { ...defaultShopSettings, criticalStockThresholdUnits: 9 }; // Crit if <= 9
@@ -174,7 +203,8 @@ describe('calculateProductMetrics', () => {
   });
 
    it('should handle criticalStockoutDays from shopSettings (e.g. different from default)', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodCritDaysCustom', title: 'Test Crit Days Custom', salesVelocityFloat: 10, variants: [{ inventoryQuantity: 50 }], // stockout = 5 days
     };
     const customSettings = { ...defaultShopSettings, criticalStockoutDays: 6 }; // Crit if stockout <= 6 days
@@ -183,7 +213,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('should correctly sum inventory from multiple variants', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodMultiVar', title: 'Test Multi Variant', salesVelocityFloat: 1,
       variants: [{ inventoryQuantity: 5 }, { inventoryQuantity: 3 }, { inventoryQuantity: 20 }], // Total = 28
     };
@@ -195,7 +226,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('override: inventory 0 is Critical, even if sales velocity is 0', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodZeroInvZeroSV', title: 'Test Zero Inv Zero SV', salesVelocityFloat: 0, variants: [{ inventoryQuantity: 0 }],
     };
     const metrics = calculateProductMetrics(product, defaultShopSettings);
@@ -203,7 +235,8 @@ describe('calculateProductMetrics', () => {
   });
 
   it('override: inventory 0 is Critical, even if sales velocity is null', () => {
-    const product: ProductInput = {
+    const product: ProductInputForTest = {
+      ...baseMockProduct,
       id: 'prodZeroInvNullSV', title: 'Test Zero Inv Null SV', salesVelocityFloat: null, variants: [{ inventoryQuantity: 0 }],
     };
     const metrics = calculateProductMetrics(product, defaultShopSettings);
@@ -218,23 +251,26 @@ describe('updateAllProductMetricsForShop', () => {
   });
 
   const mockShopId = 'shop-id-123';
-  const mockShopData: Partial<PrismaShop & { notificationSettings: Partial<PrismaNotificationSettings> | null }> = {
+  // Aligning mockShopData with the updated Prisma schema for Shop and NotificationSetting[]
+  const mockShopData: Partial<PrismaShop & { NotificationSettings: Array<Partial<PrismaNotificationSettings>> }> = {
     id: mockShopId,
     shop: 'test.myshopify.com',
-    lowStockThreshold: 10,
-    notificationSettings: {
-      lowStockThreshold: 15, // Override shop default
+    lowStockThreshold: 10, // Shop-level default
+    NotificationSettings: [{ // Array of settings
+      lowStockThreshold: 15, // Override shop default from settings
       criticalStockThresholdUnits: 7,
       criticalStockoutDays: 2,
       salesVelocityThreshold: 50,
-    },
+      // Add other required fields for PrismaNotificationSettings or make them optional in Partial<>
+      id: 'ns1', shopId: mockShopId, email: false, slack: false, telegram: false, mobilePush: false, frequency: 'daily', syncEnabled: false, createdAt: new Date(), updatedAt: new Date()
+    }],
   };
 
-  const mockProducts: (ProductInput & { shopId: string })[] = [
-    { id: 'p1', shopId: mockShopId, title: 'Product 1', salesVelocityFloat: 60, variants: [{ inventoryQuantity: 30 }] }, // Trending, Stockout 0.5 (Crit)
-    { id: 'p2', shopId: mockShopId, title: 'Product 2', salesVelocityFloat: 10, variants: [{ inventoryQuantity: 20 }] }, // Not Trending, Stockout 2 (Crit by days)
-    { id: 'p3', shopId: mockShopId, title: 'Product 3', salesVelocityFloat: null, variants: [{ inventoryQuantity: 100 }] },// Not Trending, Healthy
-    { id: 'p4', shopId: mockShopId, title: 'Product 4', salesVelocityFloat: 55, variants: [{ inventoryQuantity: 0 }] }, // Trending, Critical (zero inv)
+  const mockProducts: ProductInputForTest[] = [
+    { ...baseMockProduct, id: 'p1', shopId: mockShopId, title: 'Product 1', salesVelocityFloat: 60, variants: [{ inventoryQuantity: 30 }] }, // Trending, Stockout 0.5 (Crit)
+    { ...baseMockProduct, id: 'p2', shopId: mockShopId, title: 'Product 2', salesVelocityFloat: 10, variants: [{ inventoryQuantity: 20 }] }, // Not Trending, Stockout 2 (Crit by days)
+    { ...baseMockProduct, id: 'p3', shopId: mockShopId, title: 'Product 3', salesVelocityFloat: null, variants: [{ inventoryQuantity: 100 }] },// Not Trending, Healthy
+    { ...baseMockProduct, id: 'p4', shopId: mockShopId, title: 'Product 4', salesVelocityFloat: 55, variants: [{ inventoryQuantity: 0 }] }, // Trending, Critical (zero inv)
   ];
 
   it('should update product metrics and trending status correctly', async () => {
@@ -243,7 +279,7 @@ describe('updateAllProductMetricsForShop', () => {
 
     const result = await updateAllProductMetricsForShop(mockShopId);
 
-    expect(prisma.shop.findUnique).toHaveBeenCalledWith({ where: { id: mockShopId }, include: { notificationSettings: true } });
+    expect(prisma.shop.findUnique).toHaveBeenCalledWith({ where: { id: mockShopId }, include: { NotificationSettings: true } });
     expect(prisma.product.findMany).toHaveBeenCalledWith({ where: { shopId: mockShopId }, include: { variants: { select: { inventoryQuantity: true } } } });
     expect(prisma.product.update).toHaveBeenCalledTimes(mockProducts.length);
 
@@ -287,9 +323,9 @@ describe('updateAllProductMetricsForShop', () => {
     expect(result.updatedCount).toBe(mockProducts.length);
   });
 
-  it('should use shop-level thresholds if notificationSettings are null', async () => {
-    const shopDataWithoutNotifSettings = { ...mockShopData, notificationSettings: null };
-    (prisma.shop.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(shopDataWithoutNotifSettings);
+  it('should use shop-level thresholds if NotificationSettings array is empty or not present', async () => {
+    const shopDataWithoutNotifSettingsArray = { ...mockShopData, NotificationSettings: [] }; // Empty array
+    (prisma.shop.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(shopDataWithoutNotifSettingsArray);
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([mockProducts[0]]); // Test with one product
 
     await updateAllProductMetricsForShop(mockShopId);
@@ -305,8 +341,8 @@ describe('updateAllProductMetricsForShop', () => {
     }));
   });
 
-  it('should use default thresholds if shop and notificationSettings are missing specific values', async () => {
-    const minimalShopData = { id: mockShopId, shop: 'test.myshopify.com', lowStockThreshold: null, notificationSettings: null };
+  it('should use default thresholds if shop and NotificationSettings are missing specific values', async () => {
+    const minimalShopData: Partial<PrismaShop & { NotificationSettings: Array<Partial<PrismaNotificationSettings>> | null }> = { id: mockShopId, shop: 'test.myshopify.com', lowStockThreshold: null, NotificationSettings: null };
     (prisma.shop.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(minimalShopData);
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([mockProducts[0]]);
 
