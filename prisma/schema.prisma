@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl         = env("DIRECT_DATABASE_URL")
+  // directUrl         = env("DIRECT_DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
@@ -149,4 +149,19 @@ model DemandForecast {
   confidenceScore Float
   /// Timestamp of when the forecast record was created.
   createdAt       DateTime @default(now())
+}
+
+model NotificationLog {
+  id            String    @id @default(uuid())
+  shopId        String
+  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel       String // e.g., "Email", "Slack", "System"
+  recipient     String? // e.g., email address, Slack channel ID
+  message       String
+  status        String // e.g., "Sent", "Failed", "Simulated"
+  productId     String?
+  productTitle  String?
+  alertType     String? // e.g., "low_stock", "high_trend"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
