@@ -57,6 +57,7 @@ model Product {
   inventory   Inventory[]
   shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants    Variant[]
+  demandForecasts DemandForecast[]
 }
 
 model Warehouse {
@@ -131,4 +132,21 @@ model NotificationSettings {
   shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+}
+
+model DemandForecast {
+  /// Unique identifier for the forecast record.
+  id              String   @id @default(uuid())
+  /// The ID of the product this forecast pertains to.
+  productId       String
+  /// Relation to the Product model.
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// The predicted demand quantity.
+  predictedDemand Float
+  /// The forecast period in days (e.g., 7 for weekly, 30 for monthly).
+  periodDays      Int
+  /// A score indicating the confidence in the prediction (e.g., 0.0 to 1.0).
+  confidenceScore Float
+  /// Timestamp of when the forecast record was created.
+  createdAt       DateTime @default(now())
 }

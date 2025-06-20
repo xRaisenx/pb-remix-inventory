@@ -2,7 +2,7 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
-import { Page, Card, DataTable, Text, BlockStack, Spinner, Banner, Button } from "@shopify/polaris";
+import { Page, Card, DataTable, Text, BlockStack, Spinner, Button, useToast } from "@shopify/polaris"; // Removed Banner, Added useToast
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
 import type { ShopifyProduct } from "~/types"; // Import updated type
@@ -17,6 +17,19 @@ function hasUserErrors(data: any): boolean {
 function hasInventoryAdjustment(data: any): boolean {
   return !!data.inventoryAdjustment && !!data.inventoryAdjustment.id;
 }
+
+// Define ActionResponse type for fetcher.data
+interface InventoryActionResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  userErrors?: Array<{
+    field: string[] | null; // Based on current UserError mapping
+    message: string;
+  }>;
+  inventoryAdjustmentId?: string; // From successful update
+}
+
 
 // Define types for our inventory record
 interface InventoryRecord {
@@ -45,7 +58,12 @@ interface UpdateInventoryActionData {
   quantity: number;
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+/**
+ * Action function to handle inventory updates.
+ * It expects a `_action` field in the formData to determine the operation.
+ * Currently, it only supports "update_inventory_quantity".
+ */
+export const action = async ({ request }: ActionFunctionArgs): Promise<Response> => {
   const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const formAction = formData.get("_action") as string;
@@ -62,16 +80,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const newQuantity = parseInt(quantityStr, 10);
 
     if (!prismaInventoryId) {
-        return json({ error: "Local inventory record ID missing. Cannot sync." }, { status: 400 });
+        return json({ error: "Local inventory record ID missing. Cannot sync." } as InventoryActionResponse, { status: 400 });
     }
     if (isNaN(newQuantity) || newQuantity < 0) {
-        return json({ error: "Invalid quantity: must be a non-negative number." }, { status: 400 });
+        return json({ error: "Invalid quantity: must be a non-negative number." } as InventoryActionResponse, { status: 400 });
     }
     if (!inventoryItemId || !locationId) {
-        return json({ error: "Shopify Inventory Item ID or Location ID missing." }, { status: 400 });
+        return json({ error: "Shopify Inventory Item ID or Location ID missing." } as InventoryActionResponse, { status: 400 });
     }
     if (!inventoryItemId.startsWith("gid://shopify/InventoryItem/") || !locationId.startsWith("gid://shopify/Location/")) {
-        return json({ error: "Invalid Shopify Inventory Item ID or Location ID format." }, { status: 400 });
+        return json({ error: "Invalid Shopify Inventory Item ID or Location ID format." } as InventoryActionResponse, { status: 400 });
     }
 
     try {
@@ -106,20 +124,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       if (responseData.errors && responseData.errors.length > 0) {
         console.error("GraphQL execution errors on inventorySetQuantities:", responseData.errors);
-        return json({ error: `Shopify API error: ${responseData.errors[0].message}` }, { status: 500 });
+        return json({ error: `Shopify API error: ${responseData.errors[0].message}` } as InventoryActionResponse, { status: 500 });
       }
 
       const inventoryData = responseData.data?.inventorySetQuantities;
       if (inventoryData && hasUserErrors(inventoryData)) {
-        console.error("UserErrors on inventorySetQuantities:", inventoryData.userErrors);
-        // Map userErrors to match ActionResponseData type
+        const userErrors = (inventoryData.userErrors ?? []).map(e => ({
+          message: e.message,
+          field: Array.isArray(e.field) ? e.field : (e.field ? [e.field] : null) // Ensure field is string[] or null
+        }));
+        console.error("UserErrors on inventorySetQuantities:", userErrors);
         return json({ 
-          error: `Shopify rejected update: ${inventoryData.userErrors?.[0]?.message}`,
-          userErrors: (inventoryData.userErrors ?? []).map(e => ({
-            message: e.message,
-            field: Array.isArray(e.field) ? e.field : (e.field ? [e.field] : null)
-          }))
-        }, { status: 400 });
+          error: `Shopify rejected update: ${userErrors[0]?.message || 'Unknown user error.'}`,
+          userErrors: userErrors
+        } as InventoryActionResponse, { status: 400 });
       }
 
       if (inventoryData && hasInventoryAdjustment(inventoryData)) {
@@ -135,21 +153,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           success: true, 
           message: "Inventory updated successfully in Shopify and local database.",
           inventoryAdjustmentId: inventoryData.inventoryAdjustment?.id 
-        });
+        } as InventoryActionResponse);
       }
 
       console.warn("Inventory update via Shopify completed, but no clear success/error state:", responseData);
-      return json({ error: "Inventory update response from Shopify was inconclusive." }, { status: 200 });
+      return json({ error: "Inventory update response from Shopify was inconclusive." } as InventoryActionResponse, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to update inventory via Shopify due to a server error.";
       console.error(`Failed to update Shopify inventory for item ${inventoryItemId}:`, error);
-      return json({ error: error.message || "Failed to update inventory via Shopify due to a server error." }, { status: 500 });
+      return json({ error: message } as InventoryActionResponse, { status: 500 });
     }
   }
-  return json({ error: "Invalid action specified." }, { status: 400 });
+  return json({ error: "Invalid action specified." } as InventoryActionResponse, { status: 400 });
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+/**
+ * Loader function to fetch inventory records for the current shop.
+ * Also retrieves the shop's low stock threshold.
+ */
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response> => {
   const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
@@ -237,21 +260,27 @@ export default function InventoryPage() {
   }, [fetcher, selectedItemForModal]);
 
   // Move fetcherData above all uses
-  const fetcherData = React.useMemo(() => (fetcher.data ?? {}) as { success?: boolean; error?: string; message?: string }, [fetcher.data]);
+  const fetcherData = fetcher.data as InventoryActionResponse | undefined; // Use defined type
+  const { show: showToast } = useToast();
 
-  // Effect to close modal on successful fetcher submission
+  // Effect to handle toast notifications based on fetcher data (action outcomes)
   useEffect(() => {
-    if (fetcherData.success && fetcher.state === "idle") {
-      handleCloseModal();
+    if (fetcher.state === "idle" && fetcherData) {
+      if (fetcherData.success && fetcherData.message) {
+        showToast(fetcherData.message, { tone: 'success', duration: 5000 });
+        handleCloseModal();
+        // Re-navigate to clear fetcher.data and ensure fresh state
+        navigate("/app/inventory", { replace: true });
+      } else if (fetcherData.error) {
+        const errorMessage = fetcherData.userErrors && fetcherData.userErrors.length > 0
+          ? `Error: ${fetcherData.error}. Details: ${fetcherData.userErrors.map(e => e.message).join(', ')}`
+          : fetcherData.error;
+        showToast(errorMessage, { tone: 'critical', duration: 7000 });
+        // Re-navigate to clear fetcher.data for errors as well
+        navigate("/app/inventory", { replace: true });
+      }
     }
-  }, [fetcherData, fetcher.state, handleCloseModal]);
-
-  // Effect to navigate on successful fetcher submission
-  useEffect(() => {
-    if (fetcherData.success && fetcher.state === "idle") {
-      navigate("/app/inventory");
-    }
-  }, [fetcherData, fetcher.state, navigate]);
+  }, [fetcher.state, fetcherData, showToast, handleCloseModal, navigate]);
 
   const productForModal: ShopifyProduct | null = selectedItemForModal ? {
       id: selectedItemForModal.productId, // Shopify Product GID
@@ -263,10 +292,15 @@ export default function InventoryPage() {
   // If products is not defined, get it from loader data or define as empty array
   const { products = [] } = useLoaderData<any>();
 
-  if (error) {
+  if (error) { // This is for loader error, not fetcher error
     return (
       <Page title="Inventory Management">
-        <Banner title="Error Loading Inventory" tone="critical">{error}</Banner>
+        <Card>
+          <BlockStack gap="200">
+            <Text as="h2" variant="headingLg">Error Loading Inventory</Text>
+            <Text as="p" tone="critical">{error}</Text>
+          </BlockStack>
+        </Card>
       </Page>
     );
   }
@@ -290,14 +324,8 @@ export default function InventoryPage() {
     <Page title="Inventory Management">
       <BlockStack gap="400">
         {fetcher.state === "submitting" && <Spinner accessibilityLabel="Updating inventory..." />}
-        {fetcherData.error && (
-          <Banner title="Update Error" tone="critical" onDismiss={() => fetcher.submit(null, {method: 'get', action: '/app/inventory'}) }>{fetcherData.error}</Banner>
-        )}
-        {fetcherData.success && fetcherData.message && (
-          <Banner title="Success" tone="success" onDismiss={() => fetcher.submit(null, {method: 'get', action: '/app/inventory'}) }>
-            {fetcherData.message}
-          </Banner>
-        )}
+        {/* Banners for fetcher errors/success are now replaced by Toasts */}
+        {/* The useEffect hook handles showing toasts based on fetcher.data */}
 
         <Card>
           <DataTable
