@@ -13,7 +13,8 @@ import {
 } from "@remix-run/react";
 import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
 import enTranslations from "@shopify/polaris/locales/en.json";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Import Polaris CSS with ?url
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import appStyles from "~/styles/app.css?url"; // Import your global styles
 
 export const meta: MetaFunction = () => {
   return [
@@ -25,9 +26,25 @@ export const meta: MetaFunction = () => {
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
-]; // Updated to use imported CSS URL
+  { rel: "stylesheet", href: appStyles }, // Add your global stylesheet
+];
 
 export default function App() {
+  const AppTheme = {
+    colorScheme: "light" as const,
+    logo: {
+      width: 124,
+      accessibilityLabel: 'Planet Beauty',
+      // topBarSource and url can be added when actual assets/routes are known
+    },
+    colors: {
+      primary: '#d81b60', // For primary buttons and interactive elements
+      // Not setting 'surface' here to let it default (usually white for cards)
+      // The body background is handled by app.css
+    }
+    // topBar: { background: '#c94f6d' } // Keep this commented, address with CSS if needed
+  };
+
   return (
     <html lang="en">
       <head>
@@ -35,7 +52,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <AppProvider i18n={enTranslations}>
+        <AppProvider i18n={enTranslations} theme={AppTheme}>
           <Outlet />
         </AppProvider>
         <ScrollRestoration />

@@ -2,6 +2,7 @@ import { type AdminAppMetafield, type AdminAppMetafields, type AdminAppMetafield
 import shopify from '~/shopify.server';
 import prisma from '~/db.server';
 import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, InventoryLevel as ShopifyInventoryLevel, Location as ShopifyLocation } from '@shopify/graphql-admin-api/2025-04'; // Adjust API version if needed
+import { updateAllProductMetricsForShop } from './product.service'; // Adjust path if needed
 
 // Helper function to get shop ID
 async function getShopId(admin: any): Promise<string> {
@@ -242,7 +243,18 @@ export async function syncProductsAndInventory(shopDomain: string) {
       console.log(`Fetching next page of products for ${shopDomain}...`);
     }
   }
-  console.log(`Product and inventory sync completed for shop: ${shopDomain}`);
+  console.log(`Product and inventory data sync completed for shop: ${shopDomain}`);
+
+  // Now, update calculated metrics for all products in this shop
+  try {
+    console.log(`Starting update of calculated product metrics for shop ID: ${shopId}...`);
+    const metricsUpdateResult = await updateAllProductMetricsForShop(shopId);
+    console.log(metricsUpdateResult.message);
+  } catch (error) {
+    console.error(`Failed to update calculated product metrics for shop ID ${shopId}:`, error);
+  }
+
+  console.log(`Full sync process finished for shop: ${shopDomain}`);
 }
 
 // Example of how you might call this (e.g., from a Remix action or a cron job)

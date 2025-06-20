@@ -23,14 +23,13 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               </Grid.Cell>
               <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
                 <Box
-                  background="bg-surface-magic-subdued" // Approx #fff1f2
-                  padding="100" // Approx 4px, Polaris token might be different
+                  UNSTABLE_style={{ backgroundColor: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  padding="100"
                   borderRadius="full"
                   width="32px"
                   height="32px"
-                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Icon source={ProductsMajor} />
+                  <Icon source={ProductsMajor} color="primary" />
                 </Box>
               </Grid.Cell>
             </Grid>
@@ -48,12 +47,11 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               </Grid.Cell>
               <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
                 <Box
-                  background="bg-surface-critical-subdued" // Approx #fff5f5
+                  UNSTABLE_style={{ backgroundColor: '#fff5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   padding="100"
                   borderRadius="full"
                   width="32px"
                   height="32px"
-                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon source={AlertMinor} color="critical" />
                 </Box>
@@ -73,12 +71,11 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               </Grid.Cell>
               <Grid.Cell columnSpan={{ xs: 2, sm: 2, md: 2, lg: 4, xl: 4 }}>
                 <Box
-                  background="bg-surface-success-subdued" // Approx #e6fffa
+                  UNSTABLE_style={{ backgroundColor: '#e6fffa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   padding="100"
                   borderRadius="full"
                   width="32px"
                   height="32px"
-                  UNSTABLE_style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <Icon source={AnalyticsMajor} color="success" />
                 </Box>
