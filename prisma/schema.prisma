@@ -14,10 +14,8 @@ model Shop {
   shop                       String      @unique
   accessToken                String?     // Can be null if shop created before offline token
   emailForNotifications      String?
-  slackWebhookUrl            String?
-  telegramBotToken           String?
-  telegramChatId             String?
-  whatsAppApiCredentialsJson String?
+  // slackWebhookUrl, telegramBotToken, telegramChatId moved to NotificationSettings
+  // whatsAppApiCredentialsJson String? // Removed as per subtask note
   lowStockThreshold          Int?        @default(10)
   createdAt                  DateTime    @default(now())
   updatedAt                  DateTime    @updatedAt
@@ -51,6 +49,9 @@ model Product {
   stockoutDays      Int?
   status            String?
   trending          Boolean? @default(false)
+  category           String?
+  lastRestockedDate  DateTime?
+  notes              String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   inventory   Inventory[]
@@ -101,14 +102,32 @@ model Variant {
 
 model NotificationSettings {
   id                  String    @id @default(uuid())
-  shopId              String    @unique // Each shop has one notification settings
+  shopId              String    @unique
+
+  // Channel enables
   email               Boolean   @default(false)
   slack               Boolean   @default(false)
   telegram            Boolean   @default(false)
-  mobilePush          Boolean   @default(false)
+  mobilePush          Boolean   @default(false) // General toggle for mobile push
+
+  // Channel-specific details
+  emailAddress        String?   // For email notifications
+  slackWebhookUrl     String?   // For Slack
+  telegramBotToken    String?   // For Telegram
+  telegramChatId      String?   // For Telegram
+  // mobilePushServiceDetails String? // If specific credentials/details needed for push
+
   frequency           String    @default("daily") // e.g., "immediate", "hourly", "daily"
-  lowStockThreshold   Int?      // Overrides shop-level if set
-  salesVelocityThreshold Float? // Threshold for high sales velocity alerts
+
+  // Thresholds (can override Shop defaults or be primary)
+  lowStockThreshold   Int?
+  salesVelocityThreshold Float?
+  criticalStockThresholdUnits Int? // New: e.g., if inventory is at or below this, it's critical
+  criticalStockoutDays      Int? // New: e.g., if stockout is in this many days or less, it's critical
+
+  // Inventory Sync
+  syncEnabled         Boolean   @default(false)
+
   shop                Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt

@@ -9,7 +9,9 @@ interface LoaderData {
   alerts: AlertItem[];
   error?: string;
   lowStockThresholdDisplay: number;
-  // Add other thresholds if fetched, e.g., salesVelocityThresholdDisplay
+  criticalStockThresholdUnitsDisplay: string;
+  criticalStockoutDaysDisplay: string;
+  highSalesVelocityThresholdDisplay: string;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -22,9 +24,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopId = shopRecord.id;
 
   // Define thresholds (use defaults or fetch from settings)
-  const currentLowStockThreshold = shopRecord.lowStockThreshold ?? 10;
-  const currentCriticalStockThreshold = 5; // Example, make configurable later
-  const currentHighSalesVelocityThreshold = 30; // Example, make configurable later
+  const currentLowStockThreshold = shopRecord.notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+  // const currentCriticalStockThreshold = shopRecord.notificationSettings?.criticalStockThresholdUnits ?? 5; // Example, make configurable later
+  // For critical alerts, this page primarily relies on product.status which is calculated by product.service.ts using these new settings.
+
+  const defaultSalesVelocityThreshold = 30; // Default for alerts if nothing is set in notification settings
+  const highSalesVelocityThreshold =
+      shopRecord.notificationSettings?.salesVelocityThreshold ??
+      defaultSalesVelocityThreshold;
 
   const allAlertItems: AlertItem[] = [];
 
@@ -67,11 +74,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const highSalesProducts = await prisma.product.findMany({
       where: {
         shopId,
-        // Assuming 'trending' can be a proxy OR a direct sales velocity check
-        // If using salesVelocityFloat directly:
-        salesVelocityFloat: { gt: currentHighSalesVelocityThreshold }
-        // If using trending as a proxy and it's a boolean:
-        // trending: true
+        salesVelocityFloat: { gt: highSalesVelocityThreshold }
+        // The 'trending' flag on product model is also updated by product.service.ts using this threshold,
+        // so querying product.trending: true would also work if preferred.
+        // Using salesVelocityFloat directly here ensures it uses the latest threshold from settings for alert generation.
       },
       select: { id: true, title: true, salesVelocityFloat: true, stockoutDays: true },
       take: 10,
@@ -94,18 +100,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json({
       alerts: allAlertItems,
-      lowStockThresholdDisplay: currentLowStockThreshold
-      // Pass other thresholds if needed for display
+      lowStockThresholdDisplay: currentLowStockThreshold,
+      criticalStockThresholdUnitsDisplay: shopRecord.notificationSettings?.criticalStockThresholdUnits?.toString() ?? "Not set (default logic applies)",
+      criticalStockoutDaysDisplay: shopRecord.notificationSettings?.criticalStockoutDays?.toString() ?? "Not set (default logic applies)",
+      highSalesVelocityThresholdDisplay: highSalesVelocityThreshold.toString() + " units/day"
     });
 
   } catch (error) {
     console.error("Error fetching alerts:", error);
-    return json({ alerts: [], error: "Failed to fetch alerts.", lowStockThresholdDisplay: currentLowStockThreshold }, { status: 500 });
+    const errorDefaults = {
+        lowStockThresholdDisplay: currentLowStockThreshold, // currentLowStockThreshold might not be defined here if error is early
+        criticalStockThresholdUnitsDisplay: "Error loading",
+        criticalStockoutDaysDisplay: "Error loading",
+        highSalesVelocityThresholdDisplay: "Error loading"
+    };
+    return json({ alerts: [], error: "Failed to fetch alerts.", ...errorDefaults }, { status: 500 });
   }
 };
 
 export default function AlertsPage() {
-  const { alerts, error, lowStockThresholdDisplay } = useLoaderData<LoaderData>();
+  const {
+    alerts,
+    error,
+    lowStockThresholdDisplay,
+    criticalStockThresholdUnitsDisplay,
+    criticalStockoutDaysDisplay,
+    highSalesVelocityThresholdDisplay
+  } = useLoaderData<LoaderData>();
+
+  // ... (rest of the component function is the same up to the summary card) ...
 
   if (error && alerts.length === 0) { // Only show full page error if no alerts could be loaded
     return (
@@ -119,9 +142,6 @@ export default function AlertsPage() {
       </Page>
     );
   }
-
-  // If there's an error but some alerts were loaded, AlertsDisplay might show them with an error message for the failed ones.
-  // For simplicity, if error exists, we'll show it prominently here. A more granular approach is possible.
 
   return (
     <Page
@@ -140,19 +160,16 @@ export default function AlertsPage() {
             <p>All products are currently within defined thresholds.</p>
           </EmptyState>
         ) : (
-          // Assuming AlertsDisplay can handle AlertItem[]
-          // If AlertsDisplay is not designed for this, we would map alerts to Banners here.
           <AlertsDisplay alerts={alerts} maxAlertsToShow={alerts.length} />
         )}
         <Card>
           <BlockStack gap="200">
             <Text as="h2" variant="headingMd">Alert Settings Summary</Text>
-            <Text as="p">Current low stock threshold: {lowStockThresholdDisplay} units.</Text>
-            <Text as="p">Current critical stock threshold: 5 units (example).</Text>
-            <Text as="p">Current high sales velocity threshold: 30 units/day (example).</Text>
+            <Text as="p">Low stock threshold (Notifications): {lowStockThresholdDisplay} units.</Text>
+            <Text as="p">Critical stock threshold (Units - used in status calculation): {criticalStockThresholdUnitsDisplay}</Text>
+            <Text as="p">Critical stockout threshold (Days - used in status calculation): {criticalStockoutDaysDisplay}</Text>
+            <Text as="p">High sales velocity threshold (Notifications): {highSalesVelocityThresholdDisplay}</Text>
             <PolarisLink url="/app/settings">Configure notification settings and thresholds</PolarisLink>
-            {/* For Remix internal links, prefer RemixLink if not using PolarisLink's external features: */}
-            {/* <RemixLink to="/app/settings">Configure notification settings and thresholds</RemixLink> */}
           </BlockStack>
         </Card>
       </BlockStack>
