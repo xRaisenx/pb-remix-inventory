@@ -1,24 +1,32 @@
 {
-  "include": ["env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": [
+    "env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "strict": true,
-    "skipLibCheck": true,
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
     "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    "removeComments": false,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": false,
-    "allowJs": true,
-    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
     "target": "ES2022",
+    "strict": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "types": ["node"],
     "paths": {
-      "~/*": ["app/*"] // <-- ensures ~ points to app/
-    }
+      "~/*": [
+        "./app/*"
+      ]
+    },
+    "skipLibCheck": true,
+    "noEmit": true
   }
 }

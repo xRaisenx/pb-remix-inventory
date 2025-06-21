@@ -1,51 +1,131 @@
+/* Custom Styles for Shopify Polaris App */
+
+/* Ensure the app takes up the full height if needed */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-  background-color: #f5f7fa;
+  background-color: var(--p-color-bg-app-subdued, #f9fafb); /* Fallback color */
+  color: var(--p-color-text, #202223); /* Fallback color */
+  font-family: var(--p-font-family, -apple-system, BlinkMacSystemFont, "San Francisco", "Segoe UI", Roboto, "Helvetica Neue", sans-serif);
 }
 
-/* Custom App Styles */
-
-/* TopBar Background */
-/* Polaris Frame > TopBar typically uses CSS variables. Let's try overriding those. */
-/* The specific variable might be --p-color-bg-top-bar, --p-color-bg-app-bar or similar. */
-/* This is a common one for the top bar surface color */
-div[class*="Polaris-Frame__TopBar"] {
-  --p-color-bg-surface-secondary: #c94f6d; /* Attempting to override the TopBar background */
-  /* If the above doesn't work, a more direct override might be needed, like: */
-  /* background-color: #c94f6d !important; */
+/* TopBar Customization */
+/* Use Polaris variables for background and border of the TopBar */
+.Polaris-TopBar {
+  background-color: var(--p-color-bg-surface, #ffffff) !important;
+  border-bottom: var(--p-border-width-1) solid var(--p-color-border, #c9cccf) !important;
 }
 
-/* To ensure text and icons on the custom TopBar background are legible (e.g., white) */
-/* This assumes default icon/text colors need to be inverted on the new dark background. */
-/* The primary theme color might affect this, so careful testing is needed. */
-div[class*="Polaris-Frame__TopBar"] button[class*="Polaris-TopBar__MenuButton"],
-div[class*="Polaris-Frame__TopBar"] span[class*="Polaris-Icon"] svg,
-div[class*="Polaris-Frame__TopBar"] .Polaris-TopBar-UserMenu__Details > .Polaris-Text,
-div[class*="Polaris-Frame__TopBar"] .Polaris-TopBar-UserMenu__Name {
-  /* Example: making top bar icons and text white/lighter if the new background is dark */
-  /* This might need adjustment based on specific elements and their default colors */
-   color: var(--p-color-text-on-critical); /* Using a Polaris token that implies white/light text */
-}
-/* For SVGs specifically, `fill` might be needed if `color` doesn't work */
-div[class*="Polaris-Frame__TopBar"] span[class*="Polaris-Icon"] svg {
-    fill: var(--p-color-icon-on-critical); /* Using a Polaris token for icons on dark/colored backgrounds */
+/* Navigation Customization */
+/* Use Polaris variables for the navigation background and item states */
+.Polaris-Navigation {
+  background-color: var(--p-color-bg-surface-secondary, #f1f2f3) !important;
 }
 
-
-/* Navigation Active Item Styling */
-/* Target the container of the selected navigation item to change its background */
-ul[class*="Polaris-Navigation__Section"] li:has(a[class*="Polaris-Navigation__Item--selected"]) {
-  background-color: #fff1f2;
-  /* Add border-radius if it's not inheriting nicely from parent */
-   border-radius: var(--p-border-radius-100, 3px);
+.Polaris-Navigation__Item {
+  color: var(--p-color-text-subdued, #6d7175) !important;
 }
 
-/* The selected item's text and icon should already use the primary color from the theme. */
-/* If not, these can be uncommented and adjusted: */
+.Polaris-Navigation__Item--selected,
+.Polaris-Navigation__Item:hover {
+  background-color: var(--p-color-bg-surface-selected, #e5e7e9) !important;
+  color: var(--p-color-text, #202223) !important;
+}
+
+/* Link styles to match Polaris link appearance */
+a {
+  color: var(--p-color-text-interactive, #2c6ecb);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--p-color-text-interactive-hover, #1e4f8a);
+  text-decoration: underline;
+}
+
+/* Example of a custom component styling using Polaris variables */
+.MyCustomComponent {
+  padding: var(--p-space-400, 1rem);
+  background-color: var(--p-color-bg-surface-info, #e0f5ff);
+  border: 1px solid var(--p-color-border-info-subdued, #78c6f3);
+  border-radius: var(--p-border-radius-200, 4px);
+}
+
+/* Ensure Polaris custom properties are available */
+:root {
+  --p-color-bg-app-subdued: #f9fafb; /* Example, ensure these are loaded via Polaris */
+  --p-color-text: #202223;
+  /* Add other variables you intend to use if they are not automatically available */
+}
+
+/* Specific overrides for input fields if necessary, prefer Polaris components */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+  /* Example of applying Polaris-like styling to raw inputs */
+  border: var(--p-border-width-1) solid var(--p-color-border, #c9cccf);
+  border-radius: var(--p-border-radius-100, 3px);
+  padding: var(--p-space-200) var(--p-space-300);
+  line-height: var(--p-line-height-2, 1.3333);
+  box-shadow: var(--p-shadow-inset);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--p-color-border-focus, #458fff);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--p-color-border-focus, #458fff), var(--p-shadow-inset-focus);
+}
+
+/* Styling for the submit button in the login form to match Polaris Button */
+/* It's better to use <Button submit> from @shopify/polaris where possible */
+/* This is a fallback if you must use a raw <button type="submit"> */
+form button[type="submit"] {
+  background-color: var(--p-color-bg-interactive, #2c6ecb);
+  color: var(--p-color-text-on-interactive, #ffffff);
+  border: var(--p-border-width-1) solid transparent;
+  border-radius: var(--p-border-radius-100, 3px);
+  padding: var(--p-space-200) var(--p-space-400); /* Adjusted padding */
+  font-weight: var(--p-font-weight-semibold, 600);
+  line-height: var(--p-line-height-3, 1.5);
+  cursor: pointer;
+  text-align: center;
+  box-shadow: var(--p-shadow-button);
+  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+form button[type="submit"]:hover {
+  background-color: var(--p-color-bg-interactive-hover, #1e4f8a);
+  box-shadow: var(--p-shadow-button-hover);
+}
+
+form button[type="submit"]:active {
+  background-color: var(--p-color-bg-interactive-active, #1a4373);
+  box-shadow: var(--p-shadow-button-active);
+}
+
+/* Ensure that the custom styles for TopBar and Navigation do not conflict
+   with any inline styles or other stylesheets. Using !important should be
+   a last resort, prefer specificity or ensure Polaris styles are loaded first.
+*/
+
 /*
-.Polaris-Navigation__Item--selected .Polaris-Navigation__Icon svg {
-  fill: var(--p-color-text-interactive); // Should be #d81b60 from theme
-}
-.Polaris-Navigation__Item--selected .Polaris-Navigation__Text {
-  color: var(--p-color-text-interactive); // Should be #d81b60 from theme
-}
+  If Polaris styles are correctly linked in app/root.tsx via:
+  import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+  { rel: "stylesheet", href: polarisStyles },
+  Then these custom properties should ideally be available globally.
+  The :root block above is more of a fallback or for documentation.
 */

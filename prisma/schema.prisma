@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -11,165 +9,151 @@ generator client {
 
 model Session {
   id          String    @id
-  shop        String // Changed from shopId to shop to match Shopify session structure
+  shop        String
   state       String
   isOnline    Boolean   @default(false)
   scope       String?
   expires     DateTime?
   accessToken String
   userId      BigInt?
-  shopId      String?   // Foreign key to Shop model's ID
-  shopRecord  Shop?     @relation("ShopSessions", fields: [shopId], references: [id])
 
-  @@index([shop]) // Index on shop domain
-  @@index([shopId]) // Index for the foreign key
+  // PrismaSessionStorage does not require a relation to Shop
+  @@index([shop])
 }
 
 model Shop {
-  id                          String                  @id @default(cuid()) // Use cuid for Shop ID
-  shop                        String                  @unique // Shopify shop domain
-  accessToken                 String? // Made optional as online sessions might not have it
+  id                          String                  @id @default(cuid())
+  shop                        String                  @unique
+  accessToken                 String?
   emailForNotifications       String?
   slackWebhookUrl             String?
   telegramBotToken            String?
   telegramChatId              String?
   whatsAppApiCredentialsJson  String?
-  lowStockThreshold           Int?                    @default(10) // Default low stock threshold
+  lowStockThreshold           Int?                    @default(10)
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
-  products                    Product[]
-  NotificationSettings        NotificationSetting[]
-  warehouses                  Warehouse[] // Link shops to warehouses
-  notificationLogs            NotificationLog[] // Relation to NotificationLog
-  sessions                    Session[]               @relation("ShopSessions") // Relation to Sessions
+
+  products             Product[]
+  NotificationSettings NotificationSetting[]
+  warehouses           Warehouse[]
+  notificationLogs     NotificationLog[]
 }
 
 model NotificationSetting {
-  id        String   @id @default(cuid())
-  channel   String   // e.g., 'email', 'slack'
-  enabled   Boolean
-  shopId    String
-  shop      Shop     @relation(fields: [shopId], references: [id])
-  // Channel-specific settings moved here from Shop model
-  emailAddress String?
-  slackWebhookUrl String?
-  telegramBotToken String?
-  telegramChatId String?
-  // Thresholds moved here from Shop model
-  frequency String @default("daily") // Also ensuring quotes are standard double quotes
-  lowStockThreshold Int?
-  salesVelocityThreshold Float?
+  id                          String    @id @default(cuid())
+  shopId                      String    @unique // A shop should only have one settings object
+  shop                        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  email                       Boolean   @default(false)
+  slack                       Boolean   @default(false)
+  telegram                    Boolean   @default(false)
+  mobilePush                  Boolean   @default(false)
+  emailAddress                String?
+  slackWebhookUrl             String?
+  telegramBotToken            String?
+  telegramChatId              String?
+  frequency                   String    @default("daily")
+  lowStockThreshold           Int?
+  salesVelocityThreshold      Float?
   criticalStockThresholdUnits Int?
-  criticalStockoutDays Int?
-  syncEnabled Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([shopId, channel]) // Ensure only one setting per channel per shop
+  criticalStockoutDays        Int?
+  syncEnabled                 Boolean   @default(false)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 }
 
 model Product {
-  id                 String     @id @default(cuid())
-  shopifyId          String     @unique
+  id                 String           @id @default(cuid())
+  shopifyId          String           @unique
   title              String
   vendor             String
   productType        String?
-  status             String     @default("Unknown") // Added status, default to Unknown
-  trending           Boolean    @default(false)   // Added trending
-  salesVelocityFloat Float?                       // Added sales velocity
-  stockoutDays       Float?                       // Added stockout days (can be fractional)
-  lastRestockedDate  DateTime?                    // Added last restocked date
-  category           String?                      // Added category
-  tags               String[]   @default([]) // Default to empty array
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  status             String?          @default("Unknown")
+  trending           Boolean?         @default(false)
+  salesVelocityFloat Float?
+  stockoutDays       Float?
+  lastRestockedDate  DateTime?
+  category           String?
+  tags               String[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   shopId             String
-  shop               Shop       @relation(fields: [shopId], references: [id])
+  shop               Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants           Variant[]
   inventory          Inventory[]
-  DemandForecasts    DemandForecast[] // Relation to DemandForecast
+  DemandForecasts    DemandForecast[]
 
   @@index([shopId])
-  @@index([status]) // Index for querying by status
-  @@index([trending]) // Index for querying by trending
 }
 
 model Variant {
-  id                String      @id @default(cuid())
-  shopifyId         String      @unique
-  title             String? // Variant title can be null
-  sku               String?
-  price             Decimal
-  inventoryQuantity Int // Total quantity across all locations for this variant
-  inventoryItemId   String? // Shopify's inventory_item_id
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  productId         String
-  product           Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  shopifyId           String    @unique
+  title               String?
+  sku                 String?
+  price               Decimal?
+  inventoryQuantity   Int?
+  inventoryItemId     String?   @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  productId           String
+  product             Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, shopifyId]) // Unique constraint on product and shopify variant ID
-  @@unique([productId, sku])      // Unique constraint on product and SKU (SKU can be null)
   @@index([productId])
-  @@index([shopifyId]) // Index on shopifyId for faster lookups
 }
 
 model Inventory {
-  id         String   @id @default(cuid())
-  quantity   Int
-  warehouse  Warehouse @relation(fields: [warehouseId], references: [id])
+  id          String    @id @default(cuid())
+  quantity    Int
   warehouseId String
-  product    Product   @relation(fields: [productId], references: [id]) // Inventory links Product to Warehouse
-  productId  String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@unique([productId, warehouseId]) // Ensure only one inventory record per product per warehouse
-  @@index([productId])
-  @@index([warehouseId])
+  @@unique([productId, warehouseId])
 }
 
 model Warehouse {
   id                 String      @id @default(cuid())
   name               String
-  location           String // Physical location address
-  shopifyLocationGid String?     @unique // Link to Shopify Location GID, can be null
+  location           String
+  shopifyLocationGid String?     @unique
   shopId             String
-  shop               Shop        @relation(fields: [shopId], references: [id])
+  shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   inventories        Inventory[]
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  @@unique([shopId, name]) // Ensure unique name per shop
-  @@index([shopId])
+  @@unique([shopId, name])
 }
 
 model DemandForecast {
-    id              String    @id @default(cuid())
-    productId       String
-    product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-    predictedDemand Float
-    periodDays      Int
-    confidenceScore Float
-    createdAt       DateTime  @default(now())
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  predictedDemand Float
+  periodDays      Int
+  confidenceScore Float
+  createdAt       DateTime @default(now())
 
-    @@index([productId])
+  @@index([productId])
 }
 
 model NotificationLog {
-    id          String    @id @default(cuid())
-    shopId      String
-    shop        Shop      @relation(fields: [shopId], references: [id])
-    channel     String // e.g., 'Email', 'Slack'
-    recipient   String? // e.g., email address, webhook URL, chat ID
-    message     String
-    status      String // e.g., 'Sent', 'Failed', 'Simulated'
-    productId   String? // Optional: link to product if alert is product-specific
-    productTitle String? // Optional: product title for context
-    alertType   String? // Optional: e.g., 'low_stock', 'high_trend'
-    createdAt   DateTime  @default(now())
-    updatedAt   DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel      String
+  recipient    String?
+  message      String
+  status       String
+  productId    String?
+  productTitle String?
+  alertType    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-    @@index([shopId])
-    @@index([createdAt]) // Index for sorting history
+  @@index([shopId])
 }

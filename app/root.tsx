@@ -1,6 +1,5 @@
-// app/root.tsx
-
-import type { LinksFunction, MetaFunction } from "@remix-run/node"; // Added LinksFunction
+import { cssBundleHref } from "@remix-run/css-bundle";
+import type { LinksFunction, MetaFunction } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -8,86 +7,74 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useRouteError, // Import useRouteError
-  isRouteErrorResponse, // Import for typed error handling
+  isRouteErrorResponse,
+  useRouteError,
 } from "@remix-run/react";
-import { AppProvider, Page, Text, EmptyState, BlockStack, Button } from "@shopify/polaris"; // Import Polaris components for ErrorBoundary
+import { AppProvider } from "@shopify/polaris";
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css";
-import appStyles from "~/styles/app.css?url"; // Import your global styles
 
-export const meta: MetaFunction = () => {
-  return [
-    { charset: "utf-8" },
-    { title: "Planet Beauty AI Inventory" }, // Updated title
-    { viewport: "width=device-width,initial-scale=1" },
-  ];
-};
+export const meta: MetaFunction = () => [{ title: "New Remix App" }];
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
-  { rel: "stylesheet", href: appStyles }, // Add your global stylesheet
+  ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
 ];
 
 export default function App() {
   return (
-    <html lang="en">
-      <head>
-        <Meta />
-        <Links />
-      </head>
-      <body>
-        <AppProvider i18n={enTranslations}>
-          <Outlet />
-        </AppProvider>
-        <ScrollRestoration />
-        <Scripts />
-        {process.env.NODE_ENV === "development" && <LiveReload />}
-      </body>
-    </html>
+    <HtmlDocument>
+      <Outlet />
+    </HtmlDocument>
   );
 }
 
-// Global ErrorBoundary
 export function ErrorBoundary() {
   const error = useRouteError();
-  console.error('ErrorBoundary caught:', error);
-
-  let errorTitle = "Application Error";
-  let errorMessage = "An unexpected error occurred. Please try again later.";
-
+  let errorMessage = "Unknown error";
   if (isRouteErrorResponse(error)) {
-    errorTitle = `${error.status} ${error.statusText}`;
-    errorMessage = error.data?.message || error.data || error.statusText;
+    errorMessage = error.data?.message || error.statusText;
   } else if (error instanceof Error) {
     errorMessage = error.message;
   }
 
-  // It's important for the ErrorBoundary to render the full HTML structure
-  // so that Polaris styles are applied correctly.
+  return (
+    <HtmlDocument title="Error">
+      <AppProvider i18n={enTranslations}>
+        {/* Minimal layout for error page for now, can be enhanced later */}
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h1>Oops!</h1>
+          <p>Sorry, an unexpected error has occurred.</p>
+          <p>
+            <i>{errorMessage}</i>
+          </p>
+        </div>
+      </AppProvider>
+    </HtmlDocument>
+  );
+}
+
+function HtmlDocument({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title?: string;
+}) {
   return (
     <html lang="en">
       <head>
-        <title>{errorTitle}</title> {/* Set a title for the error page */}
-        <Meta /> {/* Include meta tags, viewport, etc. */}
-        <Links /> {/* Include CSS links */}
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {title ? <title>{title}</title> : null}
+        <Meta />
+        <Links />
       </head>
       <body>
-        <AppProvider i18n={enTranslations}> {/* AppProvider is crucial here */}
-          <Page>
-            <EmptyState
-              heading={errorTitle}
-              image="https://cdn.shopify.com/s/files/1/0262/4074/files/emptystate-error.png"
-            >
-              <BlockStack gap="200">
-                <Text as="p" tone="critical">{errorMessage}</Text>
-                <Button url="/" variant="primary">Go to Home</Button>
-              </BlockStack>
-            </EmptyState>
-          </Page>
-        </AppProvider>
-        <Scripts /> {/* Scripts might be needed for some recovery or logging */}
-        {process.env.NODE_ENV === "development" && <LiveReload />}
+        {children}
+        <ScrollRestoration />
+        <LiveReload />
+        <Scripts />
       </body>
     </html>
   );

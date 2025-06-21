@@ -3,7 +3,7 @@
 client_id = "919e88ca96685994550e0a9bc9236584"
 name = "focused-policy-app"
 handle = "focused-policy-app-6"
-application_url = "https://sublime-conditions-jessica-benefit.trycloudflare.com"
+application_url = "https://your-app-url.com"
 embedded = true
 
 [build]
@@ -15,10 +15,10 @@ api_version = "2025-04"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "write_products,read_products,read_inventory"
 
 [auth]
-redirect_urls = ["https://sublime-conditions-jessica-benefit.trycloudflare.com/auth/callback", "https://sublime-conditions-jessica-benefit.trycloudflare.com/auth/shopify/callback", "https://sublime-conditions-jessica-benefit.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://your-app-url.com/auth/callback", "https://your-app-url.com/auth/shopify/callback", "https://your-app-url.com/api/auth/callback"]
 
 [pos]
 embedded = false
