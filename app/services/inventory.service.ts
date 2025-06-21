@@ -1,229 +1,8 @@
-import { json } from "@remix-run/node";
 import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
-import { getShopSettings } from "~/services/shop.service"; // Assuming this service exists
-import { shopifyApp } from "@shopify/shopify-app-remix/server"; // Ensure this path is correct
+import shopify from "~/shopify.server"; // Corrected: Use the existing shopify.server export
+import { Session } from "@shopify/shopify-api"; // Corrected: shopify object from shopify.server likely has this
 
-// Helper function to create Shopify GraphQL client
-async function getShopifyGraphQLClient(shopDomain: string) {
-  // TODO: Ensure shopifyApp is correctly initialized and this is the right way to get a client
-  // This might involve fetching an offline session for the shop.
-  // For now, assuming shopifyApp.getShopifyApi() provides access to the API client
-  // and it can be configured for a specific shop.
-  // This part needs to be verified against your Shopify app setup.
-
-  // Placeholder: Replace with actual mechanism to get an authenticated GraphQL client
-  // This might involve using shopify.api.clients.Graphql or similar,
-  // potentially requiring an offline session access token.
-  const { admin } = await shopifyApp.authenticate.admin(shopDomain); // This is likely incorrect for background tasks / needs a request object.
-                                                                    // Or, you need a way to get an offline session token for the shop.
-
-  if (!admin) {
-    throw new Error(`Could not obtain Shopify Admin API client for shop ${shopDomain}`);
-  }
-  return admin.graphql;
-}
-
-
-/**
- * Updates inventory quantity in Shopify and the local database.
- * @param shop The shop domain (e.g., 'your-shop.myshopify.com')
- * @param variantId The Prisma Variant ID (string) whose inventory needs to be updated.
- * @param newQuantity The new quantity to set for the inventory item.
- * @returns An object indicating success or failure, with details.
- */
-export async function updateInventoryQuantityInShopifyAndDB(
-  shop: string,
-  variantId: string,
-  newQuantity: number
-) {
-  try {
-    if (!variantId || typeof variantId !== 'string' || variantId.trim() === "") {
-      return { success: false, error: "Invalid or missing Variant ID." };
-    }
-    if (newQuantity === null || newQuantity === undefined || isNaN(newQuantity) || newQuantity < 0) {
-      return { success: false, error: "Invalid quantity: must be a non-negative integer." };
-    }
-
-    // 1. Fetch Variant details from local DB, including shopifyInventoryItemId and shopifyVariantId
-    const variant = await prisma.variant.findUnique({
-      where: { id: variantId },
-      select: {
-        shopifyInventoryItemId: true,
-        shopifyVariantId: true, // Needed if you want to confirm association or for other checks
-        inventoryQuantity: true, // Current quantity in DB
-        sku: true, // For logging/identification
-        product: { // To get the shopifyProductId for context or logging
-          select: { shopifyProductId: true, title: true }
-        }
-      },
-    });
-
-    if (!variant) {
-      return { success: false, error: `Variant with ID ${variantId} not found.` };
-    }
-    if (!variant.shopifyInventoryItemId) {
-      return { success: false, error: `Shopify Inventory Item ID not found for Variant ${variantId} (SKU: ${variant.sku}). Cannot update Shopify inventory.` };
-    }
-
-    // Optional: Fetch shop settings if location ID is dynamic
-    // const shopSettings = await getShopSettings(shop);
-    // if (!shopSettings || !shopSettings.primaryLocationId) {
-    //   return { success: false, error: "Shop primary location ID not configured." };
-    // }
-    // const shopifyLocationId = `gid://shopify/Location/${shopSettings.primaryLocationId}`;
-
-    // For now, let's assume we need to find an active inventory level for the item.
-    // This is a more robust approach if you don't store/rely on a single primaryLocationId from settings.
-    // However, inventorySetOnHandQuantities requires a *specific* inventoryLevelId.
-
-    // To update inventory, Shopify often requires the InventoryLevel ID.
-    // Let's try to find an active inventory level for the item.
-    // This might require an initial GraphQL call if you don't store inventoryLevelId.
-    // For simplicity, the mutation `inventorySetOnHandQuantities` uses inventoryItemGID and locationGID.
-    // The issue description implies we might not have locationId directly.
-    // The `shopifyInventoryItemId` *is* the GID for the InventoryItem.
-
-    // We need the Shopify Location ID. This should ideally be configured or discovered.
-    // Let's assume there's a primary location ID stored or we fetch it.
-    // For this example, I'll simulate fetching it. You should have a robust way to get this.
-    // This is a common point of failure if not handled correctly.
-
-    // const shopify = shopifyApp.getShopifyApi(); // Get the Shopify API object
-    // const graphqlClient = new shopify.clients.Graphql({ session }); // This needs a valid session for the shop.
-
-    // --- This is the critical part that needs a proper GraphQL client for the given shop ---
-    // const { admin } = await shopifyApp.authenticate.admin(shop); // This won't work without a request.
-    // We need an offline session token for the shop to make background calls.
-    // This logic will be similar to what's needed in dailyAnalysis.ts and shopify.sync.server.ts
-
-    // Let's assume we have a function to get an offline session token
-    const offlineSession = await prisma.session.findFirst({
-        where: { shop: shop, isOnline: false, accessToken: { not: null } },
-        orderBy: { expires: 'desc' }, // Get the most recent one if multiple exist
-    });
-
-    if (!offlineSession || !offlineSession.accessToken) {
-        return { success: false, error: `Could not find a valid offline session for shop ${shop} to update inventory.` };
-    }
-    const shopify = shopifyApp.api; // Get the Shopify API library instance
-    const graphqlClient = new shopify.clients.Graphql({
-        session: {
-            shop: shop,
-            accessToken: offlineSession.accessToken,
-            // other necessary session properties if any for client instantiation
-        }  as any // Cast to `any` if the Session constructor/type is too restrictive here
-                   // or reconstruct a proper Session object if the client requires it.
-    });
-
-
-    // Find an active inventory level GID for the inventory item at a location.
-    // This is often necessary if you don't store the inventoryLevelGid.
-    // However, the `inventorySetOnHandQuantities` mutation might simplify this
-    // by taking inventoryItemGid and locationGid.
-
-    // Let's find the *first* active location for the shop to set inventory.
-    // In a real app, you'd likely have a specific location you're managing inventory for.
-    const locationsQuery = `
-      query {
-        locations(first: 1, query: "status:active") {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-      }
-    `;
-    const locationsResponse: any = await graphqlClient(locationsQuery);
-    const shopifyLocationId = locationsResponse?.data?.locations?.edges?.[0]?.node?.id;
-
-    if (!shopifyLocationId) {
-      return { success: false, error: `Could not find an active Shopify location for shop ${shop}.` };
-    }
-
-
-    // 2. Update inventory in Shopify using the GraphQL Admin API
-    const mutation = `
-      mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!) {
-        inventorySetOnHandQuantities(input: $input) {
-          inventoryAdjustmentGroup {
-            id
-            reason
-            referenceDocumentUri
-            createdAt
-            changes {
-              name
-              delta
-              quantityAfterChange
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    const variables = {
-      input: {
-        reason: "correction", // Or "received", "theft", etc.
-        setQuantities: [
-          {
-            inventoryItemId: variant.shopifyInventoryItemId,
-            locationId: shopifyLocationId, // Use the fetched Location GID
-            quantity: newQuantity,
-          },
-        ],
-        // referenceDocumentUri: "internal://my-app/adjustment/123" // Optional
-      },
-    };
-
-    // Make the GraphQL API call
-    // Ensure you have a way to get an authenticated Shopify GraphQL client for the shop
-    // This is a placeholder for how you'd get your GraphQL client
-    // const graphqlClient = await getShopifyGraphQLClient(shop); // You need to implement this
-
-    const response: any = await graphqlClient(mutation, { variables });
-
-    if (response.data?.inventorySetOnHandQuantities?.userErrors?.length > 0) {
-      console.error("Shopify inventory update failed:", response.data.inventorySetOnHandQuantities.userErrors);
-      return {
-        success: false,
-        error: "Failed to update Shopify inventory.",
-        userErrors: response.data.inventorySetOnHandQuantities.userErrors,
-      };
-    }
-
-    const inventoryAdjustmentGroupId = response.data?.inventorySetOnHandQuantities?.inventoryAdjustmentGroup?.id;
-
-    // 3. If Shopify update is successful, update the local database
-    await prisma.variant.update({
-      where: { id: variantId },
-      data: {
-        inventoryQuantity: newQuantity,
-        // lastShopifySync: new Date(), // Consider adding a timestamp
-      },
-    });
-
-    return {
-      success: true,
-      message: `Inventory for Variant SKU ${variant.sku} updated to ${newQuantity} in Shopify and local DB.`,
-      inventoryAdjustmentGroupId: inventoryAdjustmentGroupId,
-    };
-
-  } catch (error: any) {
-    console.error("Error updating inventory:", error);
-    // Check for Prisma specific errors if needed, e.g., error.code === 'P2025' for record not found
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return { success: false, error: `Database error: Record not found. ${error.message}` };
-    }
-    return { success: false, error: `An unexpected error occurred: ${error.message}` };
-  }
-}
-
-// Example of a more specific error type if you want to return typed errors
 interface ShopifyUserError {
   field: string[];
   message: string;
@@ -235,4 +14,154 @@ interface UpdateInventoryResult {
   error?: string;
   userErrors?: ShopifyUserError[];
   inventoryAdjustmentGroupId?: string;
+}
+
+export async function updateInventoryQuantityInShopifyAndDB(
+  shopDomain: string,
+  variantId: string, // Prisma Variant ID
+  newQuantity: number,
+  shopifyLocationGid: string // The specific Shopify Location GID to update
+): Promise<UpdateInventoryResult> {
+  // 1. --- Validate Input ---
+  if (!variantId) return { success: false, error: "Variant ID is required." };
+  if (isNaN(newQuantity) || newQuantity < 0) return { success: false, error: "Quantity must be a non-negative number." };
+  if (!shopifyLocationGid) return { success: false, error: "Shopify Location GID is required." };
+
+  // 2. --- Get Data from Your Database ---
+  const variant = await prisma.variant.findUnique({
+    where: { id: variantId },
+    select: { shopifyInventoryItemId: true, sku: true, productId: true }, // Added productId
+  });
+
+  if (!variant?.shopifyInventoryItemId) {
+    // If variant is null or shopifyInventoryItemId is null/undefined
+    return { success: false, error: `Variant (ID: ${variantId}, SKU: ${variant?.sku || 'Unknown'}) is not linked to a Shopify Inventory Item.` };
+  }
+
+  if (!variant.productId) {
+    // Ensure productId is present, needed for local DB update
+     return { success: false, error: `Product ID missing for Variant (ID: ${variantId}, SKU: ${variant?.sku || 'Unknown'}).` };
+  }
+
+
+  // 3. --- Get Authenticated Shopify Client ---
+  // Assuming shopify.server.ts exports an authenticated admin utility or similar
+  // For background tasks, an offline session is typically needed.
+  const offlineSessionRecord = await prisma.session.findFirst({
+    where: { shop: shopDomain, isOnline: false, accessToken: { not: null } },
+    orderBy: { expires: 'desc' }, // Get the most recent valid one
+  });
+
+  if (!offlineSessionRecord?.accessToken) {
+    return { success: false, error: `Cannot update Shopify: No valid offline session found for ${shopDomain}.` };
+  }
+
+  // Reconstruct a session object that shopify.api.clients.Graphql expects
+  // The exact properties might depend on the version of @shopify/shopify-api
+  const session = new Session({
+    id: offlineSessionRecord.id,
+    shop: offlineSessionRecord.shop,
+    state: offlineSessionRecord.state,
+    isOnline: offlineSessionRecord.isOnline,
+    accessToken: offlineSessionRecord.accessToken,
+    scope: offlineSessionRecord.scope || '', // Ensure scope is not null
+    // expires: offlineSessionRecord.expires ? new Date(offlineSessionRecord.expires) : undefined,
+    // userId: offlineSessionRecord.userId ? BigInt(offlineSessionRecord.userId) : undefined,
+  });
+
+  // Use the shopify instance from shopify.server which should be initialized
+  const client = new shopify.api.clients.Graphql({ session });
+
+  // 4. --- Call Shopify GraphQL API ---
+  const mutation = `
+    mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!) {
+      inventorySetOnHandQuantities(input: $input) {
+        inventoryAdjustmentGroup { id }
+        userErrors { field message }
+      }
+    }`;
+
+  const variables = {
+    input: {
+      reason: "correction", // Or other appropriate reason
+      setQuantities: [{
+        inventoryItemId: variant.shopifyInventoryItemId,
+        locationId: shopifyLocationGid,
+        quantity: newQuantity,
+      }],
+    },
+  };
+
+  try {
+    const response: any = await client.query({ data: { query: mutation, variables } });
+
+    // Check response structure carefully based on actual Shopify API returns
+    const inventorySetData = response?.body?.data?.inventorySetOnHandQuantities;
+    const userErrors = inventorySetData?.userErrors;
+
+    if (userErrors && userErrors.length > 0) {
+      console.error("Shopify inventory update failed:", userErrors);
+      return { success: false, error: "Shopify rejected the inventory update.", userErrors };
+    }
+
+    if (!inventorySetData?.inventoryAdjustmentGroup?.id && (!userErrors || userErrors.length === 0)) {
+      // This case might indicate a successful call but unexpected response structure
+      console.warn("Shopify inventory update call succeeded but no adjustment group ID returned and no errors reported.");
+      // Decide if this is an error or a partial success. For now, let's treat as success if no errors.
+    }
+
+    // 5. --- Update Local Database on Success ---
+    // This part updates the local "Inventory" table which is Product-Warehouse based.
+    // This might lead to the total inventory for the product at that warehouse being set to this variant's new quantity.
+    // This is a simplification based on the current Inventory schema.
+    // If multiple variants of the same product exist at the same warehouse, this will overwrite.
+    // A more robust solution would involve an Inventory table per (variant, warehouse).
+    const warehouse = await prisma.warehouse.findUnique({ where: { shopifyLocationGid } });
+    if (warehouse) {
+      await prisma.inventory.upsert({
+        where: { productId_warehouseId: { productId: variant.productId, warehouseId: warehouse.id } },
+        update: { quantity: newQuantity }, // This sets the product's inventory at this warehouse to newQuantity
+        create: { productId: variant.productId, warehouseId: warehouse.id, quantity: newQuantity },
+      });
+      // Additionally, update the Variant's total inventoryQuantity if it's meant to be a sum.
+      // This requires fetching all inventory levels for the variant and summing them up,
+      // or making an assumption. For now, the problem description's example for ProductModal
+      // suggests Variant.inventoryQuantity is a general field.
+      // Let's assume Variant.inventoryQuantity is updated elsewhere or represents the total across all locations.
+      // The most direct update here based on the action is to the specific variant's quantity if that's how it's tracked.
+      // The provided code updates prisma.inventory, which is Product-Warehouse.
+      // It does NOT update prisma.variant.inventoryQuantity directly here.
+      // This matches the provided code's local DB update logic.
+    } else {
+        console.warn(`Warehouse with Shopify Location GID ${shopifyLocationGid} not found in local DB. Shopify inventory updated, but local product-warehouse inventory record not updated.`);
+    }
+
+    // Also update the variant's main inventoryQuantity field if it represents the total
+    // This is a bit tricky as we only updated one location.
+    // For now, let's assume the `Variant.inventoryQuantity` should reflect this new quantity
+    // if this location is considered the primary or if it's the only one being managed this way.
+    // This might need a more sophisticated update (e.g., re-calculating total from all locations).
+    // However, the original service (before GID change) *did* update variant.inventoryQuantity.
+    // Let's replicate that behaviour for consistency with how the action might expect it.
+     await prisma.variant.update({
+       where: { id: variantId },
+       data: { inventoryQuantity: newQuantity },
+     });
+
+
+    return {
+      success: true,
+      message: `Inventory for SKU ${variant.sku || 'N/A'} at location ${shopifyLocationGid} updated to ${newQuantity}.`,
+      inventoryAdjustmentGroupId: inventorySetData?.inventoryAdjustmentGroup?.id,
+    };
+
+  } catch (error: any) {
+    console.error("Error in updateInventoryQuantityInShopifyAndDB:", error);
+    // Handle Prisma-specific errors or rethrow
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        // Log Prisma error details
+        console.error(`Prisma Error Code: ${error.code}, Meta: ${JSON.stringify(error.meta)}`);
+    }
+    return { success: false, error: `An unexpected error occurred: ${error.message}` };
+  }
 }

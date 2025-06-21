@@ -92,30 +92,54 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
 
   const shopSettings: ShopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
 
-  const products = await prisma.product.findMany({
-    where: { shopId },
-    include: { variants: { select: { inventoryQuantity: true } } }
-  });
+  let totalUpdatedCount = 0;
+  const BATCH_SIZE = 100;
+  let skip = 0;
+  let hasMoreProducts = true;
 
-  let updatedCount = 0;
-  for (const product of products) {
-    // Cast product to ProductWithVariantsAndSalesVelocity for calculateProductMetrics
-    // salesVelocityFloat is now part of product, so this cast is mainly for variants structure.
-    const metrics = calculateProductMetrics(product as ProductWithVariantsAndSalesVelocity, shopSettings);
+  console.log(`Starting batched update of product metrics for shop ${shop.shop}. Batch size: ${BATCH_SIZE}`);
 
-    const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
-    const trending = product.salesVelocityFloat !== null && product.salesVelocityFloat > salesVelocityThresholdForTrending;
-
-    await prisma.product.update({
-      where: { id: product.id },
-      data: {
-        // These fields are now part of the Product model
-        stockoutDays: metrics.stockoutDays,
-        status: metrics.status,
-        trending: trending,
-      },
+  while (hasMoreProducts) {
+    const productsInBatch = await prisma.product.findMany({
+      where: { shopId },
+      include: { variants: { select: { inventoryQuantity: true } } },
+      take: BATCH_SIZE,
+      skip: skip,
+      orderBy: { id: 'asc' },
     });
-    updatedCount++;
+
+    if (productsInBatch.length === 0) {
+      hasMoreProducts = false;
+      break;
+    }
+
+    console.log(`Processing metrics batch of ${productsInBatch.length} products for shop ${shop.shop}. Skip: ${skip}`);
+    for (const product of productsInBatch) {
+      const metrics = calculateProductMetrics(product as ProductWithVariantsAndSalesVelocity, shopSettings);
+      const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
+      const trending = product.salesVelocityFloat !== null && product.salesVelocityFloat > salesVelocityThresholdForTrending;
+
+      try {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            stockoutDays: metrics.stockoutDays,
+            status: metrics.status,
+            trending: trending,
+          },
+        });
+        totalUpdatedCount++;
+      } catch (e) {
+        console.error(`Failed to update metrics for product ID ${product.id} in shop ${shop.shop}:`, e);
+        // Decide if one failure should stop all, or just log and continue. For now, log and continue.
+      }
+    }
+
+    skip += BATCH_SIZE;
+    if (productsInBatch.length < BATCH_SIZE) {
+      hasMoreProducts = false;
+    }
+    // Optional: await new Promise(resolve => setTimeout(resolve, 50)); // Small delay
   }
-  return { success: true, message: `Updated metrics for ${updatedCount} products in shop ${shop.shop}.`, updatedCount };
+  return { success: true, message: `Updated metrics for ${totalUpdatedCount} products in shop ${shop.shop}.`, totalUpdatedCount };
 }

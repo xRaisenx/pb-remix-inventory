@@ -4,6 +4,7 @@ import { BlockStack, TextField, Text, Spinner, LegacyCard, ButtonGroup, Link as 
 import { CustomCard } from '~/components/common/Card';
 import { Button } from '~/components/common/Button'; // Assuming this is your custom Button
 import { useFetcher } from '@remix-run/react';
+import { INTENT } from '~/utils/intents';
 
 // --- Type Definitions for AIStructuredResponse ---
 interface AIProductResponseItem {
@@ -150,7 +151,7 @@ export const AIAssistant: React.FC = () => {
     setConversation(prev => [...prev, userMessage]);
 
     const formData = new FormData();
-    formData.append('_action', 'ai_chat');
+    formData.append('_action', INTENT.AI_CHAT);
     formData.append('query', inputValue);
 
     fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
