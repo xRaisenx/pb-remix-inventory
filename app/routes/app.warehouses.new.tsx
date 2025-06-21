@@ -1,18 +1,20 @@
 // app/routes/app.warehouses.new.tsx
 
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
-import { Page, Card, TextField, Button, Banner, Select } from "@shopify/polaris"; // Added Select
+// Corrected: Removed useNavigate, added useNavigation, Form, useActionData
+import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
+// Corrected: Added BlockStack, Banner, Select from Polaris
+import { Page, Card, TextField, Button, BlockStack, Banner, Select } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import { Prisma } from "@prisma/client";
-import prisma  from "~/db.server";
+import prisma from "~/db.server";
 import { z } from "zod";
 
 // Zod schema for validation
 const WarehouseSchema = z.object({
   name: z.string().min(1, { message: "Warehouse name cannot be empty." }),
   location: z.string().min(1, { message: "Location address cannot be empty." }),
-  shopifyLocationGid: z.string().optional().or(z.literal('')), // Added
+  shopifyLocationGid: z.string().optional().or(z.literal('')),
 });
 
 interface ShopifyLocationOption {
@@ -22,28 +24,28 @@ interface ShopifyLocationOption {
 
 interface LoaderData {
   shopifyLocations: ShopifyLocationOption[];
-  error?: string; // For loader-specific errors
+  error?: string;
 }
 
 interface ActionData {
   errors?: {
     name?: string[];
     location?: string[];
-    shopifyLocationGid?: string[]; // Added
-    form?: string[];
+    shopifyLocationGid?: string[];
+    form?: string[]; // For general form errors
   };
-  success?: boolean;
+  // success?: boolean; // Not strictly needed if redirecting on success
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnType<typeof json<LoaderData>>> => {
-  const { admin } = await authenticate.admin(request); // Session not strictly needed if only fetching general locations
+  const { admin } = await authenticate.admin(request);
 
   let shopifyLocations: ShopifyLocationOption[] = [];
   try {
     const response = await admin.graphql(
       `#graphql
       query shopifyLocations {
-        locations(first: 250) { # Shopify limits to 250 by default
+        locations(first: 250) {
           edges { node { id name } }
         }
       }`
@@ -54,8 +56,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<ReturnTyp
     }
   } catch (error) {
     console.error("Failed to fetch Shopify locations for linking:", error);
-    // It's important to decide how to handle this. For now, we'll return an error message.
-    // Alternatively, allow page to load without locations, disabling the select.
     return json({ shopifyLocations: [], error: "Could not load Shopify Locations. Please try again." }, { status: 500 });
   }
 
@@ -67,11 +67,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shopDomain = session.shop;
   const formData = await request.formData();
 
-  const name = formData.get("name") as string;
-  const location = formData.get("location") as string;
-  const shopifyLocationGid = formData.get("shopifyLocationGid") as string; // Added
+  // Extract values directly from formData for Zod parsing
+  const name = formData.get("name");
+  const location = formData.get("location");
+  const shopifyLocationGid = formData.get("shopifyLocationGid");
 
-  const validationResult = WarehouseSchema.safeParse({ name, location, shopifyLocationGid });
+  const validationResult = WarehouseSchema.safeParse({
+    name,
+    location,
+    shopifyLocationGid,
+  });
 
   if (!validationResult.success) {
     const fieldErrors = validationResult.error.flatten().fieldErrors;
@@ -86,7 +91,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json<ActionData>({ errors: { form: ["Shop not found."] } }, { status: 404 });
     }
 
-    // Check for duplicate warehouse name for the same shop
     const existingWarehouseByName = await prisma.warehouse.findFirst({
       where: { shopId: shop.id, name: validatedName }
     });
@@ -94,14 +98,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json<ActionData>({ errors: { name: ["A warehouse with this name already exists."] } }, { status: 400 });
     }
 
-    // Check if shopifyLocationGid is already linked, if provided
     if (validatedShopifyLocationGid && validatedShopifyLocationGid !== "") {
-        const existingWarehouse = await prisma.warehouse.findFirst({
-          where: { shopifyLocationGid: validatedShopifyLocationGid }
-        });
-        if (existingWarehouse) {
-            return json<ActionData>({ errors: { shopifyLocationGid: ["This Shopify Location is already linked to another warehouse."] } }, { status: 400 });
-        }
+      const existingWarehouseByShopifyGid = await prisma.warehouse.findFirst({
+        where: { shopifyLocationGid: validatedShopifyLocationGid, shopId: shop.id } // Ensure it's for the same shop if GID isn't globally unique in your logic
+      });
+      if (existingWarehouseByShopifyGid) {
+        return json<ActionData>({ errors: { shopifyLocationGid: ["This Shopify Location is already linked to another warehouse for this shop."] } }, { status: 400 });
+      }
     }
 
     await prisma.warehouse.create({
@@ -113,66 +116,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
     return redirect("/app/warehouses");
-  } catch (error: Prisma.PrismaClientKnownRequestError | any) {
+  } catch (error) {
     console.error("Error creating warehouse:", error);
-        
-    // Handle Prisma unique constraint violation for shopifyLocationGid
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const targetFields = Array.isArray(error.meta?.target) ? error.meta.target : [];
-      if (targetFields.includes('shopifyLocationGid')) {
-        return json<ActionData>({ 
-          errors: { 
-            shopifyLocationGid: ["This Shopify Location is already linked (DB constraint)."] 
-          } 
-        }, { status: 400 });
+      if (targetFields.includes('shopifyLocationGid') && targetFields.includes('shopId')) { // Example for composite unique constraint
+         return json<ActionData>({ errors: { shopifyLocationGid: ["This Shopify Location is already linked (DB constraint)."] } }, { status: 400 });
+      } else if (targetFields.includes('name') && targetFields.includes('shopId')) {
+         return json<ActionData>({ errors: { name: ["Warehouse name conflict (DB constraint)."] } }, { status: 400 });
       }
     }
-    // If not a known Prisma error, return a generic error
     return json<ActionData>({ errors: { form: ["An unexpected error occurred. Please try again."] } }, { status: 500 });
   }
 };
 
 export default function NewWarehouse() {
-  const { shopifyLocations, error } = useLoaderData() as LoaderData;
+  // Corrected: Type assertion for useLoaderData
+  const { shopifyLocations, error: loaderError } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
-  const navigate = useNavigate();
   const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
 
   return (
-    <Page title="New Warehouse">
+    <Page
+      title="New Warehouse"
+      backAction={{ content: "Warehouses", url: "/app/warehouses" }}
+    >
       <Card>
-        <Form
-          method="post"
-          onSubmit={(event) => {
-            // Client-side navigation to /app/warehouses on successful submit
-            const form = event.currentTarget;
-            if (actionData?.success) {
-              form.reset();
-              navigate("/app/warehouses");
-            }
-          }}
-        >
-          <TextField
-            label="Warehouse Name"
-            name="name"
-            error={actionData?.errors?.name}
-            autoComplete="off"
-          />
-          <TextField
-            label="Location Address"
-            name="location"
-            error={actionData?.errors?.location}
-            autoComplete="off"
-          />
-          <Select
-            label="Shopify Location"
-            name="shopifyLocationGid"
-            options={[{ label: 'Select a location', value: '' }, ...shopifyLocations.map(loc => ({ label: loc.name, value: loc.id }))]}
-            error={actionData?.errors?.shopifyLocationGid}
-            placeholder="Optional"
-          />
-          {error && <Banner tone="critical">{error}</Banner>}
-          <Button submit loading={navigation.state === "submitting"}>Save Warehouse</Button>
+        {/* FIX: Removed the unnecessary onSubmit handler from the Form */}
+        <Form method="post">
+          <BlockStack gap="400">
+            {actionData?.errors?.form && (
+              <Banner title="Error" tone="critical">
+                {/* Ensure errors.form is an array before join, or handle if it's a single string */}
+                <p>{Array.isArray(actionData.errors.form) ? actionData.errors.form.join(", ") : actionData.errors.form}</p>
+              </Banner>
+            )}
+            <TextField
+              label="Warehouse Name"
+              name="name"
+              defaultValue="" // Keep defaultValue for uncontrolled component behavior in Remix Form
+              error={actionData?.errors?.name ? (Array.isArray(actionData.errors.name) ? actionData.errors.name.join(", ") : actionData.errors.name) : undefined}
+              autoComplete="off"
+            />
+            <TextField
+              label="Location Address"
+              name="location"
+              defaultValue=""
+              error={actionData?.errors?.location ? (Array.isArray(actionData.errors.location) ? actionData.errors.location.join(", ") : actionData.errors.location) : undefined}
+              autoComplete="off"
+              multiline={3}
+            />
+            <Select
+              label="Link to Shopify Location (Optional)"
+              name="shopifyLocationGid"
+              options={[
+                { label: "None (Local Warehouse Only)", value: "" }, // Ensure value is string for Select
+                ...(shopifyLocations?.map(loc => ({ label: loc.name, value: loc.id })) || [])
+              ]}
+              defaultValue=""
+              error={actionData?.errors?.shopifyLocationGid ? (Array.isArray(actionData.errors.shopifyLocationGid) ? actionData.errors.shopifyLocationGid.join(", ") : actionData.errors.shopifyLocationGid) : undefined}
+              helpText="Link to an existing Shopify Location to enable inventory syncing."
+              disabled={!!loaderError} // Use loaderError to disable
+            />
+            {loaderError && <Banner tone="critical">{loaderError}</Banner>}
+            <Button submit loading={isSubmitting} variant="primary">
+              Save Warehouse
+            </Button>
+          </BlockStack>
         </Form>
       </Card>
     </Page>

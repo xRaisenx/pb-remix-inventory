@@ -225,33 +225,59 @@ export default function InventoryPage() {
 
 
     // Fetch the full product details, including all its variants, to pass to the modal
-    // This is a simplified fetch; you might have a dedicated endpoint or service function
-    try {
-      const productDetailsResponse = await fetch(`/app/products/${item.productId}/details`); // Example endpoint
-      if (!productDetailsResponse.ok) throw new Error('Failed to fetch product details');
-      const productData: ProductForTable = await productDetailsResponse.json();
+    // ... (existing checks are good)
 
-      // Construct the ProductForTable object for the modal
-      // Ensure inventoryByLocation includes the current item's specific quantity
-      const productForModalData = {
-        ...productData, // Spread all details from fetched product data
+    try {
+      // FIX: Use the correct API route and the Shopify Product GID
+      const response = await fetch(`/api/product-details/${item.productShopifyId}`);
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch(e) {
+          // If response is not JSON, use text
+          errorData = { error: await response.text() || 'Failed to fetch product details' };
+        }
+        throw new Error(errorData.error);
+      }
+
+      // The API returns { product: { ... } }, so we need to destructure it
+      const apiResponse = await response.json();
+      const productDetails: ProductForTable = apiResponse.product;
+
+      if (!productDetails) {
+        throw new Error("Product details not found in API response.");
+      }
+
+      // The productDetails from the API should be the complete ProductForTable structure.
+      // We just need to ensure the inventoryByLocation for the current item is correctly set.
+      // The inventoryRecordToProductForModal helper can be used if productDetails isn't a complete ProductForTable
+      // or if specific merging logic beyond just inventoryByLocation is needed.
+      // For this fix, we assume productDetails IS mostly ProductForTable and just adjust inventoryByLocation.
+
+      const productForModal: ProductForTable = {
+        ...productDetails, // Spread all details from fetched product data (which should be ProductForTable compatible)
+        // Ensure the specific inventory quantity for the *current* warehouse context is accurate
+        // and that all variants are present in productDetails.variantsForModal
         inventoryByLocation: {
-          ...productData.inventoryByLocation, // Keep existing known locations
-          [item.warehouseId]: { // Override/set for the current warehouse row
+          ...(productDetails.inventoryByLocation || {}), // Keep other known locations from API
+          [item.warehouseId]: { // Override/set for the current warehouse row from the InventoryRecord
             quantity: item.quantity,
             shopifyLocationGid: item.warehouseShopifyLocationGid
           }
-        }
+        },
+        // If productDetails doesn't fully match ProductForTable,
+        // you might need to use inventoryRecordToProductForModal more extensively:
+        // const productForModal = inventoryRecordToProductForModal(item, productDetails.variantsForModal, productDetails);
       };
 
-      setSelectedProductForModal(productForModalData);
+      setSelectedProductForModal(productForModal);
       setIsModalOpen(true);
-    } catch (fetchError) {
+    } catch (fetchError: any) {
       console.error("Failed to prepare product for modal:", fetchError);
-      // Show error to user, e.g., using a Banner
-      alert("Could not load product details for editing. Please try again.");
+      alert(`Could not load product details for editing: ${fetchError.message}`);
     }
-
   }, []);
 
 
