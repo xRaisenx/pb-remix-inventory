@@ -1,5 +1,3 @@
-// app/services/inventory.service.ts
-
 import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import shopify from "~/shopify.server";

@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { unstable_vitePlugin as remix } from "@remix-run/dev";
+import { vitePlugin as remix } from "@remix-run/dev";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { shopifyApp } from "@shopify/shopify-app-remix/vite";
 
@@ -13,14 +13,8 @@ export default defineConfig({
       },
     }),
     shopifyApp({
-      // Your Shopify app configuration, usually from shopify.app.toml
+      // No need to pass config here if it's in shopify.app.toml
     }),
     tsconfigPaths(),
   ],
-  server: {
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-    }
-  }
 });

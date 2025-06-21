@@ -25,13 +25,11 @@ const shopify = shopifyApp({
     SCOPES_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app/scopes_update",
-    }
-    // Add other webhooks here as needed
+    },
   },
   hooks: {
     afterAuth: async ({ session }) => {
       shopify.registerWebhooks({ session });
-      // Upsert shop record
       await prisma.shop.upsert({
         where: { shop: session.shop },
         update: { accessToken: session.accessToken },
@@ -56,25 +54,3 @@ export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;
-
-// Example of a function that uses the admin API
-// Replace this with your actual data fetching logic
-export async function getProductCount(admin: any) {
-  const response = await admin.graphql(
-    `#graphql
-    query {
-      products(first: 10) {
-        count
-      }
-    }`
-  );
-  const responseJson = await response.json();
-  return responseJson.data?.products?.count || 0;
-}
-
-// Note: The custom getProductById function mentioned in the problem description
-// "has been improved to use a centralized service for metric calculations."
-// This implies it might be in a different file (e.g., product.service.ts)
-// or its logic is now part of a broader service.
-// For now, I'm keeping this file focused on the shopifyApp setup.
-// If a specific `getProductById` is needed here, please provide its new signature/logic.
