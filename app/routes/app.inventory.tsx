@@ -5,8 +5,7 @@ import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import { Page, Card, DataTable, Text, BlockStack, Spinner, Button, Banner } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-// Removed duplicate import of ShopifyProduct and ProductForTable, as ProductForTable is imported from app.products
-import type { ProductForTable } from "./app.products"; // Correctly importing ProductForTable
+import type { ProductForTable } from "./app.products";
 import React, { useState, useCallback, useEffect } from "react";
 import { ProductModal } from "../components/ProductModal";
 import { calculateProductMetrics } from "~/services/product.service";
@@ -21,24 +20,23 @@ interface InventoryActionResponse {
   inventoryAdjustmentGroupId?: string;
 }
 
-// Represents a single row in the inventory display table
 interface InventoryRecord {
-  id: string; // Prisma Inventory record ID
-  warehouseId: string; // Prisma Warehouse ID
+  id: string;
+  warehouseId: string;
   warehouseName: string;
   warehouseShopifyLocationGid: string | null;
-  productId: string; // Prisma Product ID
+  productId: string;
   productTitle: string;
   quantity: number;
-  productShopifyId: string; // Shopify Product GID
-  variantShopifyId: string; // Shopify Variant GID for the specific variant being managed (if applicable)
-  inventoryItemId: string | null; // Shopify InventoryItem GID
+  productShopifyId: string;
+  variantShopifyId: string;
+  inventoryItemId: string | null;
 }
 
 interface LoaderData {
   inventoryList: InventoryRecord[];
-  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>; // Passed to ProductModal
-  lowStockThreshold: number | null; // Example, if needed for display
+  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>;
+  lowStockThreshold: number | null;
   error?: string;
 }
 
@@ -48,10 +46,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent");
 
   if (intent === INTENT.UPDATE_INVENTORY) {
-    const variantId = formData.get("variantId") as string; // This is Prisma Variant ID from ProductModal
+    const variantId = formData.get("variantId") as string;
     const newQuantity = parseInt(formData.get("newQuantity") as string, 10);
     const shopifyLocationGid = formData.get("shopifyLocationGid") as string;
-    // const warehouseId = formData.get("warehouseId") as string; // Prisma Warehouse ID, if needed for DB update logic beyond Shopify
 
     if (!variantId || !shopifyLocationGid || isNaN(newQuantity) || newQuantity < 0) {
       return json({ error: "Invalid input: Variant ID, Shopify Location GID, and a non-negative quantity are required." }, { status: 400 });
@@ -59,7 +56,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const result = await updateInventoryQuantityInShopifyAndDB(
       session.shop,
-      variantId, // Prisma Variant ID
+      variantId,
       newQuantity,
       shopifyLocationGid
     );
@@ -68,9 +65,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: result.error, userErrors: result.userErrors }, { status: 400 });
     }
 
-    // After successful Shopify update, recalculate product metrics
     const updatedVariant = await prisma.variant.findUnique({
-      where: { id: variantId }, // Using Prisma Variant ID
+      where: { id: variantId },
       select: { productId: true }
     });
 
@@ -78,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const productToUpdate = await prisma.product.findUnique({
         where: { id: updatedVariant.productId },
         include: {
-          variants: { select: { inventoryQuantity: true } }, // Select all variants for total inventory calc
+          variants: { select: { inventoryQuantity: true } },
           shop: { include: { NotificationSettings: true } }
         }
       });
@@ -88,10 +84,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
         const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
         const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
-        const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50; // Example
+        const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
 
         const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
-        // Ensure productWithVariantsForCalc has the correct structure for calculateProductMetrics
         const productWithVariantsForCalc = {
           ...productToUpdate,
           variants: productToUpdate.variants.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
@@ -115,7 +110,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return json({ error: "Invalid intent" }, { status: 400 });
 };
 
-
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response> => {
   const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
@@ -132,12 +126,12 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         include: {
           product: {
             select: {
-              id: true, // Prisma Product ID
+              id: true,
               title: true,
-              shopifyId: true, // Shopify Product GID
-              variants: { // Need at least one variant to get its Shopify ID and Inventory Item ID
+              shopifyId: true,
+              variants: {
                 select: { id: true, shopifyId: true, inventoryItemId: true, sku: true, title: true, price: true, inventoryQuantity: true },
-                orderBy: { createdAt: 'asc' }, // Get the "main" or first variant
+                orderBy: { createdAt: 'asc' },
                 take: 1
               }
             }
@@ -150,18 +144,16 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
     ]);
 
     const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map(inv => ({
-      id: inv.id, // Prisma Inventory ID
+      id: inv.id,
       warehouseId: inv.warehouse.id,
       warehouseName: inv.warehouse.name,
       warehouseShopifyLocationGid: inv.warehouse.shopifyLocationGid,
-      productId: inv.product.id, // Prisma Product ID
+      productId: inv.product.id,
       productTitle: inv.product.title,
       quantity: inv.quantity,
-      productShopifyId: inv.product.shopifyId, // Shopify Product GID
-      // Assuming the first variant is representative for the modal trigger.
-      // The modal itself will handle multiple variants if the product has them.
-      variantShopifyId: inv.product.variants?.[0]?.shopifyId ?? '', // Shopify Variant GID
-      inventoryItemId: inv.product.variants?.[0]?.inventoryItemId ?? null, // Shopify Inventory Item GID
+      productShopifyId: inv.product.shopifyId,
+      variantShopifyId: inv.product.variants?.[0]?.shopifyId ?? '',
+      inventoryItemId: inv.product.variants?.[0]?.inventoryItemId ?? null,
     }));
 
     return json({ inventoryList, warehouses: warehousesFromDB, lowStockThreshold: shop.lowStockThreshold });
@@ -171,115 +163,39 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
   }
 };
 
-// Helper to convert InventoryRecord to a shape ProductModal can use
-// This is a simplified conversion. ProductModal expects a richer ProductForTable.
-const inventoryRecordToProductForModal = (
-  item: InventoryRecord,
-  allProductVariants: ProductForTable['variantsForModal'], // Fetched separately or passed in
-  productDetails: Partial<ProductForTable> // Other details like vendor, salesVelocity etc.
-): ProductForTable => {
-  return {
-    id: item.productId, // Prisma Product ID
-    shopifyId: item.productShopifyId,
-    title: item.productTitle,
-    vendor: productDetails.vendor || '', // Provide defaults
-    price: productDetails.price || '',   // Provide defaults
-    sku: productDetails.sku || (allProductVariants[0]?.sku ?? ''), // Provide defaults
-    inventory: item.quantity, // This is specific to the warehouse location
-    salesVelocity: productDetails.salesVelocity || null,
-    stockoutDays: productDetails.stockoutDays || null,
-    status: productDetails.status || 'Unknown',
-    variantsForModal: allProductVariants, // All variants for this product
-    // This inventoryByLocation should reflect the specific quantity for *this* warehouse location
-    inventoryByLocation: {
-      [item.warehouseId]: {
-        quantity: item.quantity,
-        shopifyLocationGid: item.warehouseShopifyLocationGid
-      }
-    },
-    // If other locations' quantities are known, they can be added here too.
-    // For now, it's focused on the current item's location.
-  };
-};
-
-
 export default function InventoryPage() {
   const { inventoryList, warehouses, error } = useLoaderData<LoaderData>();
-  const fetcher = useFetcher<InventoryActionResponse>();
-  const navigate = useNavigate();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProductForModal, setSelectedProductForModal] = useState<ProductForTable | null>(null);
+  const navigate = useNavigate();
+  const fetcher = useFetcher<InventoryActionResponse>();
 
-  // This callback needs to fetch full product details for the modal
   const handleOpenModal = useCallback(async (item: InventoryRecord) => {
     if (!item.warehouseShopifyLocationGid) {
-      // Using alert for simplicity, consider a Polaris Banner or Toast
       alert("This warehouse is not linked to a Shopify Location. Inventory cannot be updated from here.");
       return;
     }
-    if (!item.inventoryItemId && item.variantShopifyId) {
-        alert(`The primary variant for ${item.productTitle} is missing its Shopify Inventory Item ID. Cannot update inventory.`);
-        return;
-    }
-
-
-    // Fetch the full product details, including all its variants, to pass to the modal
-    // ... (existing checks are good)
 
     try {
-      // FIX: Use the correct API route and the Shopify Product GID
       const response = await fetch(`/api/product-details/${item.productShopifyId}`);
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch(e) {
-          // If response is not JSON, use text
-          errorData = { error: await response.text() || 'Failed to fetch product details' };
-        }
-        throw new Error(errorData.error);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch product details');
       }
 
-      // The API returns { product: { ... } }, so we need to destructure it
-      const apiResponse = await response.json();
-      const productDetails: ProductForTable = apiResponse.product;
-
-      if (!productDetails) {
+      const { product } = await response.json();
+      if (!product) {
         throw new Error("Product details not found in API response.");
       }
 
-      // The productDetails from the API should be the complete ProductForTable structure.
-      // We just need to ensure the inventoryByLocation for the current item is correctly set.
-      // The inventoryRecordToProductForModal helper can be used if productDetails isn't a complete ProductForTable
-      // or if specific merging logic beyond just inventoryByLocation is needed.
-      // For this fix, we assume productDetails IS mostly ProductForTable and just adjust inventoryByLocation.
-
-      const productForModal: ProductForTable = {
-        ...productDetails, // Spread all details from fetched product data (which should be ProductForTable compatible)
-        // Ensure the specific inventory quantity for the *current* warehouse context is accurate
-        // and that all variants are present in productDetails.variantsForModal
-        inventoryByLocation: {
-          ...(productDetails.inventoryByLocation || {}), // Keep other known locations from API
-          [item.warehouseId]: { // Override/set for the current warehouse row from the InventoryRecord
-            quantity: item.quantity,
-            shopifyLocationGid: item.warehouseShopifyLocationGid
-          }
-        },
-        // If productDetails doesn't fully match ProductForTable,
-        // you might need to use inventoryRecordToProductForModal more extensively:
-        // const productForModal = inventoryRecordToProductForModal(item, productDetails.variantsForModal, productDetails);
-      };
-
-      setSelectedProductForModal(productForModal);
+      setSelectedProductForModal(product);
       setIsModalOpen(true);
     } catch (fetchError: any) {
       console.error("Failed to prepare product for modal:", fetchError);
       alert(`Could not load product details for editing: ${fetchError.message}`);
     }
   }, []);
-
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -289,11 +205,9 @@ export default function InventoryPage() {
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.success) {
       handleCloseModal();
-      // Consider a more targeted way to update UI than full navigate/reload if possible
-      navigate(".", { replace: true }); // Reloads data for the current page
+      navigate(".", { replace: true });
     }
   }, [fetcher.state, fetcher.data, handleCloseModal, navigate]);
-
 
   if (error) {
     return (
@@ -303,30 +217,30 @@ export default function InventoryPage() {
     );
   }
 
-  const rows = inventoryList.map((item: InventoryRecord) => [ // Explicitly type item
+  const rows = inventoryList.map((item: InventoryRecord) => [
     item.productTitle,
     item.warehouseName,
     item.quantity,
     <Button
       key={`action-${item.id}`}
       onClick={() => handleOpenModal(item)}
-      variant="plain" // "plain" for less visual weight in a table
+      variant="plain"
       accessibilityLabel={`Update quantity for ${item.productTitle} at ${item.warehouseName}`}
-      // Disable if warehouse not linked or if primary variant has no inventory item ID
-      disabled={!item.warehouseShopifyLocationGid || (!item.inventoryItemId && !!item.variantShopifyId)}
+      disabled={!item.warehouseShopifyLocationGid}
     >
       Update Quantity
     </Button>
   ]);
 
   return (
-    <Page title="Inventory Management"
+    <Page
+      title="Inventory Management"
       subtitle="View and update inventory levels across your warehouse locations."
     >
       <BlockStack gap="400">
         {fetcher.state === "submitting" && <Spinner accessibilityLabel="Updating inventory..." />}
         {fetcher.data?.error && !fetcher.data.success && (
-          <Banner tone="critical" onDismiss={() => fetcher.load(window.location.pathname) /* Clears fetcher data */ }>
+          <Banner tone="critical" onDismiss={() => fetcher.load(window.location.pathname) }>
             {fetcher.data.error}
             {fetcher.data.userErrors && (
               <ul>{fetcher.data.userErrors.map((e, idx) => <li key={idx}>{e.field?.join(".")}: {e.message}</li>)}</ul>
@@ -357,8 +271,8 @@ export default function InventoryPage() {
           <ProductModal
             open={isModalOpen}
             onClose={handleCloseModal}
-            product={selectedProductForModal} // Pass the fully prepared ProductForTable object
-            warehouses={warehouses} // Pass the warehouses list
+            product={selectedProductForModal}
+            warehouses={warehouses}
           />
         )}
       </BlockStack>
