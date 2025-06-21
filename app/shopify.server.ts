@@ -30,10 +30,12 @@ const shopify = shopifyApp({
   hooks: {
     afterAuth: async ({ session }) => {
       shopify.registerWebhooks({ session });
+      // The accessToken is managed by the Session model.
+      // This hook should only ensure the Shop record exists.
       await prisma.shop.upsert({
         where: { shop: session.shop },
-        update: { accessToken: session.accessToken },
-        create: { shop: session.shop, accessToken: session.accessToken },
+        update: {}, // Nothing to update here
+        create: { shop: session.shop },
       });
     },
   },

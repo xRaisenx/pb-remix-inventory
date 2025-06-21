@@ -24,13 +24,13 @@ model Session {
 model Shop {
   id                          String                  @id @default(cuid())
   shop                        String                  @unique
-  accessToken                 String?
   emailForNotifications       String?
   slackWebhookUrl             String?
   telegramBotToken            String?
   telegramChatId              String?
   whatsAppApiCredentialsJson  String?
   lowStockThreshold           Int?                    @default(10)
+  initialSyncCompleted Boolean @default(false) // ADD THIS LINE
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
 
