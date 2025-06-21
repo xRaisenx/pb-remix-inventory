@@ -1,11 +1,8 @@
-// app/routes/app.products.tsx
-
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { Page, BlockStack, Card, Text, TextField, Icon, Banner, IndexTable, type IndexTableProps, Pagination } from "@shopify/polaris";
 import { SearchMajor } from '@shopify/polaris-icons';
 import { useState, useMemo, useCallback } from "react";
-import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
 import { ProductModal } from "~/components/ProductModal";
@@ -212,7 +209,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 // --- COMPONENT ---
 export default function AppProductsPage() {
-  const { products, warehouses, error, shopDomain, pageInfo } = useLoaderData<LoaderData>();
+  const { products, warehouses, error, pageInfo } = useLoaderData<LoaderData>();
   const [selectedProduct, setSelectedProduct] = useState<ProductForTable | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState<keyof ProductForTable | null>('title');
@@ -311,7 +308,7 @@ export default function AppProductsPage() {
           open={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           product={selectedProduct}
-          warehouses={warehouses} // Pass warehouses to the modal
+          warehouses={warehouses}
         />
       )}
     </Page>

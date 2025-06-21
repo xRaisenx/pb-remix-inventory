@@ -9,7 +9,6 @@ import { authenticate } from "~/shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  // Pass SHOPIFY_API_KEY and session.host to the client
   return json({
     apiKey: process.env.SHOPIFY_API_KEY,
     host: session.host,
@@ -20,13 +19,10 @@ export default function App() {
   const { apiKey, host } = useLoaderData<typeof loader>();
 
   if (!apiKey || !host) {
-    // Handle the case where apiKey or host might be undefined,
-    // though they should be set by the loader.
-    console.error("Missing Shopify API key or host for App Bridge.");
     return (
       <PolarisAppProvider i18n={enTranslations}>
         <Frame>
-          <p>Error: Shopify App Bridge configuration missing.</p>
+          <p>Error: Shopify App Bridge configuration is missing.</p>
         </Frame>
       </PolarisAppProvider>
     );
@@ -34,7 +30,7 @@ export default function App() {
 
   return (
     <PolarisAppProvider i18n={enTranslations}>
-      <AppBridgeProvider config={{ apiKey: apiKey, host: host, forceRedirect: true }}>
+      <AppBridgeProvider config={{ apiKey, host, forceRedirect: true }}>
         <Frame>
           <AppLayout>
             <Outlet />

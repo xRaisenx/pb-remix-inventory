@@ -1,4 +1,3 @@
-import { cssBundleHref } from "@remix-run/css-bundle";
 import type { LinksFunction, MetaFunction } from "@remix-run/node";
 import {
   Links,
@@ -10,57 +9,17 @@ import {
   isRouteErrorResponse,
   useRouteError,
 } from "@remix-run/react";
-import { AppProvider } from "@shopify/polaris";
+import { AppProvider, Page, EmptyState, BlockStack, Text, Button } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
-
-export const meta: MetaFunction = () => [{ title: "New Remix App" }];
+import appStyles from "~/styles/app.css?url";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
-  ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
+  { rel: "stylesheet", href: appStyles },
 ];
 
-export default function App() {
-  return (
-    <HtmlDocument>
-      <Outlet />
-    </HtmlDocument>
-  );
-}
-
-export function ErrorBoundary() {
-  const error = useRouteError();
-  let errorMessage = "Unknown error";
-  if (isRouteErrorResponse(error)) {
-    errorMessage = error.data?.message || error.statusText;
-  } else if (error instanceof Error) {
-    errorMessage = error.message;
-  }
-
-  return (
-    <HtmlDocument title="Error">
-      <AppProvider i18n={enTranslations}>
-        {/* Minimal layout for error page for now, can be enhanced later */}
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-          <h1>Oops!</h1>
-          <p>Sorry, an unexpected error has occurred.</p>
-          <p>
-            <i>{errorMessage}</i>
-          </p>
-        </div>
-      </AppProvider>
-    </HtmlDocument>
-  );
-}
-
-function HtmlDocument({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title?: string;
-}) {
+function Document({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
     <html lang="en">
       <head>
@@ -77,5 +36,45 @@ function HtmlDocument({
         <Scripts />
       </body>
     </html>
+  );
+}
+
+export default function App() {
+  return (
+    <Document>
+      <Outlet />
+    </Document>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  let title = "Error";
+  let message = "An unknown error occurred.";
+
+  if (isRouteErrorResponse(error)) {
+    title = `${error.status} ${error.statusText}`;
+    message = typeof error.data === 'string' ? error.data : 'An unexpected error occurred.';
+  } else if (error instanceof Error) {
+    title = error.name;
+    message = error.message;
+  }
+
+  return (
+    <Document title={title}>
+      <AppProvider i18n={enTranslations}>
+        <Page>
+          <EmptyState
+            heading={title}
+            image="https://cdn.shopify.com/s/files/1/0262/4074/files/emptystate-error.png"
+          >
+            <BlockStack gap="200">
+              <Text as="p" tone="critical">{message}</Text>
+              <Button url="/" variant="primary">Go to Home</Button>
+            </BlockStack>
+          </EmptyState>
+        </Page>
+      </AppProvider>
+    </Document>
   );
 }
