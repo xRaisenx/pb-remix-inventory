@@ -167,8 +167,8 @@ export default function InventoryPage() {
   const { inventoryList, warehouses, error } = useLoaderData<LoaderData>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProductForModal, setSelectedProductForModal] = useState<ProductForTable | null>(null);
-  const navigate = useNavigate();
-  const fetcher = useFetcher<InventoryActionResponse>();
+  const navigate = useNavigate(); // Keep navigate for useEffect
+  const fetcher = useFetcher<InventoryActionResponse>(); // Keep fetcher for useEffect
 
   const handleOpenModal = useCallback(async (item: InventoryRecord) => {
     if (!item.warehouseShopifyLocationGid) {
@@ -177,19 +177,44 @@ export default function InventoryPage() {
     }
 
     try {
+      // Fetch the complete, ready-to-use product object from our corrected API route
       const response = await fetch(`/api/product-details/${item.productShopifyId}`);
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch(e) {
+          errorData = { error: await response.text() || 'Failed to fetch product details' };
+        }
         throw new Error(errorData.error || 'Failed to fetch product details');
       }
 
-      const { product } = await response.json();
+      const apiResponse = await response.json(); // Assuming API returns { product: ProductForTable }
+      const product: ProductForTable = apiResponse.product;
+
       if (!product) {
         throw new Error("Product details not found in API response.");
       }
 
-      setSelectedProductForModal(product);
+      // The product from the API is assumed to be the complete ProductForTable.
+      // We can ensure the specific item's quantity is accurately reflected if needed for the modal's initial state,
+      // although the modal itself will manage quantities for specific variants/locations.
+      // The API should ideally provide inventoryByLocation correctly.
+      // If product.inventoryByLocation from API is the source of truth, this merge might be simplified or removed,
+      // relying on ProductModal to correctly pick the quantity for the initially selected warehouse.
+      const productForModal = {
+        ...product,
+        inventoryByLocation: { // Ensure this specific location's quantity from the list item is represented
+          ...(product.inventoryByLocation || {}),
+          [item.warehouseId]: {
+            quantity: item.quantity,
+            shopifyLocationGid: item.warehouseShopifyLocationGid,
+          },
+        },
+      };
+
+      setSelectedProductForModal(productForModal);
       setIsModalOpen(true);
     } catch (fetchError: any) {
       console.error("Failed to prepare product for modal:", fetchError);
