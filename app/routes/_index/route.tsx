@@ -4,7 +4,7 @@ import { Form, useLoaderData } from "@remix-run/react";
 import { Text } from "@shopify/polaris";
 
 // Assuming login is exported from your shopify.server.ts
-import { login } from "~/shopify.server"; // Use the Remix alias for absolute imports, adjust if your file is elsewhere
+import { login } from "~/shopify.server"; // Make sure login is imported
 
 // Assuming styles.module.css is in the same directory as this route file
 // e.g., app/routes/styles.module.css or app/routes/_index/styles.module.css
@@ -19,24 +19,13 @@ export const links: LinksFunction = () => {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  // If a 'shop' parameter is present in the URL, it means Shopify has likely
-  // redirected the user here after app installation or from the Shopify admin.
-  // In this case, we redirect to the main '/app' route, passing along the
-  // shop (and any other) parameters. The '/app' route's loader (or a
-  // subsequent auth route like /auth/login if /app is protected) will handle
-  // initiating the OAuth flow with this shop.
+  // If a 'shop' parameter is present, initiate the auth process immediately.
+  // This is the standard flow for new app installations.
   if (url.searchParams.get("shop")) {
-    // Construct the redirect URL to /app, preserving existing search params
-    const appRedirectUrl = new URL("/app", url.origin);
-    url.searchParams.forEach((value, key) => {
-      appRedirectUrl.searchParams.append(key, value);
-    });
-    throw redirect(appRedirectUrl.toString());
+    throw await login(request);
   }
 
-  // If no 'shop' param, it means the user is visiting the landing page directly.
-  // We check if the `login` function is available (it should be if shopify.server is set up).
-  // `showForm` will determine if the login form is rendered on the page.
+  // If no 'shop' param, show the manual login form.
   return { showForm: Boolean(login) };
 };
 
