@@ -1,15 +1,18 @@
 // app/components/common/Badge.tsx
 import { Badge, type BadgeProps } from "@shopify/polaris";
 
-// Define a set of custom statuses that map to Polaris tones
-type CustomStatus = "positive" | "negative" | "warning" | "info" | "critical" | "attention" | "new" | "default";
+// Define and export a set of custom statuses that map to Polaris tones
+export type CustomStatus = "positive" | "negative" | "warning" | "info" | "critical" | "attention" | "new" | "default";
 
-interface CustomBadgeProps extends Omit<BadgeProps, "tone" | "children"> {
+interface CustomBadgeProps {
   customStatus?: CustomStatus;
   children: string; // Enforce string children to match Polaris Badge
+  // Removed accessibilityLabel and other Polaris BadgeProps from here
+  // as they are not directly used or modified by this wrapper.
+  // If they were needed, they should be explicitly defined.
 }
 
-const statusToneMap: Record<CustomStatus, BadgeProps['tone'] | undefined> = { // Ensure undefined is a possible tone value for 'default'
+const statusToneMap: Record<CustomStatus, BadgeProps['tone']> = {
   positive: "success",
   negative: "critical",
   warning: "warning",
@@ -17,13 +20,16 @@ const statusToneMap: Record<CustomStatus, BadgeProps['tone'] | undefined> = { //
   critical: "critical",
   attention: "attention",
   new: "new",
-  default: undefined, // Default has no specific tone, so Polaris default will apply
+  default: undefined, // Polaris Badge tone is optional, undefined means default
 };
 
-export const CustomBadge = ({ customStatus = "default", children, ...rest }: CustomBadgeProps) => {
+export const CustomBadge = ({ customStatus = "default", children }: CustomBadgeProps) => {
   const tone = statusToneMap[customStatus];
+  // Pass only the mapped tone and children.
+  // If other BadgeProps like 'progress' or 'size' were needed,
+  // they would need to be added to CustomBadgeProps and passed explicitly.
   return (
-    <Badge tone={tone} {...rest}>
+    <Badge tone={tone}>
       {children}
     </Badge>
   );

@@ -1,8 +1,14 @@
 // --- START OF FILE app/components/AppLayout.tsx ---
 import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation } from '@shopify/polaris';
-// Import specific icons from polaris-icons
-import { HomeMajor, ProductsMajor, SettingsMajor, AnalyticsMajor, BellMajor } from '@shopify/polaris-icons';
+// Import specific icons from polaris-icons with corrected names
+import {
+  HomeIcon,
+  ProductsIcon,
+  SettingsIcon,
+  AnalyticsIcon,
+  NotificationIcon,
+} from '@shopify/polaris-icons';
 import { useLocation } from '@remix-run/react'; // To determine active navigation link
 
 interface AppLayoutProps {
@@ -46,7 +52,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       secondaryMenu={
         <TopBar.Menu
           activatorContent={
-            <BellMajor /> // Using imported BellMajor icon
+            <span>
+              <NotificationIcon />
+            </span>
           }
           open={isSecondaryMenuOpen}
           onOpen={toggleIsSecondaryMenuOpen}
@@ -61,36 +69,36 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     />
   );
 
-  // Navigation items: using imported icons
+  // Navigation items: using imported icons with corrected names
   const navigationItems = [
     {
       url: '/app',
       label: 'Dashboard',
-      icon: HomeMajor, // Using imported HomeMajor icon
+      icon: HomeIcon,
       selected: location.pathname === '/app',
     },
     {
       url: '/app/products',
       label: 'Products',
-      icon: ProductsMajor, // Using imported ProductsMajor icon
+      icon: ProductsIcon,
       selected: location.pathname.startsWith('/app/products'),
     },
     {
       url: '/app/reports',
       label: 'Reports',
-      icon: AnalyticsMajor, // Using imported AnalyticsMajor icon
+      icon: AnalyticsIcon,
       selected: location.pathname === '/app/reports',
     },
     {
       url: '/app/alerts',
       label: 'Alerts',
-      icon: BellMajor, // Using imported BellMajor icon
+      icon: NotificationIcon,
       selected: location.pathname === '/app/alerts',
     },
     {
       url: '/app/settings',
       label: 'Settings',
-      icon: SettingsMajor, // Using imported SettingsMajor icon
+      icon: SettingsIcon,
       selected: location.pathname === '/app/settings',
     },
   ];
@@ -103,12 +111,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     </Navigation>
   );
 
-  // Logo for the Frame component, aligning with AppTheme in root.tsx
   const logo = {
     width: 124,
     accessibilityLabel: 'Planet Beauty',
-    // topBarSource: '/path/to/your/logo-on-dark-bg.svg', // if needed for dark topbar
-    url: '/app', // Link for the logo
+    url: '/app',
   };
 
   return (
@@ -122,5 +128,5 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   );
 };
 
-export default AppLayout; // Ensure default export if this is the main layout file used by Remix
+export default AppLayout;
 // --- END OF FILE app/components/AppLayout.tsx ---

@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, ButtonGroup, Button, BlockStack, Text } from "@shopify/polaris";
-import { Link } from "@remix-run/react";
 
 export function QuickActions() {
   return (
@@ -11,28 +10,24 @@ export function QuickActions() {
         </Text>
         <ButtonGroup>
           <Button
-            as={Link}
-            to="/app/reports"
+            url="/app/reports" // Use url prop for navigation
             variant="primary"
             aria-label="Generate Inventory Report"
           >
             Generate Report
           </Button>
           <Button
-            as={Link}
-            to="/app/alerts"
+            url="/app/alerts" // Use url prop for navigation
             aria-label="View All Alerts"
           >
             View Alerts
           </Button>
           <Button
-            as={Link}
-            to="/app/inventory" // Placeholder link, can be adjusted later
+            url="/app/inventory" // Use url prop for navigation
             aria-label="Adjust Inventory"
           >
             Adjust Inventory
           </Button>
-          {/* Add more buttons here as needed */}
         </ButtonGroup>
       </BlockStack>
     </Card>

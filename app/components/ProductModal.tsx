@@ -1,54 +1,58 @@
 import { Modal, TextField, FormLayout, Select, Banner, Text, BlockStack } from "@shopify/polaris";
 import { useCallback, useState, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
-import { useToast } from "@shopify/app-bridge-react";
-import type { ProductForTable } from "~/routes/app.products"; // Adjust path as needed
+import { useAppBridge } from "@shopify/app-bridge-react";
+import type { ProductForTable } from "~/routes/app.products";
 import { INTENT } from "~/utils/intents";
 
 interface ProductModalProps {
   open: boolean;
   onClose: () => void;
   product: ProductForTable | null;
-  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>; // Added warehouses
+  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>;
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({
   open,
   onClose,
   product,
-  warehouses, // Added warehouses
+  warehouses,
 }) => {
   const fetcher = useFetcher<any>();
-  const { show: showToast } = useToast();
+  const app = useAppBridge(); // Correct way to get App Bridge instance
+  // const toast = useToast(); // This is deprecated
+
+  const showToast = (content: string, isError = false) => {
+    app.toast.show(content, { isError, duration: 3000 }); // Use app.toast.show()
+  };
+
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null); // Added
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<string>("");
   const [currentQuantityAtLocation, setCurrentQuantityAtLocation] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Effect to reset form when modal opens or product/warehouses change
   useEffect(() => {
     if (open && product && product.variantsForModal.length > 0) {
       const firstVariant = product.variantsForModal[0];
       setSelectedVariantId(firstVariant.id);
-      // setQuantity((firstVariant.inventoryQuantity ?? 0).toString()); // Total quantity for variant
 
-      // If warehouses are available, pre-select the first one
       if (warehouses && warehouses.length > 0) {
         const firstWarehouseId = warehouses[0].id;
         setSelectedWarehouseId(firstWarehouseId);
-        // Update current quantity display for this variant at this warehouse
+        // Try to find quantity for the first variant at the first warehouse
         const qty = product.inventoryByLocation?.[firstWarehouseId]?.quantity;
         setCurrentQuantityAtLocation(qty ?? 0);
-        setQuantity((qty ?? 0).toString()); // Set initial quantity input to current at location
+        setQuantity((qty ?? 0).toString());
       } else {
+        // Fallback if no warehouses or no specific inventory for the first warehouse
         setSelectedWarehouseId(null);
-        setCurrentQuantityAtLocation(0);
-        // Fallback if no warehouses or inventoryByLocation not populated for the first warehouse
+        setCurrentQuantityAtLocation(0); // Or handle as appropriate
         setQuantity((firstVariant.inventoryQuantity ?? 0).toString());
       }
     } else if (!open) {
+      // Reset state when modal closes
       setSelectedVariantId(null);
       setSelectedWarehouseId(null);
       setQuantity("");
@@ -58,50 +62,35 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
   }, [open, product, warehouses]);
 
-  // Effect to handle fetcher state (e.g., after submission)
-  useEffect(() => {
-    // This effect handles in-modal banners
-    if (fetcher.state === 'idle' && fetcher.data && !fetcher.data.success && fetcher.data.error) {
-      setError(fetcher.data.error);
-      setSuccess(null);
-    }
-    // The success case for in-modal banner is handled below with toast
-    // to avoid showing banner and toast for the same success.
-  }, [fetcher.state, fetcher.data]);
-
-  // Effect for showing toasts based on fetcher result
   useEffect(() => {
     if (fetcher.state === 'idle' && fetcher.data) {
       if (fetcher.data.success) {
-        // Show success toast
-        showToast(fetcher.data.message || "Inventory updated!", { duration: 3000 });
-        // Set internal success message for banner (optional, if modal doesn't close immediately)
+        showToast(fetcher.data.message || "Inventory updated!");
         setSuccess(fetcher.data.message || "Inventory updated successfully!");
         setError(null);
         onClose(); // Close modal on success
       } else if (fetcher.data.error) {
-        // Error toast is shown if not handled by the banner effect above,
-        // or if you want both banner and toast for errors.
-        // For now, relying on the banner for detailed errors within modal.
-        // If the modal were to close on error too, a toast here would be good.
-        // showToast(fetcher.data.error, { duration: 5000, isError: true });
+        // showToast(fetcher.data.error, true); // Optionally show toast for error too
+        setError(fetcher.data.error);
+        setSuccess(null);
       }
     }
   }, [fetcher.state, fetcher.data, showToast, onClose]);
 
-
   const handleVariantChange = useCallback((variantId: string) => {
     setSelectedVariantId(variantId);
     const selectedVar = product?.variantsForModal.find(v => v.id === variantId);
-    // When variant changes, if a warehouse is already selected, update quantity field
-    // with that warehouse's current product inventory. Otherwise, use variant's total.
+
     if (selectedWarehouseId && product?.inventoryByLocation?.[selectedWarehouseId]) {
+      // If a warehouse is selected, use its specific quantity for THIS variant
+      // This part might need adjustment if inventoryByLocation is per product, not per variant-location
       const qtyAtLocation = product.inventoryByLocation[selectedWarehouseId].quantity;
       setQuantity((qtyAtLocation ?? 0).toString());
       setCurrentQuantityAtLocation(qtyAtLocation ?? 0);
     } else {
-      setQuantity((selectedVar?.inventoryQuantity ?? 0).toString()); // Fallback to variant's total
-      setCurrentQuantityAtLocation(selectedVar?.inventoryQuantity ?? 0); // Or null if more appropriate
+      // Fallback to total variant inventory if no specific location quantity is found/applicable
+      setQuantity((selectedVar?.inventoryQuantity ?? 0).toString());
+      setCurrentQuantityAtLocation(selectedVar?.inventoryQuantity ?? 0);
     }
     setError(null);
     setSuccess(null);
@@ -109,17 +98,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleWarehouseChange = useCallback((warehouseId: string) => {
     setSelectedWarehouseId(warehouseId);
-    // When warehouse changes, update quantity field with its current product inventory
+    // When warehouse changes, update quantity based on selected variant and new warehouse
     if (product?.inventoryByLocation?.[warehouseId]) {
       const qtyAtLocation = product.inventoryByLocation[warehouseId].quantity;
       setQuantity((qtyAtLocation ?? 0).toString());
       setCurrentQuantityAtLocation(qtyAtLocation ?? 0);
     } else {
-      // Fallback if inventory data for this warehouse isn't available for the product
-      // This might mean setting quantity to 0 or to the selected variant's total quantity
+      // If no specific inventory for this warehouse, fall back to variant's total or 0
       const selectedVar = product?.variantsForModal.find(v => v.id === selectedVariantId);
-      setQuantity((selectedVar?.inventoryQuantity ?? 0).toString()); // Or "0"
-      setCurrentQuantityAtLocation(null); // Indicate N/A
+      setQuantity((selectedVar?.inventoryQuantity ?? 0).toString()); // Or set to 0 or prompt
+      setCurrentQuantityAtLocation(null); // Indicate quantity is not specific to this location
     }
     setError(null);
     setSuccess(null);
@@ -127,7 +115,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleQuantityChange = useCallback((value: string) => {
     setQuantity(value);
-    setError(null); // Clear error when user types
+    setError(null); // Clear previous errors on new input
     setSuccess(null);
   }, []);
 
@@ -152,22 +140,24 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     fetcher.submit(
       {
         intent: INTENT.UPDATE_INVENTORY,
-        variantId: selectedVariantId,
+        variantId: selectedVariantId, // This should be the Prisma Variant ID
         newQuantity: numQuantity.toString(),
         warehouseId: selectedWarehouseId, // Prisma Warehouse ID
         shopifyLocationGid: selectedWarehouse.shopifyLocationGid, // Shopify Location GID
       },
-      { method: 'post', action: '/app/products' }
+      { method: 'post', action: '/app/products' } // Or your designated inventory update action route
     );
   };
 
+  // UI display logic
   const selectedVariantDetails = product?.variantsForModal.find(v => v.id === selectedVariantId);
   const currentInventoryLabel = selectedWarehouseId && product?.inventoryByLocation?.[selectedWarehouseId] !== undefined
     ? `(Current at selected location: ${product.inventoryByLocation[selectedWarehouseId].quantity})`
     : selectedVariantId && selectedVariantDetails
     ? `(Variant total: ${selectedVariantDetails.inventoryQuantity ?? 0})`
     : '';
-  const restockingSuggestion = product ? Math.ceil((product.salesVelocity || 0) * 5) : 0; // 5 days of sales
+  const restockingSuggestion = product ? Math.ceil((product.salesVelocity || 0) * 5) : 0;
+
 
   return (
     <Modal
@@ -200,12 +190,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             label="Select Variant"
             options={
               product?.variantsForModal.map(v => ({
-                label: `${v.sku || 'N/A'} (Current: ${v.inventoryQuantity ?? 0})`,
-                value: v.id
+                label: `${v.title || v.sku || 'N/A'} (Current: ${v.inventoryQuantity ?? 0})`, // Display variant title or SKU
+                value: v.id // This should be Prisma Variant ID
               })) || []
             }
             onChange={handleVariantChange}
-            value={selectedVariantId || undefined}
+            value={selectedVariantId || undefined} // Ensure value is string or undefined
             disabled={fetcher.state === "submitting"}
           />
           <Select
@@ -213,12 +203,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             options={
               warehouses.map(w => ({
                 label: w.name,
-                value: w.id,
-                disabled: !w.shopifyLocationGid, // Disable if no GID
+                value: w.id, // This is Prisma Warehouse ID
+                disabled: !w.shopifyLocationGid, // Disable if no Shopify GID
               })) || []
             }
             onChange={handleWarehouseChange}
-            value={selectedWarehouseId || undefined}
+            value={selectedWarehouseId || undefined} // Ensure value is string or undefined
             disabled={fetcher.state === "submitting" || !selectedVariantId}
             helpText={!selectedWarehouseId && warehouses.length > 0 ? "Please select a warehouse." : warehouses.find(w => w.id === selectedWarehouseId && !w.shopifyLocationGid) ? "This warehouse is missing its Shopify Location GID and cannot be updated." : ""}
           />
