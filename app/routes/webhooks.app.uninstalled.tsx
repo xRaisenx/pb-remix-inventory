@@ -32,11 +32,9 @@ export async function action({ request }: ActionFunctionArgs) {
         });
         console.log(`Shop data deleted for ${shop} due to app uninstall.`);
 
-        // Additionally, if you store sessions in Prisma, you might want to clean them up too,
-        // though `PrismaSessionStorage` might handle this if shopId is part of the session ID
-        // or if you have cascading deletes. For explicit cleanup:
-        // await prisma.session.deleteMany({ where: { shop: shop } });
-        // console.log(`Sessions deleted for ${shop}.`);
+        // Explicitly delete sessions associated with the shop
+        await prisma.session.deleteMany({ where: { shop: shop } });
+        console.log(`Sessions deleted for ${shop}.`);
 
       } else {
         console.log(`Shop ${shop} not found in database during APP_UNINSTALLED webhook processing.`);

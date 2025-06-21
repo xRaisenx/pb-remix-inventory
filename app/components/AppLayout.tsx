@@ -3,11 +3,11 @@ import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation } from '@shopify/polaris';
 // Import specific icons from polaris-icons with corrected names
 import {
-  HomeIcon,
-  ProductsIcon,
-  SettingsIcon,
-  AnalyticsIcon,
-  NotificationIcon,
+  HomeMajorIcon,
+  ProductsMajorIcon,
+  SettingsMajorIcon,
+  AnalyticsMajorIcon,
+  NotificationMajorIcon,
 } from '@shopify/polaris-icons';
 import { useLocation } from '@remix-run/react'; // To determine active navigation link
 
@@ -53,7 +53,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <TopBar.Menu
           activatorContent={
             <span>
-              <NotificationIcon />
+              <NotificationMajorIcon />
             </span>
           }
           open={isSecondaryMenuOpen}
@@ -74,31 +74,31 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     {
       url: '/app',
       label: 'Dashboard',
-      icon: HomeIcon,
+      icon: HomeMajorIcon,
       selected: location.pathname === '/app',
     },
     {
       url: '/app/products',
       label: 'Products',
-      icon: ProductsIcon,
+      icon: ProductsMajorIcon,
       selected: location.pathname.startsWith('/app/products'),
     },
     {
       url: '/app/reports',
       label: 'Reports',
-      icon: AnalyticsIcon,
+      icon: AnalyticsMajorIcon,
       selected: location.pathname === '/app/reports',
     },
     {
       url: '/app/alerts',
       label: 'Alerts',
-      icon: NotificationIcon,
+      icon: NotificationMajorIcon,
       selected: location.pathname === '/app/alerts',
     },
     {
       url: '/app/settings',
       label: 'Settings',
-      icon: SettingsIcon,
+      icon: SettingsMajorIcon,
       selected: location.pathname === '/app/settings',
     },
   ];

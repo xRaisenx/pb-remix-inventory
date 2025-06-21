@@ -10,10 +10,10 @@ import { login } from "~/shopify.server"; // Use the Remix alias for absolute im
 // e.g., app/routes/styles.module.css or app/routes/_index/styles.module.css
 // If it's app/styles/index.module.css, then use:
 // import styles from "~/styles/index.module.css?url";
-import styles from "./styles.module.css"; // Standard way to import CSS module URLs in Remix
+import stylesUrl from "./styles.module.css?url"; // Standard way to import CSS module URLs in Remix
 
 export const links: LinksFunction = () => {
-  return [{ rel: "stylesheet", href: styles as unknown as string }];
+  return [{ rel: "stylesheet", href: stylesUrl }];
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
