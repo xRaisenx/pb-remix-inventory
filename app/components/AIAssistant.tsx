@@ -268,8 +268,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName }) => {
             }
             const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
             setConversation(prev => [...prev, userMessage]);
-            // Don't setInputValue('') here if you want the input value to be part of the form data submitted
-            // It will be cleared below IF the submission proceeds.
+            setInputValue(''); // Clear input after adding to conversation and allowing form to submit
           }}
         >
           <input type="hidden" name="intent" value={INTENT.AI_CHAT} />
