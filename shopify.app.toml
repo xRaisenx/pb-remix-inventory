@@ -3,21 +3,31 @@
 client_id = "919e88ca96685994550e0a9bc9236584"
 name = "focused-policy-app"
 handle = "focused-policy-app-6"
-application_url = "https://example.com/"
+application_url = "https://pb-inventory-ai-olive.vercel.app/"
 embedded = true
 
 [webhooks]
 api_version = "2025-04"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://pb-inventory-ai-olive.vercel.app/api/auth",
+  "https://pb-inventory-ai-olive.vercel.app/auth/callback",
+  "https://pb-inventory-ai-olive.vercel.app/auth/shopify/callback",
+  "https://pb-inventory-ai-olive.vercel.app/api/auth/callback"
+]
 
 [pos]
 embedded = false
-
-[build]
-include_config_on_deploy = true
