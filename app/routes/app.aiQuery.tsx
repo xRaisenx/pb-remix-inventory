@@ -4,14 +4,15 @@ import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import { getAiChatResponse } from "~/services/ai.server"; // Import the service
 import prisma  from "~/db.server"; // Import prisma client
+import { INTENT } from "~/utils/intents"; // Assuming INTENT constants are here
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
-  const formAction = formData.get("_action") as string;
+  const intent = formData.get("intent") as string; // Changed from _action to intent
   const query = formData.get("query") as string;
 
-  if (formAction === "ai_chat") {
+  if (intent === INTENT.AI_CHAT) { // Changed from formAction === "ai_chat"
     if (!query || typeof query !== 'string' || query.trim() === "") {
       return json({ structuredResponse: { type: 'error', message: "Query cannot be empty." } }, { status: 400 });
     }
