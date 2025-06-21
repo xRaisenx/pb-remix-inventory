@@ -127,67 +127,52 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
   }
 };
 
-export const action = async ({ request }: ActionFunctionArgs): Promise<Response> => {
-  const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
-  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
+// ... (imports)
+import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service";
 
+// ... (loader is fine)
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === 'updateInventory') {
-    const variantId = formData.get("variantId") as string; // This is the Prisma Variant ID
-    const newQuantityStr = formData.get("newQuantity") as string;
+    const variantId = formData.get("variantId") as string; // This should be Prisma Variant ID
+    const newQuantity = parseInt(formData.get("newQuantity") as string, 10);
+    // The modal on this page needs to know which location to update.
+    // This is a UI/UX challenge. For now, we assume the first available location.
+    // A better solution is a location selector in the modal.
+    const warehouse = await prisma.warehouse.findFirst({
+        where: { shop: { shop: session.shop }, shopifyLocationGid: { not: null } }
+    });
 
-    if (!variantId || typeof variantId !== 'string' || variantId.trim() === "") {
-      return json({ error: "Invalid or missing Variant ID." }, { status: 400 });
+    if (!warehouse?.shopifyLocationGid) {
+        return json({ error: "No Shopify-linked warehouse found to update inventory." }, { status: 400 });
     }
-    if (newQuantityStr === null || newQuantityStr.trim() === "") {
-      return json({ error: "Missing new quantity." }, { status: 400 });
+
+    const result = await updateInventoryQuantityInShopifyAndDB(
+      session.shop,
+      variantId, // This is now Prisma Variant ID
+      newQuantity,
+      warehouse.shopifyLocationGid
+    );
+
+    if (!result.success) {
+      return json({ error: result.error, userErrors: result.userErrors }, { status: 400 });
     }
-    const newQuantity = parseInt(newQuantityStr, 10);
-    if (isNaN(newQuantity) || newQuantity < 0) {
-      return json({ error: "Invalid quantity: must be a non-negative integer." }, { status: 400 });
-    }
-
-    try {
-      // Call the centralized inventory update service
-      const updateResult = await updateInventoryQuantityInShopifyAndDB(
-        session.shop,
-        variantId,
-        newQuantity
-      );
-
-      if (!updateResult.success) {
-        return json({
-          error: updateResult.error || "Failed to update inventory.",
-          userErrors: updateResult.userErrors
-        }, { status: updateResult.userErrors ? 400 : 500 });
-      }
-
-      // If the service call was successful, proceed with product metrics recalculation.
-      // The service already updated the local DB variant quantity.
-      // We need the productId to recalculate product metrics.
-      const updatedVariant = await prisma.variant.findUnique({
+    // If successful, recalculate product metrics
+    const updatedVariant = await prisma.variant.findUnique({
         where: { id: variantId },
         select: { productId: true }
       });
 
-      if (!updatedVariant?.productId) {
-        console.error(`Product ID not found for variant ${variantId} after successful inventory update.`);
-        return json({
-          success: true,
-          message: updateResult.message || "Inventory updated, but could not re-calculate product metrics (product ID missing).",
-          inventoryAdjustmentGroupId: updateResult.inventoryAdjustmentGroupId
-        });
-      }
-
-      // Re-calculate and update product metrics after inventory change
-      const productToUpdate = await prisma.product.findUnique({
+      if (updatedVariant?.productId) {
+        const productToUpdate = await prisma.product.findUnique({
         where: { id: updatedVariant.productId },
           include: {
-            variants: { select: { inventoryQuantity: true } }, // Need all variants for total inventory
-            shop: { include: { NotificationSettings: true } } // Need shop settings for thresholds
+            variants: { select: { inventoryQuantity: true } },
+            shop: { include: { NotificationSettings: true } }
           }
         });
 
@@ -217,36 +202,14 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<Response>
              },
            });
         }
-
-
-        return json({
-          success: true,
-          message: "Inventory updated successfully in Shopify and local database.",
-          inventoryAdjustmentGroupId: inventoryData.inventoryAdjustmentGroup.id
-        });
       }
-
-      // The service was successful.
-      return json({
-        success: true,
-        message: updateResult.message || "Inventory updated successfully and product metrics recalculated.",
-        inventoryAdjustmentGroupId: updateResult.inventoryAdjustmentGroupId
-      });
-
-    } catch (e: unknown) {
-      // This catch block now primarily catches errors from the product metrics recalculation
-      // or unexpected errors from the service call that weren't handled by its try/catch.
-      console.error("Failed to update inventory or recalculate metrics:", e);
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
-        // This might occur if the product/variant was deleted between the service call and metrics recalculation
-        return json({ error: "Data inconsistency: Record not found during metrics recalculation." }, { status: 404 });
-      }
-      const message = e instanceof Error ? e.message : "Failed to update inventory or recalculate metrics due to a server error.";
-      return json({ error: message }, { status: 500 });
-    }
+    return json({ success: true, message: result.message });
   }
-  return json({ error: "Invalid intent." }, { status: 400 });
+
+  return json({ error: "Invalid intent" }, { status: 400 });
 };
+
+// ... (component is fine)
 
 export default function AppProductsPage() {
   const { products, error, shopDomain } = useLoaderData<typeof loader>();
