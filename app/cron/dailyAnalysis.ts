@@ -1,4 +1,3 @@
-import cron from 'node-cron';
 import prisma from '~/db.server';
 import { performDailyProductSync } from '~/dailyAnalysis';
 import { getDemandForecast } from '../services/ai.server';
@@ -6,18 +5,21 @@ import { Session } from "@shopify/shopify-api";
 
 // ... (sendEmailNotification function remains the same)
 
-const CRON_SCHEDULE = '0 0 * * *'; // Midnight every day
+// The CRON_SCHEDULE constant is no longer needed.
 
-async function runDailyTasks() {
+// Export the function so it can be called by the new API route.
+export async function runDailyTasks() {
   console.log(`[CRON JOB - ${new Date().toISOString()}] Starting daily tasks routine...`);
 
   const shops = await prisma.shop.findMany({
-    where: { accessToken: { not: null } },
+    // where: { accessToken: { not: null } }, // Original condition
+    where: { initialSyncCompleted: true }, // Only run for shops that have completed the initial sync.
     include: { notificationSettings: true },
   });
 
   if (shops.length === 0) {
-    console.log("[CRON JOB] No active shops found.");
+    // console.log("[CRON JOB] No active shops found."); // Original message
+    console.log("[CRON JOB] No active shops found with initial sync completed.");
     return;
   }
 
@@ -58,7 +60,4 @@ async function runDailyTasks() {
   console.log(`[CRON JOB - ${new Date().toISOString()}] Daily tasks routine finished.`);
 }
 
-if (process.env.NODE_ENV !== 'test') {
-  cron.schedule(CRON_SCHEDULE, runDailyTasks, { timezone: "UTC" });
-  console.log(`[CRON INIT] Daily analysis job scheduled: "${CRON_SCHEDULE}"`);
-}
+// The cron.schedule call is removed.
