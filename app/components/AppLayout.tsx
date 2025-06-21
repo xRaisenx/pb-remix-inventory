@@ -1,7 +1,6 @@
-// --- START OF FILE app/components/AppLayout.tsx ---
+// app/components/AppLayout.tsx
 import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation } from '@shopify/polaris';
-// Import specific icons from polaris-icons with corrected names for Polaris v13+
 import {
   HomeIcon,
   ProductsIcon,
@@ -9,7 +8,7 @@ import {
   AnalyticsIcon,
   NotificationIcon,
 } from '@shopify/polaris-icons';
-import { useLocation } from '@remix-run/react'; // To determine active navigation link
+import { useLocation } from '@remix-run/react';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -37,9 +36,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           items: [{ content: 'Community forums' }],
         },
       ]}
-      name="Current User" // Replace with actual user name
-      detail="Shop Name" // Replace with actual shop name
-      initials="CS" // Replace with actual initials
+      name="Current User"
+      detail="Shop Name"
+      initials="CS"
       open={isUserMenuOpen}
       onToggle={toggleIsUserMenuOpen}
     />
@@ -69,38 +68,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     />
   );
 
-  // Navigation items: using imported icons with corrected names
   const navigationItems = [
-    {
-      url: '/app',
-      label: 'Dashboard',
-      icon: HomeIcon,
-      selected: location.pathname === '/app',
-    },
-    {
-      url: '/app/products',
-      label: 'Products',
-      icon: ProductsIcon,
-      selected: location.pathname.startsWith('/app/products'),
-    },
-    {
-      url: '/app/reports',
-      label: 'Reports',
-      icon: AnalyticsIcon,
-      selected: location.pathname === '/app/reports',
-    },
-    {
-      url: '/app/alerts',
-      label: 'Alerts',
-      icon: NotificationIcon,
-      selected: location.pathname === '/app/alerts',
-    },
-    {
-      url: '/app/settings',
-      label: 'Settings',
-      icon: SettingsIcon,
-      selected: location.pathname === '/app/settings',
-    },
+    { url: '/app', label: 'Dashboard', icon: HomeIcon, selected: location.pathname === '/app', },
+    { url: '/app/products', label: 'Products', icon: ProductsIcon, selected: location.pathname.startsWith('/app/products'), },
+    { url: '/app/reports', label: 'Reports', icon: AnalyticsIcon, selected: location.pathname === '/app/reports', },
+    { url: '/app/alerts', label: 'Alerts', icon: NotificationIcon, selected: location.pathname === '/app/alerts', },
+    { url: '/app/settings', label: 'Settings', icon: SettingsIcon, selected: location.pathname === '/app/settings', },
   ];
 
   const navigationMarkup = (
@@ -129,4 +102,3 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 };
 
 export default AppLayout;
-// --- END OF FILE app/components/AppLayout.tsx ---
