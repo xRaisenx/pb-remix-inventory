@@ -7,7 +7,9 @@ import {
 } from "@remix-run/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
-import "~/cron/dailyAnalysis"; // Correct way to import for side-effects
+
+// The cron import below is no longer needed and should be removed.
+// import "~/cron/dailyAnalysis";
 
 const ABORT_DELAY = 5000;
 
