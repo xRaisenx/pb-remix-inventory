@@ -2,23 +2,23 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
-import { Page, Card, Text, Button, BlockStack, AlphaCard } from "@shopify/polaris"; // Added AlphaCard for newer designs
-import type { Prisma } from "@prisma/client"; // For Prisma.Decimal type
+import { Page, Card, Text, Button, BlockStack } from "@shopify/polaris"; // Replaced AlphaCard with Card
+import type { Prisma } from "@prisma/client"; // Correct Prisma import for types
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { stringify } from "csv-stringify/sync";
+import { stringify } from "csv-stringify/sync"; // For CSV generation
 
 // TypeScript Interfaces
 interface ReportProductSummary {
   id: string;
   title: string;
   status: string | null;
-  category: string | null;
+  category: string | null; // Assuming category is on Product model
   trending: boolean | null;
   stockoutDays: number | null;
-  salesVelocityFloat: number | null;
+  salesVelocityFloat: number | null; // Ensure this field exists on Product model
   variants: Array<{
-    price: Prisma.Decimal | null;
+    price: Prisma.Decimal | null; // Prisma Decimal type
     inventoryQuantity: number | null;
   }>;
 }
@@ -43,6 +43,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) {
+    // It's better to throw a Response for Remix to handle standard error boundaries
     throw new Response("Shop not found", { status: 404 });
   }
   const shopId = shopRecord.id;
@@ -54,10 +55,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         id: true,
         title: true,
         status: true,
-        category: true,
+        category: true, // Make sure 'category' is a field on your Product model
         trending: true,
         stockoutDays: true,
-        salesVelocityFloat: true,
+        salesVelocityFloat: true, // Make sure 'salesVelocityFloat' is a field
         variants: {
           select: {
             price: true,
@@ -76,11 +77,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let productsWithSalesVelocity = 0;
     const inventoryByCategoryMap = new Map<string, number>();
 
-    productsForSummary.forEach(p => {
-      p.variants.forEach(v => {
+    productsForSummary.forEach((p: ReportProductSummary) => { // Explicit type for p
+      p.variants.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => { // Explicit type for v
         if (v.price && v.inventoryQuantity) {
-          // Ensure v.price is treated as a number for multiplication
-          totalInventoryValue += Number(v.price) * v.inventoryQuantity;
+          totalInventoryValue += Number(v.price) * v.inventoryQuantity; // Convert Decimal to Number
         }
         const category = p.category || 'Uncategorized';
         const currentCategoryQty = inventoryByCategoryMap.get(category) || 0;
@@ -89,7 +89,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       if (p.status === 'Low') lowStockCount++;
       if (p.status === 'Critical') criticalStockCount++;
-      if (p.stockoutDays !== null && p.stockoutDays > 0) {
+      if (p.stockoutDays !== null && p.stockoutDays > 0 && isFinite(p.stockoutDays)) { // Check for finite numbers
         totalStockoutDays += p.stockoutDays;
         productsWithStockoutDays++;
       }
@@ -107,17 +107,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       topTrendingProducts: productsForSummary
         .filter(p => p.trending)
         .sort((a, b) => (b.salesVelocityFloat || 0) - (a.salesVelocityFloat || 0))
-        .slice(0, 3) // Top 3
+        .slice(0, 3)
         .map(p => ({ title: p.title, salesVelocityFloat: p.salesVelocityFloat })),
       averageStockoutDays: productsWithStockoutDays > 0 ? parseFloat((totalStockoutDays / productsWithStockoutDays).toFixed(1)) : 0,
-      inventoryByCategory: Array.from(inventoryByCategoryMap).map(([category, totalQuantity]) => ({ category, totalQuantity })).sort((a,b) => b.totalQuantity - a.totalQuantity),
+      inventoryByCategory: Array.from(inventoryByCategoryMap)
+        .map(([category, totalQuantity]: [string, number]) => ({ category, totalQuantity })) // Explicit types for map
+        .sort((a,b) => b.totalQuantity - a.totalQuantity),
       averageSalesVelocity: productsWithSalesVelocity > 0 ? parseFloat((totalSalesVelocity / productsWithSalesVelocity).toFixed(1)) : 0,
     };
     return json({ visualSummary });
 
   } catch (error) {
     console.error("Error calculating visual summary:", error);
-    const defaultVisualSummary: VisualSummaryData = {
+    const defaultVisualSummary: VisualSummaryData = { // Fallback data
       totalInventoryValue: 0, percentageLowStock: 0, percentageCriticalStock: 0,
       topTrendingProducts: [], averageStockoutDays: 0, inventoryByCategory: [], averageSalesVelocity: 0,
     };
@@ -138,66 +140,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const products = await prisma.product.findMany({
       where: { shopId: shop.id },
       select: {
-        id: true, // Needed for any keying if done client side, good practice
         title: true,
-        vendor: true, // Added vendor to select
+        vendor: true,
         status: true,
-        category: true,
+        category: true, // Ensure category exists on Product model
         trending: true,
         stockoutDays: true,
-        salesVelocityFloat: true,
-        lastRestockedDate: true,
-        variants: {
-          select: {
-            sku: true,
-            price: true,
-            inventoryQuantity: true,
-          }
+        salesVelocityFloat: true, // Ensure salesVelocityFloat exists
+        lastRestockedDate: true, // Ensure lastRestockedDate exists
+        variants: { // Select necessary variant details
+          select: { sku: true, price: true, inventoryQuantity: true, /* title: true if needed */ }
         },
-        inventory: { // To get warehouse information
-          select: {
-            warehouse: {
-              select: {
-                name: true,
-              }
-            },
-            quantity: true, // To find warehouse with highest quantity if needed
-          }
+        inventory: { // For warehouse locations
+          select: { warehouse: { select: { name: true, } }, quantity: true, }
         }
       },
       orderBy: { title: 'asc' }
     });
 
-    const reportPreamble = [["Inventory Report Version: 1.0"], []]; // Empty row for spacing
     const headers = [
       "Product Name", "SKU", "Vendor", "Category", "Price",
-      "Total Inventory", "Sales Last Week", "Sales Velocity (units/day)",
+      "Total Inventory", "Sales Velocity (units/day)",
       "Est. Stockout (days)", "Status", "Trending",
       "Last Restocked Date", "Warehouse Location(s)"
     ];
 
-    if (products.length === 0) {
-      const emptyCsvOutput = stringify([...reportPreamble, headers]);
-      return new Response(emptyCsvOutput, {
-        headers: {
-          "Content-Type": "text/csv",
-          "Content-Disposition": "attachment; filename=\"product_inventory_report_v1.0_empty.csv\"",
-        },
-      });
-    }
-
     const csvRows = products.map(product => {
-      const totalInventory = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
-      const warehouseNames = [...new Set(product.inventory.filter(inv => inv.quantity > 0).map(inv => inv.warehouse.name))].join(', ') || 'N/A';
+      // Explicitly type product for clarity if complex
+      const totalInventory = product.variants.reduce((sum: number, v: {inventoryQuantity: number | null}) => sum + (v.inventoryQuantity || 0), 0);
+      const warehouseNames = [...new Set(product.inventory
+        .filter(inv => inv.quantity > 0)
+        .map(inv => inv.warehouse.name))]
+        .join(', ') || 'N/A';
+      const firstVariant = product.variants?.[0]; // For SKU and Price
 
       return [
         product.title,
-        product.variants?.[0]?.sku ?? 'N/A',
+        firstVariant?.sku ?? 'N/A',
         product.vendor ?? 'N/A',
         product.category ?? 'N/A',
-        product.variants?.[0]?.price?.toString() ?? '0.00',
+        firstVariant?.price?.toString() ?? '0.00', // Convert Decimal to string
         totalInventory,
-        'N/A', // Sales Last Week - placeholder
         product.salesVelocityFloat?.toString() ?? '0',
         product.stockoutDays?.toString() ?? '0',
         product.status ?? 'N/A',
@@ -207,38 +190,40 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ];
     });
 
-    const output = stringify([...reportPreamble, headers, ...csvRows]);
+    const output = stringify([headers, ...csvRows]);
 
     return new Response(output, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": "attachment; filename=\"product_inventory_report_v1.0.csv\"",
+        "Content-Disposition": `attachment; filename="inventory_report_${new Date().toISOString().split('T')[0]}.csv"`,
       },
     });
 
   } catch (error) {
     console.error("Error generating product inventory CSV:", error);
-    if (error instanceof Response) throw error;
+    if (error instanceof Response) throw error; // Re-throw response errors
+    // For other errors, return a generic error response
     throw new Response("Failed to generate CSV report due to a server error.", { status: 500 });
   }
 };
 
-export default function AppReportsPage() {
-  const loaderData = useLoaderData<LoaderData>();
-  const navigation = useNavigation();
-  // Check if the form submitted was specifically the CSV export one
-  const isGeneratingCsv = navigation.state === "submitting" && navigation.formData?.get("_action") === "generate_csv";
 
-  const { visualSummary, error } = loaderData;
+export default function AppReportsPage() {
+  const { visualSummary, error } = useLoaderData<LoaderData>();
+  const navigation = useNavigation();
+  const isGeneratingCsv = navigation.state === "submitting" && navigation.formData?.get("_action") === "generate_csv"; // Check intent if multiple actions
 
   return (
     <Page title="Inventory Reports & Summaries">
-      <BlockStack gap="600">
-        <AlphaCard>
+      <BlockStack gap="600"> {/* Increased gap for better separation */}
+        <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingLg">Visual Inventory Summaries</Text>
             {error && (
-              <Text tone="critical">Error loading visual summaries: {error}</Text>
+              // Use Banner for errors for consistency with Polaris
+              <Banner title="Error Loading Summary" tone="critical" onDismiss={() => { /* Can clear error state if managed locally */ }}>
+                <p>{error}</p>
+              </Banner>
             )}
             {!error && visualSummary && (
               <BlockStack gap="300">
@@ -249,23 +234,23 @@ export default function AppReportsPage() {
                 <Text as="p"><strong>Average Days Until Stockout:</strong> {visualSummary.averageStockoutDays} days</Text>
                 <Text as="p"><strong>Average Sales Velocity:</strong> {visualSummary.averageSalesVelocity} units/day</Text>
 
-                <div>
+                <div> {/* Using div for grouping; could be BlockStack */}
                   <Text as="p" fontWeight="semibold">Top Trending Products (by Sales Velocity):</Text>
                   {visualSummary.topTrendingProducts.length > 0 ? (
                     <BlockStack gap="100">
                       {visualSummary.topTrendingProducts.map(p => (
-                        <Text key={p.title} as="p">  - {p.title} (Velocity: {p.salesVelocityFloat?.toFixed(1) ?? 'N/A'})</Text>
+                        <Text key={p.title} as="p">&nbsp;&nbsp;- {p.title} (Velocity: {p.salesVelocityFloat?.toFixed(1) ?? 'N/A'})</Text>
                       ))}
                     </BlockStack>
                   ) : <Text as="p" tone="subdued">No trending products identified.</Text>}
                 </div>
 
-                <div>
+                <div> {/* Using div for grouping */}
                   <Text as="p" fontWeight="semibold">Inventory Distribution by Category:</Text>
                   {visualSummary.inventoryByCategory.length > 0 ? (
                     <BlockStack gap="100">
                       {visualSummary.inventoryByCategory.map(cat => (
-                        <Text key={cat.category} as="p">  - {cat.category}: {cat.totalQuantity.toLocaleString()} units</Text>
+                        <Text key={cat.category} as="p">&nbsp;&nbsp;- {cat.category}: {cat.totalQuantity.toLocaleString()} units</Text>
                       ))}
                     </BlockStack>
                   ) : <Text as="p" tone="subdued">No category data available.</Text>}
@@ -273,23 +258,23 @@ export default function AppReportsPage() {
               </BlockStack>
             )}
           </BlockStack>
-        </AlphaCard>
+        </Card>
 
-        <AlphaCard>
+        <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingLg">Download Full Report</Text>
-            <Text as="p" variant="bodyMd">
+            <Text as="p" variant="bodyMd"> {/* Added as="p" for Text component */}
               Generate and download a full inventory report in CSV format.
             </Text>
             <Form method="post">
-              {/* Hidden input to differentiate if multiple actions were on the page */}
-              <input type="hidden" name="_action" value="generate_csv" />
+              {/* If you have multiple actions, you might need a hidden input for intent */}
+              {/* <input type="hidden" name="_action" value="generate_csv" /> */}
               <Button submit disabled={isGeneratingCsv} variant="primary" fullWidth>
                 {isGeneratingCsv ? "Generating..." : "Generate CSV Report"}
               </Button>
             </Form>
           </BlockStack>
-        </AlphaCard>
+        </Card>
       </BlockStack>
     </Page>
   );

@@ -1,317 +1,217 @@
 // app/services/shopify.sync.server.ts
-import shopify from '~/shopify.server';
-import prisma from '~/db.server';
-import { Session } from "@shopify/shopify-api"; // Import Session
-// Updated API version import path
-import type { Product as ShopifyProduct, ProductVariant as ShopifyVariant, InventoryLevel as ShopifyInventoryLevel, Location as ShopifyLocation } from '@shopify/graphql-admin-api/2024-10'; // Using 2024-10
-import { updateAllProductMetricsForShop } from './product.service'; // Adjust path if needed
+import shopify from '~/shopify.server'; // Your Shopify app instance
+import prisma from '~/db.server';       // Your Prisma client instance
+import { Session } from "@shopify/shopify-api"; // Shopify API Session type
+import { updateAllProductMetricsForShop } from './product.service'; // Service to update metrics post-sync
 
-// Define interfaces for GraphQL responses if not already fully covered by imported types
-interface ShopifyLocationNode {
+// --- Local Type Definitions for GraphQL Payloads ---
+// These help in typing the expected response from Shopify's GraphQL API.
+interface ShopifyLocationNode { id: string; name: string; }
+interface ShopifyInventoryLevelNode { available: number; location: { id: string; } }
+interface ShopifyInventoryItemNode {
   id: string;
-  name: string;
+  inventoryLevels?: { edges: { node: ShopifyInventoryLevelNode }[] } | null; // Can be null if no levels
 }
-
-interface ShopifyLocationsEdge {
-  node: ShopifyLocationNode;
+interface ShopifyVariantNode {
+  id: string; // Shopify Variant GID
+  title?: string | null; // Variant title (e.g., "Small", "Red")
+  sku?: string | null;
+  price: string; // Price is usually a string from GraphQL, convert to Decimal/Float as needed
+  inventoryQuantity?: number | null; // Overall quantity, often less reliable than inventoryLevels
+  inventoryItem?: ShopifyInventoryItemNode | null; // Link to InventoryItem
 }
-
-interface ShopifyLocationsPageInfo {
-  hasNextPage: boolean;
-  endCursor: string | null;
+interface ShopifyProductNode {
+  id: string; // Shopify Product GID
+  title: string;
+  vendor?: string | null;
+  productType?: string | null;
+  tags: string[];
+  variants: { edges: { node: ShopifyVariantNode }[] };
 }
+interface PageInfo { hasNextPage: boolean; endCursor: string | null; }
+// Generic GraphQL response structure
+interface GraphQLResponse<T> { data: T; errors?: Array<{ message: string; [key: string]: any }>; }
+// --- End Type Definitions ---
 
-interface ShopifyLocationsData {
-  locations: {
-    edges: ShopifyLocationsEdge[];
-    pageInfo: ShopifyLocationsPageInfo;
-  };
-}
-
-interface GraphQLResponse<T> {
-  data: T;
-  errors?: Array<{ message: string; extensions?: { code?: string }; [key: string]: any }>;
-}
-
-
-// Helper function to get shop ID
+// Helper to get Prisma Shop ID
 async function getShopId(shopDomain: string): Promise<string> {
-  const shopRecord = await prisma.shop.findUnique({
-    where: { shop: shopDomain },
-    select: { id: true } // Only select the id
-  });
-  if (!shopRecord) {
-    throw new Error(`Shop with domain ${shopDomain} not found in the database.`);
-  }
+  const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain }, select: { id: true } });
+  if (!shopRecord) throw new Error(`Shop ${shopDomain} not found in local database.`);
   return shopRecord.id;
 }
 
-interface TransformedProduct {
-  shopifyId: string;
-  title: string;
-  vendor: string;
-  productType?: string;
-  // Fields to be added based on issue spec, default for now
-  salesVelocityFloat: number | null;
-  stockoutDays: number | null;
-  status: string | null;
-  trending: boolean;
-  category?: string | null; // Added category
-  tags?: string[]; // Added tags
-  lastRestockedDate?: Date | null; // Added lastRestockedDate
-}
-
-interface TransformedVariant {
-  shopifyId: string;
-  title?: string; // Added variant title
-  sku?: string;
-  price: number;
-  inventoryQuantity: number; // Total across all locations for this variant
-  inventoryItemId?: string; // Shopify's inventory_item_id
-}
-
-interface TransformedInventory {
-  quantity: number;
-  locationShopifyGid: string; // Shopify Location GID
-}
-
-// Function to fetch all locations and ensure they exist in Prisma, returning a map
-// Using 'any' for GraphQL client type for now, can be refined
-async function getOrSyncLocations(client: any, shopId: string): Promise<Map<string, string>> {
-  const locationsMap = new Map<string, string>(); // ShopifyLocationGid -> Prisma Warehouse ID
+// Fetches Shopify locations and upserts them into local DB, returns a map of GID -> Prisma ID
+async function getOrSyncLocations(client: any, shopId: string, shopDomain: string): Promise<Map<string, string>> {
+  const locationsMap = new Map<string, string>();
   let hasNextPage = true;
   let cursor: string | null = null;
-  const locations: ShopifyLocationNode[] = [];
+  console.log(`[Sync][${shopDomain}] Fetching locations...`);
 
   while (hasNextPage) {
-    const response = await client( // Changed from admin.graphql
-      `#graphql
-      query GetLocations($cursor: String) {
-        locations(first: 250, after: $cursor) { # Shopify limits to 250 by default
-          edges {
-            node {
-              id
-              name
+    const response = await client.query({ // Corrected client usage
+      data: {
+        query: `#graphql
+          query GetLocations($cursor: String) {
+            locations(first: 50, after: $cursor) { # Max 250, using 50 for safety
+              edges { node { id name } }
+              pageInfo { hasNextPage endCursor }
             }
-          }
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-        }
-      }`,
-      { variables: { cursor } }
-    );
-    const resultBody = await response.json() as GraphQLResponse<ShopifyLocationsData>;
+          }`,
+        variables: { cursor },
+      },
+    });
 
+    const resultBody = response.body as GraphQLResponse<{ locations: { edges: { node: ShopifyLocationNode }[], pageInfo: PageInfo } }>;
     if (resultBody.errors) {
-      console.error("Error fetching locations:", resultBody.errors);
+      console.error(`[Sync][${shopDomain}] Error fetching locations from Shopify:`, resultBody.errors);
       throw new Error("Failed to fetch locations from Shopify.");
     }
     if (!resultBody.data || !resultBody.data.locations) {
-        console.warn("No location data returned from Shopify or unexpected structure.");
-        break;
+        console.warn(`[Sync][${shopDomain}] No location data returned from Shopify in this batch.`);
+        hasNextPage = false;
+        continue;
     }
 
-    locations.push(...resultBody.data.locations.edges.map((edge: ShopifyLocationsEdge) => edge.node));
+
+    const shopifyLocations = resultBody.data.locations.edges.map(edge => edge.node);
+    for (const loc of shopifyLocations) {
+      try {
+        const warehouse = await prisma.warehouse.upsert({
+          where: { shopifyLocationGid: loc.id }, // Assumes shopifyLocationGid is unique
+          update: { name: loc.name },
+          create: { name: loc.name, shopifyLocationGid: loc.id, shopId: shopId, location: loc.name }, // Ensure shopId is linked
+        });
+        locationsMap.set(loc.id, warehouse.id); // Map Shopify GID to Prisma Warehouse ID
+      } catch (e: any) {
+        console.error(`[Sync][${shopDomain}] Error upserting location ${loc.name} (ID: ${loc.id}): ${e.message}`);
+      }
+    }
     hasNextPage = resultBody.data.locations.pageInfo.hasNextPage;
     cursor = resultBody.data.locations.pageInfo.endCursor;
+    console.log(`[Sync][${shopDomain}] Fetched ${shopifyLocations.length} locations. HasNextPage: ${hasNextPage}`);
   }
-
-  for (const loc of locations) {
-    // Upsert Warehouse based on shopifyLocationGid, linking to the shop
-    const warehouse = await prisma.warehouse.upsert({
-      where: { shopifyLocationGid: loc.id },
-      update: { name: loc.name, shopId: shopId }, // Ensure shopId is updated if location is re-linked
-      create: {
-        name: loc.name,
-        shopifyLocationGid: loc.id,
-        shopId: shopId,
-        location: loc.name, // Or more detailed address if available and needed
-      },
-    });
-    locationsMap.set(loc.id, warehouse.id);
-  }
+  console.log(`[Sync][${shopDomain}] Finished fetching/syncing ${locationsMap.size} locations.`);
   return locationsMap;
 }
 
-export async function syncProductsAndInventory(shopDomain: string, session: Session) { // Added session parameter
-  // Create a new GraphQL client from the session
-  const client = new shopify.api.clients.Graphql({ session });
+// Main sync function
+export async function syncProductsAndInventory(shopDomain: string, session: Session) {
+  // Corrected GraphQL client initialization
+  const client = new shopify.clients.Graphql({ session });
+  const shopId = await getShopId(shopDomain); // Get Prisma shop ID
+  const locationsMap = await getOrSyncLocations(client, shopId, shopDomain); // Get Shopify GID -> Prisma Warehouse ID map
 
-  const shopId = await getShopId(shopDomain);
-  const locationsMap = await getOrSyncLocations(client, shopId); // Pass client instead of admin
+  let hasNextPageProducts = true;
+  let productCursor: string | null = null;
+  let totalProductsSynced = 0;
+  const PRODUCT_BATCH_SIZE = 10; // Max 250, Shopify recommends smaller batches for complex queries
+  const VARIANT_BATCH_SIZE = 20; // Max 250
+  const LOCATION_LEVEL_BATCH_SIZE = 10; // Max 250 for inventoryLevels
 
-  let hasNextPage = true;
-  let cursor = null;
+  console.log(`[Sync][${shopDomain}] Starting product and inventory sync. Batch size: ${PRODUCT_BATCH_SIZE} products.`);
 
-  console.log(`Starting product sync for shop: ${shopDomain} (ID: ${shopId})`);
-
-  while (hasNextPage) {
-    const response = await client( // Changed from admin.graphql
-      `#graphql
-      query GetProducts($cursor: String) {
-        products(first: 10, after: $cursor) {
-          edges {
-            node {
-              id
-              title
-              vendor
-              productType
-              tags
-              variants(first: 20) {
-                edges {
-                  node {
-                    id
-                    title # Added variant title
-                    sku
-                    price
-                    inventoryQuantity # This is total quantity, might need per-location
-                    inventoryItem {
-                       id
-                       inventoryLevels(first: 10) { # Get levels for multiple locations
-                        edges {
-                            node {
-                                available
-                                location {
-                                    id # This is the Shopify Location GID
-                                }
-                            }
+  while (hasNextPageProducts) {
+    console.log(`[Sync][${shopDomain}] Fetching product batch. Cursor: ${productCursor}`);
+    const response = await client.query({ // Corrected client usage
+      data: {
+        query: `#graphql
+          query GetProducts($cursor: String, $variantCount: Int!, $locationLevelCount: Int!) {
+            products(first: ${PRODUCT_BATCH_SIZE}, after: $cursor) {
+              edges {
+                node {
+                  id title vendor productType tags
+                  variants(first: $variantCount) { # Fetch variants for each product
+                    edges {
+                      node {
+                        id title sku price inventoryQuantity
+                        inventoryItem {
+                          id
+                          inventoryLevels(first: $locationLevelCount) { # Fetch inventory levels for each variant's item
+                            edges { node { available location { id } } }
+                          }
                         }
-                       }
+                      }
                     }
                   }
                 }
               }
+              pageInfo { hasNextPage endCursor }
             }
-          }
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-        }
-      }`,
-      { variables: { cursor } }
-    );
+          }`,
+        variables: { cursor: productCursor, variantCount: VARIANT_BATCH_SIZE, locationLevelCount: LOCATION_LEVEL_BATCH_SIZE },
+      },
+    });
 
-    const resultBody = await response.json(); // Keep this as any for now due to complex nested structure of product query
+    const resultBody = response.body as GraphQLResponse<{ products: { edges: { node: ShopifyProductNode }[], pageInfo: PageInfo } }>;
     if (resultBody.errors) {
-        console.error("Error fetching products:", resultBody.errors);
-        throw new Error("Failed to fetch products from Shopify.");
+      console.error(`[Sync][${shopDomain}] Error fetching products from Shopify:`, resultBody.errors);
+      throw new Error("Failed to fetch products from Shopify.");
     }
-    if (!resultBody.data || !resultBody.data.products || !resultBody.data.products.edges) {
-        console.warn("No product data returned from Shopify or unexpected structure.");
-        hasNextPage = false; // Stop if no data
+     if (!resultBody.data || !resultBody.data.products || resultBody.data.products.edges.length === 0) {
+        console.log(`[Sync][${shopDomain}] No more products returned from Shopify or empty batch.`);
+        hasNextPageProducts = false;
         continue;
     }
 
-    const products = resultBody.data.products.edges.map((edge: { node: ShopifyProduct }) => edge.node);
+    const shopifyProducts = resultBody.data.products.edges.map(edge => edge.node);
+    console.log(`[Sync][${shopDomain}] Processing ${shopifyProducts.length} products in this batch.`);
 
-    for (const shopifyProduct of products) { // Type is now inferred from the map
-      const productData: TransformedProduct = {
-        shopifyId: shopifyProduct.id,
-        title: shopifyProduct.title,
-        vendor: shopifyProduct.vendor || 'Unknown Vendor',
-        productType: shopifyProduct.productType || undefined,
-        tags: shopifyProduct.tags || [], // Include tags
-        // Initialize new fields with defaults or null
-        salesVelocityFloat: null, // Will be calculated later
-        stockoutDays: null,     // Will be calculated later
-        status: 'Unknown', // Default status, will be calculated later
-        trending: false,   // Default trending, will be calculated later
-        category: shopifyProduct.productType || null, // Use productType as category for now
-        lastRestockedDate: null, // Not available in this query, needs separate logic or query
-      };
+    for (const sp of shopifyProducts) {
+      try {
+        const productRecord = await prisma.product.upsert({
+          where: { shopifyId: sp.id }, // Assumes shopifyId is unique on Product model
+          update: { title: sp.title, vendor: sp.vendor || 'Unknown', productType: sp.productType, tags: sp.tags },
+          create: {
+            shopifyId: sp.id, title: sp.title, vendor: sp.vendor || 'Unknown',
+            productType: sp.productType, tags: sp.tags, shopId: shopId,
+            status: 'Unknown', trending: false, // Default status/trending
+          },
+        });
+        totalProductsSynced++;
 
-      // Upsert Product
-      const productRecord = await prisma.product.upsert({
-        where: { shopifyId: productData.shopifyId },
-        update: {
-            ...productData,
-            shopId,
-            // Do NOT update salesVelocityFloat, stockoutDays, status, trending here
-            // These are calculated metrics, not directly from Shopify product data
-            salesVelocityFloat: undefined, // Prevent update
-            stockoutDays: undefined,     // Prevent update
-            status: undefined,           // Prevent update
-            trending: undefined,         // Prevent update
-        },
-        create: { ...productData, shopId },
-      });
-
-      if (shopifyProduct.variants && shopifyProduct.variants.edges) {
-        for (const variantEdge of shopifyProduct.variants.edges) { // variantEdge is implicitly any here
-          const shopifyVariant = variantEdge.node as ShopifyVariant; // Assert type for shopifyVariant
-          const variantData: TransformedVariant = {
-            shopifyId: shopifyVariant.id,
-            title: shopifyVariant.title || undefined, // Include variant title
-            sku: shopifyVariant.sku || undefined,
-            price: parseFloat(shopifyVariant.price) || 0,
-            inventoryQuantity: shopifyVariant.inventoryQuantity || 0, // This is total quantity across locations
-            inventoryItemId: shopifyVariant.inventoryItem?.id,
-          };
-
-          // Upsert Variant
+        for (const variantEdge of sp.variants.edges) {
+          const v = variantEdge.node;
           const variantRecord = await prisma.variant.upsert({
-            where: { shopifyId: variantData.shopifyId },
-            update: { ...variantData, productId: productRecord.id },
-            create: { ...variantData, productId: productRecord.id },
+            where: { shopifyId: v.id }, // Assumes shopifyId is unique on Variant model
+            update: { title: v.title, sku: v.sku, price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id },
+            create: {
+              shopifyId: v.id, productId: productRecord.id, title: v.title, sku: v.sku,
+              price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id,
+            },
           });
 
-          // Sync inventory levels for this variant
-          if (shopifyVariant.inventoryItem?.inventoryLevels?.edges) {
-            for (const levelEdge of shopifyVariant.inventoryItem.inventoryLevels.edges) { // levelEdge is implicitly any
-              const invLevel = levelEdge.node as ShopifyInventoryLevel & { location: { id: string }}; // Assert type for invLevel
-              const warehouseId = locationsMap.get(invLevel.location.id);
-              if (warehouseId) {
-                // Upsert Inventory record for this Product + Warehouse combination
+          if (v.inventoryItem?.inventoryLevels?.edges) {
+            for (const levelEdge of v.inventoryItem.inventoryLevels.edges) {
+              const invLevel = levelEdge.node;
+              const prismaWarehouseId = locationsMap.get(invLevel.location.id); // Get Prisma Warehouse ID
+              if (prismaWarehouseId) {
                 await prisma.inventory.upsert({
-                  where: { productId_warehouseId: { productId: productRecord.id, warehouseId } },
-                  update: { quantity: invLevel.available || 0 },
-                  create: {
-                    productId: productRecord.id,
-                    warehouseId: warehouseId,
-                    quantity: invLevel.available || 0,
-                  },
+                  where: { productId_warehouseId: { productId: productRecord.id, warehouseId: prismaWarehouseId } },
+                  update: { quantity: invLevel.available },
+                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, quantity: invLevel.available },
                 });
               } else {
-                console.warn(`Warehouse not found in map for Shopify Location GID: ${invLevel.location.id}. Skipping inventory sync for this location.`);
+                console.warn(`[Sync][${shopDomain}] Shopify Location GID ${invLevel.location.id} not found in local warehouse map for product ${sp.title}, variant ${v.sku}. Inventory for this location not synced.`);
               }
             }
           }
         }
+      } catch (e: any) {
+        console.error(`[Sync][${shopDomain}] Error processing product ${sp.title} (ID: ${sp.id}): ${e.message}`);
+        // Decide if you want to skip this product and continue, or stop the sync.
       }
     }
-    hasNextPage = resultBody.data.products.pageInfo.hasNextPage;
-    cursor = resultBody.data.products.pageInfo.endCursor;
-    if (hasNextPage) {
-      console.log(`Fetching next page of products for ${shopDomain}...`);
-    }
+    hasNextPageProducts = resultBody.data.products.pageInfo.hasNextPage;
+    productCursor = resultBody.data.products.pageInfo.endCursor;
+    console.log(`[Sync][${shopDomain}] Product batch processed. Total synced so far: ${totalProductsSynced}. HasNextPage: ${hasNextPageProducts}`);
   }
-  console.log(`Product and inventory data sync completed for shop: ${shopDomain}`);
-
-  // Now, update calculated metrics for all products in this shop
+  console.log(`[Sync][${shopDomain}] Product and inventory data sync completed. Total products processed: ${totalProductsSynced}.`);
+  console.log(`[Sync][${shopDomain}] Starting calculation of product metrics...`);
   try {
-    console.log(`Starting update of calculated product metrics for shop ID: ${shopId}...`);
-    const metricsUpdateResult = await updateAllProductMetricsForShop(shopId);
-    console.log(metricsUpdateResult.message);
-  } catch (error) {
-    console.error(`Failed to update calculated product metrics for shop ID ${shopId}:`, error);
+    const metricsResult = await updateAllProductMetricsForShop(shopId);
+    console.log(`[Sync][${shopDomain}] Product metrics calculation finished. ${metricsResult.message}`);
+  } catch (e: any) {
+    console.error(`[Sync][${shopDomain}] Error during product metrics update: ${e.message}`);
   }
-
-  console.log(`Full sync process finished for shop: ${shopDomain}`);
+  console.log(`[Sync][${shopDomain}] Full sync process finished.`);
 }
-
-// Example of how you might call this (e.g., from a Remix action or a cron job)
-// This is illustrative; actual invocation will depend on where it's used.
-/*
-export async function triggerSync(shopDomain: string) {
-  try {
-    await syncProductsAndInventory(shopDomain);
-    return { success: true, message: 'Sync completed.' };
-  } catch (error: any) {
-    console.error('Sync failed:', error);
-    return { success: false, message: 'Sync failed: ' + error.message };
-  }
-}
-*/

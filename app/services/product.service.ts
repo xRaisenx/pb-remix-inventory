@@ -1,72 +1,68 @@
 // app/services/product.service.ts
 import prisma from '~/db.server';
-import type { Product, Variant, Shop, NotificationSetting as PrismaNotificationSettings } from '@prisma/client'; // Renamed to avoid conflict
+import type { Product, Variant, Shop, NotificationSetting } from '@prisma/client'; // Assuming these types are needed
 
-// Interface for product with its variants, now including salesVelocityFloat from Product model
+// Interface for product data passed to calculateProductMetrics
+// Ensure salesVelocityFloat is part of the Product model or added if it's calculated elsewhere before this step.
 interface ProductWithVariantsAndSalesVelocity extends Product {
   variants: Pick<Variant, 'inventoryQuantity'>[];
-  // salesVelocityFloat is now part of the Product model, so it's directly available.
+  // salesVelocityFloat is expected by the original code, ensure it's on the Product model
+  // or explicitly add it here if it's derived before calling calculateProductMetrics.
+  // salesVelocityFloat?: number | null;
 }
 
 interface ProductMetrics {
   currentTotalInventory: number;
-  stockoutDays: number | null;
-  status: 'Healthy' | 'Low' | 'Critical' | 'Unknown';
+  stockoutDays: number | null; // Can be null if sales velocity is 0 or inventory is 0 with no velocity
+  status: 'Healthy' | 'Low' | 'Critical' | 'Unknown'; // Status based on thresholds
 }
 
-// shopSettings now more closely matches Prisma NotificationSettings structure
+// Shop-specific settings needed for metric calculation
 interface ShopSettingsForMetrics {
   lowStockThresholdUnits: number;
-  criticalStockThresholdUnits?: number; // From Prisma NotificationSetting
-  criticalStockoutDays?: number;      // From Prisma NotificationSetting
+  criticalStockThresholdUnits: number;
+  criticalStockoutDays: number;
 }
 
 export function calculateProductMetrics(
-  product: ProductWithVariantsAndSalesVelocity, // Use the updated interface
-  shopSettings: ShopSettingsForMetrics
+  product: ProductWithVariantsAndSalesVelocity, // Type for the product input
+  shopSettings: ShopSettingsForMetrics // Type for shop settings
 ): ProductMetrics {
   const currentTotalInventory = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+  const salesVelocity = product.salesVelocityFloat ?? 0; // Use salesVelocityFloat from Product model
 
   let stockoutDays: number | null = null;
-  // Use salesVelocityFloat directly from the product model
-  if (product.salesVelocityFloat !== null && product.salesVelocityFloat > 0) {
-    stockoutDays = currentTotalInventory / product.salesVelocityFloat;
-  } else if (product.salesVelocityFloat === 0 && currentTotalInventory > 0) {
-    stockoutDays = Infinity; // Has stock, but no sales
-  } else if (currentTotalInventory === 0) {
-    stockoutDays = 0; // No stock
+  if (salesVelocity > 0) {
+    stockoutDays = currentTotalInventory / salesVelocity;
+  } else if (currentTotalInventory > 0) {
+    // Positive inventory but no sales, effectively infinite stockout days (represented as null or a large number)
+    stockoutDays = Infinity; // Or a very large number if Infinity is problematic for DB/display
+  } else {
+    // Zero inventory and no sales, stockout is immediate (0 days)
+    stockoutDays = 0;
   }
-  // If salesVelocityFloat is null and inventory > 0, stockoutDays remains null (Unknown/Cannot calculate)
 
+  let status: ProductMetrics['status'] = 'Healthy'; // Default status
+  const { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays } = shopSettings;
 
-  let status: ProductMetrics['status'] = 'Unknown';
-  const lowThreshold = shopSettings.lowStockThresholdUnits;
-  // Use provided critical thresholds or calculate defaults based on lowThreshold
-  const criticalUnits = shopSettings.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowThreshold * 0.3));
-  const criticalDays = shopSettings.criticalStockoutDays ?? 3; // Typo fixed: criticalStockoutDays
-
-  // Prioritize Critical status
+  // Determine status based on inventory levels and stockout days
   if (currentTotalInventory === 0) {
-      status = 'Critical';
-  } else if (currentTotalInventory <= criticalUnits) {
-      status = 'Critical';
-  } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= criticalDays && (product.salesVelocityFloat ?? 0) > 0) {
-      status = 'Critical';
+    status = 'Critical'; // No stock is always critical
+  } else if (currentTotalInventory <= criticalStockThresholdUnits) {
+    // Below or at critical units threshold
+    status = 'Critical';
+  } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= criticalStockoutDays && salesVelocity > 0) {
+    // Will stock out within critical days period, and there are sales
+    status = 'Critical';
+  } else if (currentTotalInventory <= lowStockThresholdUnits) {
+    // Below or at low units threshold (but not critical)
+    status = 'Low';
   }
-  // Then check for Low status if not Critical
-  else if (currentTotalInventory <= lowThreshold) {
-      status = 'Low';
-  } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= (lowThreshold / ((product.salesVelocityFloat ?? 1) === 0 ? 1 : (product.salesVelocityFloat ?? 1) )) && (product.salesVelocityFloat ?? 0) > 0 ) {
-      status = 'Low';
-  }
-  // Otherwise, it's Healthy
-  else {
-      status = 'Healthy';
-  }
-
+  // Otherwise, it remains 'Healthy'
 
   return {
     currentTotalInventory,
+    // Convert Infinity to null for database storage if Infinity is not desired
     stockoutDays: stockoutDays === Infinity ? null : (stockoutDays !== null ? parseFloat(stockoutDays.toFixed(2)) : null),
     status,
   };
@@ -75,37 +71,38 @@ export function calculateProductMetrics(
 export async function updateAllProductMetricsForShop(shopId: string): Promise<{ success: boolean; message: string; updatedCount: number }> {
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
-    // The user's schema has NotificationSettings as an array, so take the first or handle multiple if logic dictates
-    include: { NotificationSettings: true }
+    include: { NotificationSettings: true } // Include to get shop-specific thresholds
   });
 
   if (!shop) {
     return { success: false, message: `Shop with ID ${shopId} not found.`, updatedCount: 0 };
   }
 
-  // Assuming one NotificationSetting per shop for these thresholds, or use defaults.
-  const notificationSetting = shop.NotificationSettings?.[0];
+  // Determine thresholds: use notification settings if available, else shop defaults, else app defaults
+  const notificationSetting = shop.NotificationSettings?.[0]; // Assuming one setting per shop
+  const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10; // App default: 10
 
-  const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
-  const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
-  const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
-
-  const shopSettings: ShopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
+  const shopSettings: ShopSettingsForMetrics = {
+    lowStockThresholdUnits,
+    criticalStockThresholdUnits: notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3)), // Default: 5 or 30% of low stock
+    criticalStockoutDays: notificationSetting?.criticalStockoutDays ?? 3, // Default: 3 days
+  };
+  const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50; // Default: 50 units/day for trending
 
   let totalUpdatedCount = 0;
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 100; // Process products in batches
   let skip = 0;
   let hasMoreProducts = true;
 
-  console.log(`Starting batched update of product metrics for shop ${shop.shop}. Batch size: ${BATCH_SIZE}`);
+  console.log(`Starting metrics update for shop ${shopId}. Low: ${shopSettings.lowStockThresholdUnits}, CritUnits: ${shopSettings.criticalStockThresholdUnits}, CritDays: ${shopSettings.criticalStockoutDays}`);
 
   while (hasMoreProducts) {
-    const productsInBatch = await prisma.product.findMany({
+    const productsInBatch: ProductWithVariantsAndSalesVelocity[] = await prisma.product.findMany({
       where: { shopId },
-      include: { variants: { select: { inventoryQuantity: true } } },
+      include: { variants: { select: { inventoryQuantity: true } } }, // Only need inventoryQuantity from variants
       take: BATCH_SIZE,
       skip: skip,
-      orderBy: { id: 'asc' },
+      orderBy: { id: 'asc' } // Consistent ordering for batching
     });
 
     if (productsInBatch.length === 0) {
@@ -113,11 +110,17 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
       break;
     }
 
-    console.log(`Processing metrics batch of ${productsInBatch.length} products for shop ${shop.shop}. Skip: ${skip}`);
+    console.log(`Processing batch of ${productsInBatch.length} products for shop ${shopId}. Skip: ${skip}`);
+
     for (const product of productsInBatch) {
-      const metrics = calculateProductMetrics(product as ProductWithVariantsAndSalesVelocity, shopSettings);
-      const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
-      const trending = product.salesVelocityFloat !== null && product.salesVelocityFloat > salesVelocityThresholdForTrending;
+      // Ensure salesVelocityFloat is available on product, if not, this will fail or use 0.
+      // If salesVelocityFloat is calculated dynamically elsewhere, that service should run first.
+      if (product.salesVelocityFloat === undefined) {
+        // console.warn(`Product ${product.id} (${product.title}) is missing salesVelocityFloat. Metrics may be inaccurate.`);
+      }
+
+      const metrics = calculateProductMetrics(product, shopSettings);
+      const trending = (product.salesVelocityFloat ?? 0) > salesVelocityThresholdForTrending;
 
       try {
         await prisma.product.update({
@@ -126,20 +129,19 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
             stockoutDays: metrics.stockoutDays,
             status: metrics.status,
             trending: trending,
+            // lastCalculatedAt: new Date(), // Optional: timestamp of last calculation
           },
         });
         totalUpdatedCount++;
-      } catch (e) {
-        console.error(`Failed to update metrics for product ID ${product.id} in shop ${shop.shop}:`, e);
-        // Decide if one failure should stop all, or just log and continue. For now, log and continue.
+      } catch (e: any) {
+        console.error(`Failed to update metrics for product ${product.id} (${product.title}): ${e.message}`);
       }
     }
-
     skip += BATCH_SIZE;
-    if (productsInBatch.length < BATCH_SIZE) {
-      hasMoreProducts = false;
-    }
-    // Optional: await new Promise(resolve => setTimeout(resolve, 50)); // Small delay
   }
-  return { success: true, message: `Updated metrics for ${totalUpdatedCount} products in shop ${shop.shop}.`, totalUpdatedCount };
+  console.log(`Metrics update completed for shop ${shopId}. Total products updated: ${totalUpdatedCount}.`);
+  // Corrected typo in return statement: totalUpdatedCount instead of updatedCount (if that was the typo)
+  // The original problem description said "totalUpdatedCount vs. updatedCount", implying `updatedCount` was the field name.
+  // Sticking to `updatedCount` as the field name in the return object as per the problem description's implied fix.
+  return { success: true, message: `Updated metrics for ${totalUpdatedCount} products.`, updatedCount: totalUpdatedCount };
 }

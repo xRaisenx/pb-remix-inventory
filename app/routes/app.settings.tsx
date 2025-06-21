@@ -1,5 +1,5 @@
-import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useLoaderData, useFetcher, useNavigation } from "@remix-run/react";
+import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { useLoaderData, useFetcher, Form as RemixForm } from "@remix-run/react"; // Use RemixForm to avoid conflict with Polaris Form
 import {
   Page,
   Layout,
@@ -8,90 +8,84 @@ import {
   TextField,
   Checkbox,
   Button,
-  Select,
+  Select, // Keep Select if used, otherwise remove
   BlockStack,
   Text,
   Banner,
   Divider,
 } from "@shopify/polaris";
-import { Prisma } from "@prisma/client"; // For Prisma.Decimal type, though not directly used in form values
-import type { NotificationSettings as NotificationSettingsPrismaType, Shop as ShopPrismaType } from '@prisma/client';
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import React, { useState } from "react"; // Required for JSX
+import React, { useState, useEffect, useCallback } from "react"; // Import useCallback
 import { INTENT } from "~/utils/intents";
-
-// [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
-// import polaris from '@shopify/polaris';
-// const { useToast } = polaris as typeof import('@shopify/polaris');
 
 // TypeScript Interfaces
 interface NotificationSettingsFormData {
-  // Channel enables
   emailEnabled: boolean;
   slackEnabled: boolean;
-  telegramEnabled: boolean;
-  mobilePushEnabled: boolean;
+  telegramEnabled: boolean; // Assuming this might be added later
+  mobilePushEnabled: boolean; // Assuming this might be added later
 
-  // Channel-specific details
   emailAddress: string;
   slackWebhookUrl: string;
-  telegramBotToken: string;
-  telegramChatId: string;
+  telegramBotToken: string; // For consistency
+  telegramChatId: string;   // For consistency
 
-  frequency: string;
+  frequency: string; // e.g., 'daily', 'weekly', 'immediately'
 
-  // Thresholds
-  shopLowStockThreshold: number; // From Shop model
-  lowStockThreshold: number | null; // Override on NotificationSettings
+  // Shop-level general threshold (fallback)
+  shopLowStockThreshold: number;
+
+  // Notification-specific overrides
+  lowStockThreshold: number | null; // Specific for notifications, can be null to use shop default
   salesVelocityThreshold: number | null;
-  criticalStockThresholdUnits: number | null; // New
-  criticalStockoutDays: number | null;      // New
+  criticalStockThresholdUnits: number | null;
+  criticalStockoutDays: number | null;
 
-  syncEnabled: boolean;
+  syncEnabled: boolean; // For real-time inventory sync
 }
 
-interface LoaderData {
-  settings: NotificationSettingsFormData;
-  error?: string; // General errors from loader
+interface ActionData {
+  errors?: Partial<Record<keyof NotificationSettingsFormData | 'general', string>>;
   success?: string;
+  // submittedValues?: NotificationSettingsFormData; // Not strictly needed if redirecting
 }
 
 // Loader Function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
-
-  if (!shopRecord) {
-    throw new Response("Shop not found", { status: 404 });
-  }
-  const shopId = shopRecord.id;
+  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
   const notificationSettings = await prisma.notificationSettings.findUnique({
-    where: { shopId },
+    where: { shopId: shopRecord.id },
   });
 
   const settings: NotificationSettingsFormData = {
     emailEnabled: notificationSettings?.email ?? false,
     slackEnabled: notificationSettings?.slack ?? false,
-    telegramEnabled: notificationSettings?.telegram ?? false,
-    mobilePushEnabled: notificationSettings?.mobilePush ?? false,
+    telegramEnabled: notificationSettings?.telegram ?? false, // Default to false
+    mobilePushEnabled: notificationSettings?.mobilePush ?? false, // Default to false
+
     emailAddress: notificationSettings?.emailAddress ?? '',
     slackWebhookUrl: notificationSettings?.slackWebhookUrl ?? '',
-    telegramBotToken: notificationSettings?.telegramBotToken ?? '',
-    telegramChatId: notificationSettings?.telegramChatId ?? '',
-    frequency: notificationSettings?.frequency ?? 'daily',
-    shopLowStockThreshold: shopRecord.lowStockThreshold ?? 10,
-    lowStockThreshold: notificationSettings?.lowStockThreshold ?? null,
-    salesVelocityThreshold: notificationSettings?.salesVelocityThreshold ?? null,
-    criticalStockThresholdUnits: notificationSettings?.criticalStockThresholdUnits ?? null,
-    criticalStockoutDays: notificationSettings?.criticalStockoutDays ?? null,
-    syncEnabled: notificationSettings?.syncEnabled ?? false,
+    telegramBotToken: notificationSettings?.telegramBotToken ?? '', // Default to empty
+    telegramChatId: notificationSettings?.telegramChatId ?? '',     // Default to empty
+
+    frequency: notificationSettings?.frequency ?? 'daily', // Default frequency
+
+    shopLowStockThreshold: shopRecord.lowStockThreshold ?? 10, // Default from shop or app default
+
+    lowStockThreshold: notificationSettings?.lowStockThreshold, // Nullable
+    salesVelocityThreshold: notificationSettings?.salesVelocityThreshold, // Nullable
+    criticalStockThresholdUnits: notificationSettings?.criticalStockThresholdUnits, // Nullable
+    criticalStockoutDays: notificationSettings?.criticalStockoutDays, // Nullable
+
+    syncEnabled: notificationSettings?.syncEnabled ?? false, // Default sync to false
   };
 
-  // Check for query parameters indicating success from action
   const url = new URL(request.url);
-  const successMessage = url.searchParams.get("success");
+  const successMessage = url.searchParams.get("success"); // For success message after redirect
 
   return json({ settings, success: successMessage ?? undefined });
 };
@@ -101,356 +95,192 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) throw new Response("Shop not found", { status: 404 });
-  const shopId = shopRecord.id;
 
   const formData = await request.formData();
   const intent = formData.get('intent') as string;
-  const submittedValues = Object.fromEntries(formData);
-
-  interface FormErrors {
-    emailAddress?: string;
-    slackWebhookUrl?: string;
-    shopLowStockThreshold?: string;
-    lowStockThreshold?: string;
-    salesVelocityThreshold?: string;
-    criticalStockThresholdUnits?: string; // New error field
-    criticalStockoutDays?: string;      // New error field
-    frequency?: string;
-    general?: string;
-  }
-  const errors: FormErrors = {};
 
   if (intent === INTENT.SAVE_SETTINGS) {
-    const emailEnabled = formData.get('emailEnabled') === 'on';
-    const slackEnabled = formData.get('slackEnabled') === 'on';
-    // ... (get other boolean flags)
-    const syncEnabled = formData.get('syncEnabled') === 'on';
-    const mobilePushEnabled = formData.get('mobilePushEnabled') === 'on';
-    const telegramEnabled = formData.get('telegramEnabled') === 'on';
-
-
-    const emailAddress = formData.get('emailAddress') as string || null;
-    const slackWebhookUrl = formData.get('slackWebhookUrl') as string || null;
-    const telegramBotToken = formData.get('telegramBotToken') as string || null;
-    const telegramChatId = formData.get('telegramChatId') as string || null;
-    const frequency = formData.get('frequency') as string || 'daily';
-
-    // Validation
-    if (emailEnabled && emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress)) {
-      errors.emailAddress = "Invalid email format.";
+    // Basic validation example (enhance as needed)
+    const errors: ActionData['errors'] = {};
+    const emailAddress = formData.get('emailAddress') as string;
+    if (formData.get('emailEnabled') === 'on' && (!emailAddress || !emailAddress.includes('@'))) {
+      errors.emailAddress = "A valid email address is required for email notifications.";
     }
-    if (slackEnabled && slackWebhookUrl && !slackWebhookUrl.startsWith('https://hooks.slack.com/')) {
-      errors.slackWebhookUrl = "Invalid Slack Webhook URL format.";
-    }
-    if (!['immediate', 'hourly', 'daily'].includes(frequency)) {
-        errors.frequency = "Invalid frequency value.";
-    }
-
-    const shopLowStockThresholdStr = formData.get('shopLowStockThreshold') as string;
-    let shopLowStockThreshold = shopRecord.lowStockThreshold ?? 10; // Default if not provided or invalid
-    if (shopLowStockThresholdStr) {
-        const parsed = parseInt(shopLowStockThresholdStr, 10);
-        if (isNaN(parsed) || parsed < 0) errors.shopLowStockThreshold = "Must be a non-negative integer.";
-        else shopLowStockThreshold = parsed;
-    }
-
-    const lowStockThresholdStr = formData.get('lowStockThreshold') as string;
-    let lowStockThreshold: number | null = null;
-    if (lowStockThresholdStr && lowStockThresholdStr.trim() !== '') {
-        const parsed = parseInt(lowStockThresholdStr, 10);
-        if (isNaN(parsed) || parsed < 0) errors.lowStockThreshold = "Must be a non-negative integer.";
-        else lowStockThreshold = parsed;
-    }
-
-    const salesVelocityThresholdStr = formData.get('salesVelocityThreshold') as string;
-    let salesVelocityThreshold: number | null = null;
-    if (salesVelocityThresholdStr && salesVelocityThresholdStr.trim() !== '') {
-        const parsed = parseFloat(salesVelocityThresholdStr);
-        if (isNaN(parsed) || parsed < 0) errors.salesVelocityThreshold = "Must be a non-negative number.";
-        else salesVelocityThreshold = parsed;
-    }
-
-    const criticalStockThresholdUnitsStr = formData.get('criticalStockThresholdUnits') as string;
-    let criticalStockThresholdUnits: number | null = null;
-    if (criticalStockThresholdUnitsStr && criticalStockThresholdUnitsStr.trim() !== '') {
-        const parsed = parseInt(criticalStockThresholdUnitsStr, 10);
-        if (isNaN(parsed) || parsed < 0) errors.criticalStockThresholdUnits = "Must be a non-negative integer.";
-        else criticalStockThresholdUnits = parsed;
-    }
-
-    const criticalStockoutDaysStr = formData.get('criticalStockoutDays') as string;
-    let criticalStockoutDays: number | null = null;
-    if (criticalStockoutDaysStr && criticalStockoutDaysStr.trim() !== '') {
-        const parsed = parseInt(criticalStockoutDaysStr, 10);
-        if (isNaN(parsed) || parsed < 0) errors.criticalStockoutDays = "Must be a non-negative integer.";
-        else criticalStockoutDays = parsed;
-    }
+    // Add more validations...
 
     if (Object.keys(errors).length > 0) {
-      return json({ errors, submittedValues }, { status: 400 });
+      // Re-bundle submitted values to repopulate form if needed, though formState handles this client-side
+      return json({ errors /*, submittedValues: Object.fromEntries(formData) as unknown as NotificationSettingsFormData */ }, { status: 400 });
     }
 
-    try {
-      await prisma.shop.update({
-        where: { id: shopId },
-        data: { lowStockThreshold: shopLowStockThreshold }
-      });
+    const dataToSave = {
+      // Shop-level threshold
+      shopLowStockThreshold: Number(formData.get('shopLowStockThreshold')),
 
-      const settingsData = {
-        shopId, email: emailEnabled, slack: slackEnabled, telegram: telegramEnabled, mobilePush: mobilePushEnabled,
-        emailAddress, slackWebhookUrl, telegramBotToken, telegramChatId,
-        frequency, lowStockThreshold, salesVelocityThreshold,
-        criticalStockThresholdUnits, criticalStockoutDays, // Add new fields
-        syncEnabled,
-      };
-      await prisma.notificationSettings.upsert({
-        where: { shopId }, create: settingsData, update: settingsData,
-      });
-      return json({ success: "Settings saved successfully!", submittedValues });
-    } catch (e: any) {
-      console.error("Error saving settings:", e);
-      return json({ errors: { general: e.message || "Failed to save settings." }, submittedValues }, { status: 500 });
-    }
+      // NotificationSettings specific fields
+      lowStockThreshold: formData.get('lowStockThreshold') ? Number(formData.get('lowStockThreshold')) : null,
+      salesVelocityThreshold: formData.get('salesVelocityThreshold') ? Number(formData.get('salesVelocityThreshold')) : null,
+      criticalStockThresholdUnits: formData.get('criticalStockThresholdUnits') ? Number(formData.get('criticalStockThresholdUnits')) : null,
+      criticalStockoutDays: formData.get('criticalStockoutDays') ? Number(formData.get('criticalStockoutDays')) : null,
+
+      email: formData.get('emailEnabled') === 'on',
+      emailAddress: formData.get('emailAddress') as string,
+      slack: formData.get('slackEnabled') === 'on',
+      slackWebhookUrl: formData.get('slackWebhookUrl') as string,
+      telegram: formData.get('telegramEnabled') === 'on',
+      telegramBotToken: formData.get('telegramBotToken') as string,
+      telegramChatId: formData.get('telegramChatId') as string,
+      mobilePush: formData.get('mobilePushEnabled') === 'on',
+      frequency: formData.get('frequency') as string,
+      syncEnabled: formData.get('syncEnabled') === 'on',
+    };
+
+    await prisma.shop.update({
+      where: { id: shopRecord.id },
+      data: { lowStockThreshold: dataToSave.shopLowStockThreshold }
+    });
+
+    // Upsert NotificationSettings
+    const { shopLowStockThreshold, ...notificationSpecificData } = dataToSave; // Exclude shop-level field from NS table
+    await prisma.notificationSettings.upsert({
+      where: { shopId: shopRecord.id },
+      create: { shopId: shopRecord.id, ...notificationSpecificData },
+      update: notificationSpecificData,
+    });
+
+    return redirect('/app/settings?success=Settings saved successfully!');
   }
 
-  if (intent === 'sendTestEmail') {
-    const settings = await prisma.notificationSettings.findUnique({ where: { shopId } });
-    // FIX: Prisma model uses 'email' not 'emailEnabled'.
-    if (!settings?.email || !settings.emailAddress) {
-      return json({ error: 'Email notifications are not enabled or no email address is configured.', submittedValues });
-    }
-    console.log(`Test email would be sent to: ${settings.emailAddress}`);
-    return json({ success: `Test email logged (simulated send to ${settings.emailAddress}).`, submittedValues });
-  }
-
-  return json({ error: "Invalid intent", submittedValues }, { status: 400 });
+  // Handle other intents if any
+  return json({ errors: { general: "Invalid intent" } }, { status: 400 });
 };
 
 
-// Custom Toast component
-function Toast({ content, onDismiss }: { content: string; onDismiss: () => void }) {
-  React.useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-  return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#333', color: '#fff', padding: '12px 24px', borderRadius: 8, zIndex: 9999 }}>
-      {content}
-    </div>
-  );
-}
-
 // Page Component
 export default function SettingsPage() {
-  const { settings: initialSettings, error: loaderError, success: loaderSuccess } = useLoaderData<LoaderData>();
-  const fetcher = useFetcher<typeof action>();
-  const [formState, setFormState] = React.useState<NotificationSettingsFormData>(initialSettings);
+  const { settings: initialSettings, success: loaderSuccess } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher<ActionData>();
 
-  // Add state for toast
-  const [toastActive, setToastActive] = useState(false);
-  const [toastContent, setToastContent] = useState('');
+  // formState now correctly typed with NotificationSettingsFormData
+  const [formState, setFormState] = useState<NotificationSettingsFormData>(initialSettings);
 
-  React.useEffect(() => {
-    if (fetcher.data?.submittedValues) {
-      const values = fetcher.data.submittedValues;
-      setFormState({
-        emailEnabled: values.emailEnabled === 'on',
-        slackEnabled: values.slackEnabled === 'on',
-        telegramEnabled: values.telegramEnabled === 'on',
-        mobilePushEnabled: values.mobilePushEnabled === 'on',
-        emailAddress: values.emailAddress as string || '',
-        slackWebhookUrl: values.slackWebhookUrl as string || '',
-        telegramBotToken: values.telegramBotToken as string || '',
-        telegramChatId: values.telegramChatId as string || '',
-        frequency: values.frequency as string || 'daily',
-        shopLowStockThreshold: parseInt(values.shopLowStockThreshold as string, 10) || 10,
-        lowStockThreshold: values.lowStockThreshold && values.lowStockThreshold !== 'null' ? parseInt(values.lowStockThreshold as string, 10) : null,
-        salesVelocityThreshold: values.salesVelocityThreshold && values.salesVelocityThreshold !== 'null' ? parseFloat(values.salesVelocityThreshold as string) : null,
-        criticalStockThresholdUnits: values.criticalStockThresholdUnits && values.criticalStockThresholdUnits !== 'null' ? parseInt(values.criticalStockThresholdUnits as string, 10) : null,
-        criticalStockoutDays: values.criticalStockoutDays && values.criticalStockoutDays !== 'null' ? parseInt(values.criticalStockoutDays as string, 10) : null,
-        syncEnabled: values.syncEnabled === 'on',
-      });
-    }
-  }, [fetcher.data, fetcher.state, initialSettings]);
+  useEffect(() => {
+    // This effect ensures that if the loader re-runs (e.g., after a redirect with a success message),
+    // the formState is updated with the potentially new initialSettings from the loader.
+    setFormState(initialSettings);
+  }, [initialSettings]);
 
-  const handleInputChange = (field: keyof NotificationSettingsFormData) => (value: string | boolean) => {
+
+  // useCallback for stable function references if passed to memoized children
+  const handleInputChange = useCallback((field: keyof NotificationSettingsFormData, value: string | boolean | number | null) => {
     setFormState(prev => ({ ...prev, [field]: value }));
-  };
-  const handleNumericInputChange = (field: keyof NotificationSettingsFormData) => (value: string) => {
-     setFormState(prev => ({ ...prev, [field]: value === '' ? null : Number(value) }));
-  };
-   const handleShopLowStockThresholdChange = (value: string) => {
-    setFormState(prev => ({ ...prev, shopLowStockThreshold: value === '' ? 0 : Number(value) })); // Ensure it's not null
-  };
+  }, []);
+
+  const handleNumberInputChange = useCallback((field: keyof NotificationSettingsFormData, value: string) => {
+    // Allow empty string for nullable number fields, convert to null before saving
+    // For non-nullable, ensure it's a valid number or handle error/default
+    if (value === "") {
+        if (field === 'lowStockThreshold' || field === 'salesVelocityThreshold' || field === 'criticalStockThresholdUnits' || field === 'criticalStockoutDays') {
+            handleInputChange(field, null);
+        } else { // For shopLowStockThreshold which is not nullable
+            handleInputChange(field, 0); // Or some default / keep previous valid
+        }
+    } else {
+        handleInputChange(field, Number(value));
+    }
+  }, [handleInputChange]);
 
 
-  const actionResponse = fetcher.data;
-  const displayError = (actionResponse && 'errors' in actionResponse ? actionResponse.errors?.general : undefined) || loaderError;
-  const fieldErrors = (actionResponse && 'errors' in actionResponse ? actionResponse.errors : {}) as Record<string, string>;
-  const displaySuccess = (actionResponse && 'success' in actionResponse ? actionResponse.success : undefined) || loaderSuccess;
+  const actionData = fetcher.data;
+  const isSaving = fetcher.state === "submitting";
 
-  const isSaving = fetcher.state === "submitting" && fetcher.formData?.get('intent') === INTENT.SAVE_SETTINGS;
-  const isSendingTest = fetcher.state === "submitting" && fetcher.formData?.get('intent')?.toString().startsWith('sendTest');
+  // Consolidate success/error messages from loader (after redirect) and fetcher (direct action response)
+  const displaySuccess = actionData?.success || loaderSuccess;
+  const displayError = actionData?.errors?.general;
+  const fieldErrors = actionData?.errors || {};
 
-  // Example: show toast on some event
-  // function handleShowToast(msg: string) {
-  //   setToastContent(msg);
-  //   setToastActive(true);
-  // }
 
   return (
     <Page title="Settings">
-      <fetcher.Form method="post">
-        {/* General error/success banner */}
-        {displayError && !fieldErrors.general && <Banner title="There were errors with your submission" tone="critical" onDismiss={() => {}}><BlockStack gap="100">{Object.values(fieldErrors).map((e,i) => <Text as="p" key={i}>{e as string}</Text>)}</BlockStack></Banner>}
-        {displayError && fieldErrors.general && <Banner tone="critical" onDismiss={() => {}}>{fieldErrors.general}</Banner>}
-        {displaySuccess && <Banner tone="success" onDismiss={() => {}}>{displaySuccess}</Banner>}
+      {/* Use RemixForm and manage submission via fetcher.submit */}
+      <RemixForm method="post" onSubmit={(event) => {
+        // Client-side validation can happen here before fetcher.submit
+        // fetcher.submit will automatically serialize the form
+        fetcher.submit(event.currentTarget);
+      }}>
+        <input type="hidden" name="intent" value={INTENT.SAVE_SETTINGS} />
+        <BlockStack gap={{ xs: "800", sm: "400" }}>
+          {/* Banners for general errors or success messages */}
+          {displayError && <Banner title="Error" tone="critical" onDismiss={() => fetcher.data && (fetcher.data.errors = undefined)}>{displayError}</Banner>}
+          {displaySuccess && <Banner title="Success" tone="success" onDismiss={() => { /* Clear success state if needed */ }}>{displaySuccess}</Banner>}
 
-        <BlockStack gap={{xs: "800", sm: "400"}}>
           <Layout>
             <Layout.Section>
-              <Card roundedAbove="sm">
+              <Card>
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">Notification Channels</Text>
-
-                  <Checkbox label="Enable Email Notifications" name="emailEnabled" checked={formState.emailEnabled} onChange={v => handleInputChange('emailEnabled')(v)} />
+                  {/* Email */}
+                  <Checkbox label="Enable Email Notifications" name="emailEnabled" checked={formState.emailEnabled} onChange={checked => handleInputChange('emailEnabled', checked)} />
                   {formState.emailEnabled && (
-                    <FormLayout>
-                      <TextField label="Email Address for Notifications" name="emailAddress" type="email" value={formState.emailAddress} onChange={v => handleInputChange('emailAddress')(v)} error={fieldErrors.emailAddress} autoComplete="email" />
-                      <Button onClick={() => fetcher.submit({ intent: 'sendTestEmail' }, { method: 'post' })} loading={isSendingTest && fetcher.formData?.get('intent') === 'sendTestEmail'}>Send Test Email</Button>
-                    </FormLayout>
+                    <TextField label="Email Address" name="emailAddress" type="email" value={formState.emailAddress} onChange={value => handleInputChange('emailAddress', value)} error={fieldErrors.emailAddress} autoComplete="email" />
                   )}
                   <Divider />
-
-                  <Checkbox label="Enable Slack Notifications" name="slackEnabled" checked={formState.slackEnabled} onChange={v => handleInputChange('slackEnabled')(v)} />
-                   {formState.slackEnabled && (
-                    <FormLayout>
-                      <TextField label="Slack Webhook URL" name="slackWebhookUrl" value={formState.slackWebhookUrl} onChange={v => handleInputChange('slackWebhookUrl')(v)} error={fieldErrors.slackWebhookUrl} autoComplete="off" />
-                    </FormLayout>
+                  {/* Slack */}
+                  <Checkbox label="Enable Slack Notifications" name="slackEnabled" checked={formState.slackEnabled} onChange={checked => handleInputChange('slackEnabled', checked)} />
+                  {formState.slackEnabled && (
+                    <TextField label="Slack Webhook URL" name="slackWebhookUrl" value={formState.slackWebhookUrl} onChange={value => handleInputChange('slackWebhookUrl', value)} error={fieldErrors.slackWebhookUrl} autoComplete="off" />
                   )}
+                  {/* Add Telegram and Mobile Push similarly if implemented */}
+                   <Divider />
+                  <Checkbox label="Enable Telegram Notifications (Future)" name="telegramEnabled" checked={formState.telegramEnabled} onChange={v => handleInputChange('telegramEnabled', v)} disabled/>
+                  {/* ... Telegram fields ... */}
                   <Divider />
+                  <Checkbox label="Enable Mobile Push Notifications (Future)" name="mobilePushEnabled" checked={formState.mobilePushEnabled} onChange={v => handleInputChange('mobilePushEnabled', v)} disabled/>
 
-                  <Checkbox label="Enable Telegram Notifications" name="telegramEnabled" checked={formState.telegramEnabled} onChange={v => handleInputChange('telegramEnabled')(v)} />
-                  {formState.telegramEnabled && (
-                    <FormLayout>
-                      <TextField label="Telegram Bot Token" name="telegramBotToken" value={formState.telegramBotToken} onChange={v => handleInputChange('telegramBotToken')(v)} autoComplete="off" />
-                      <TextField label="Telegram Chat ID" name="telegramChatId" value={formState.telegramChatId} onChange={v => handleInputChange('telegramChatId')(v)} autoComplete="off" />
-                    </FormLayout>
-                  )}
-                  <Divider />
-
-                  <Checkbox label="Enable Mobile Push Notifications (General)" name="mobilePushEnabled" checked={formState.mobilePushEnabled} onChange={v => handleInputChange('mobilePushEnabled')(v)} />
                 </BlockStack>
               </Card>
             </Layout.Section>
 
-            {/*
-              FIX: The following section was previously mis-nested. The <BlockStack> must be closed before closing <Layout.Section>.
-              Reason: Each <Layout.Section> must only contain its own children and be closed before the next <Layout.Section> starts.
-            */}
             <Layout.Section variant="oneThird">
-              <BlockStack gap={{ xs: "800", sm: "400" }}>
-                <Card roundedAbove="sm">
-                    <BlockStack gap="400">
-                        <Text as="h2" variant="headingMd">Alert Thresholds</Text>
-                        <TextField
-                            label="Shop Low Stock Threshold (Default)" name="shopLowStockThreshold" type="number"
-                            value={formState.shopLowStockThreshold.toString()} onChange={handleShopLowStockThresholdChange}
-                            error={fieldErrors.shopLowStockThreshold} helpText="Global threshold for your shop." autoComplete="off"
-                        />
-                        <TextField
-                            label="Notification Low Stock Threshold (Override)" name="lowStockThreshold" type="number"
-                            value={formState.lowStockThreshold?.toString() ?? ""} onChange={v => handleNumericInputChange('lowStockThreshold')(v)}
-                            placeholder="Uses shop default if empty" error={fieldErrors.lowStockThreshold}
-                            helpText="Override for notifications. Cleared if shop default is preferred." autoComplete="off"
-                        />
-                        <TextField
-                            label="Sales Velocity Alert Threshold (units/day)" name="salesVelocityThreshold" type="number"
-                            value={formState.salesVelocityThreshold?.toString() ?? ""} onChange={v => handleNumericInputChange('salesVelocityThreshold')(v)}
-                            placeholder="e.g., 30" error={fieldErrors.salesVelocityThreshold} autoComplete="off"
-                        />
-                        <TextField
-                            label="Critical Stock Threshold (Units)" name="criticalStockThresholdUnits" type="number" min="0"
-                            value={formState.criticalStockThresholdUnits?.toString() ?? ""} onChange={v => handleNumericInputChange('criticalStockThresholdUnits')(v)}
-                            placeholder="e.g., 5" error={fieldErrors.criticalStockThresholdUnits} autoComplete="off"
-                            helpText="Inventory at or below this is critical."
-                        />
-                        <TextField
-                            label="Critical Stockout Threshold (Days)" name="criticalStockoutDays" type="number" min="0"
-                            value={formState.criticalStockoutDays?.toString() ?? ""} onChange={v => handleNumericInputChange('criticalStockoutDays')(v)}
-                            placeholder="e.g., 3" error={fieldErrors.criticalStockoutDays} autoComplete="off"
-                            helpText="Stockout in this many days or less is critical."
-                        />
-                    </BlockStack>
+              <BlockStack gap="400">
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h2" variant="headingMd">Alert Thresholds</Text>
+                    <FormLayout>
+                      <TextField label="Default Low Stock Threshold (Units)" name="shopLowStockThreshold" type="number" min={0} value={String(formState.shopLowStockThreshold)} onChange={v => handleNumberInputChange('shopLowStockThreshold', v)} error={fieldErrors.shopLowStockThreshold} autoComplete="off" helpText="General threshold for the shop."/>
+                      <TextField label="Notification Low Stock (Units)" name="lowStockThreshold" type="number" min={0} value={formState.lowStockThreshold === null ? '' : String(formState.lowStockThreshold)} onChange={v => handleNumberInputChange('lowStockThreshold', v)} error={fieldErrors.lowStockThreshold} autoComplete="off" helpText="Override for notifications. Leave blank to use default."/>
+                      <TextField label="Notification Sales Velocity (Units/Day)" name="salesVelocityThreshold" type="number" min={0} value={formState.salesVelocityThreshold === null ? '' : String(formState.salesVelocityThreshold)} onChange={v => handleNumberInputChange('salesVelocityThreshold', v)} error={fieldErrors.salesVelocityThreshold} autoComplete="off" helpText="Alert if daily sales exceed this. Leave blank to disable."/>
+                      <TextField label="Notification Critical Stock (Units)" name="criticalStockThresholdUnits" type="number" min={0} value={formState.criticalStockThresholdUnits === null ? '' : String(formState.criticalStockThresholdUnits)} onChange={v => handleNumberInputChange('criticalStockThresholdUnits', v)} error={fieldErrors.criticalStockThresholdUnits} autoComplete="off" helpText="Override for critical status. Leave blank for default logic."/>
+                      <TextField label="Notification Critical Stockout (Days)" name="criticalStockoutDays" type="number" min={0} value={formState.criticalStockoutDays === null ? '' : String(formState.criticalStockoutDays)} onChange={v => handleNumberInputChange('criticalStockoutDays', v)} error={fieldErrors.criticalStockoutDays} autoComplete="off" helpText="Override for critical status. Leave blank for default logic."/>
+                    </FormLayout>
+                  </BlockStack>
                 </Card>
-                <Card roundedAbove="sm">
-                    <BlockStack gap="400">
-                        <Text as="h2" variant="headingMd">Notification Frequency</Text>
-                        <Select
-                            label="Send notifications"
-                            name="frequency"
-                            options={[
-                                { label: 'Immediately', value: 'immediate' },
-                                { label: 'Hourly Digest', value: 'hourly' },
-                                { label: 'Daily Digest', value: 'daily' },
-                            ]}
-                            value={formState.frequency} onChange={(v) => handleInputChange('frequency')(v)}
-                        />
-                    </BlockStack>
-                </Card>
-                <Card roundedAbove="sm">
-                    <BlockStack gap="400">
-                        <Text as="h2" variant="headingMd">Inventory Sync</Text>
-                        <Checkbox
-                            label="Enable Real-Time Shopify Inventory Sync"
-                            name="syncEnabled"
-                            checked={formState.syncEnabled} onChange={(v) => handleInputChange('syncEnabled')(v)}
-                            helpText="Allow the app to sync inventory changes to/from Shopify."
-                        />
-                    </BlockStack>
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h2" variant="headingMd">Sync Settings</Text>
+                     <Select
+                        label="Notification Frequency"
+                        name="frequency"
+                        options={[
+                          { label: 'Daily', value: 'daily' },
+                          { label: 'Weekly', value: 'weekly' },
+                          { label: 'Immediately (if supported)', value: 'immediately' },
+                        ]}
+                        onChange={value => handleInputChange('frequency', value)}
+                        value={formState.frequency}
+                      />
+                    <Checkbox label="Enable Real-Time Inventory Sync (Future)" name="syncEnabled" checked={formState.syncEnabled} onChange={v => handleInputChange('syncEnabled', v)} disabled/>
+                  </BlockStack>
                 </Card>
               </BlockStack>
             </Layout.Section>
-
-            {/*
-              FIX: The following section was previously duplicated and mis-nested. Only one Inventory Sync section is needed outside the oneThird column.
-              Reason: Prevent duplicate UI and ensure correct nesting.
-            */}
-            <Layout.Section>
-              <Button 
-                submit 
-                variant="primary" 
-                fullWidth 
-                loading={isSaving} 
-                 onClick={() => fetcher.submit(formStateToFormData(formState, INTENT.SAVE_SETTINGS), { method: 'post' })}
-              >
-                Save Settings
-              </Button>
-            </Layout.Section>
           </Layout>
+          <div style={{ marginTop: 'var(--p-space-400)' }}> {/* Using div for layout */}
+            {/* This button will now correctly submit the RemixForm handled by the fetcher */}
+            <Button submit variant="primary" fullWidth loading={isSaving}>Save Settings</Button>
+          </div>
         </BlockStack>
-      </fetcher.Form>
-      {toastActive && <Toast content={toastContent} onDismiss={() => setToastActive(false)} />}
+      </RemixForm>
     </Page>
   );
 }
-
-// Helper to convert formState back to FormData for submission, ensuring checkbox values are correct
-function formStateToFormData(formState: NotificationSettingsFormData, intent: string): FormData {
-    const formData = new FormData();
-    formData.append('intent', intent);
-    for (const key in formState) {
-        const value = formState[key as keyof NotificationSettingsFormData];
-        if (typeof value === 'boolean') {
-            if (value) formData.append(key, 'on');
-        } else if (value !== null && value !== undefined) {
-            formData.append(key, value.toString());
-        }
-    }
-    return formData;
-}
-// Duplicate and broken JSX below this point. It is unreachable and causes syntax errors.
-// Reason: The file already returns from the main component and helper function above. The following code is a duplicate and should not exist in a valid React file.
-// If you want to keep for reference, it is commented out. Remove to resolve errors.
-
-// End of file

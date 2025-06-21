@@ -2,8 +2,8 @@
 
 import { CustomCard } from '~/components/common/Card';
 import { Icon, Grid, Box, Text, BlockStack } from '@shopify/polaris';
-// Import specific icons from polaris-icons
-import { ProductsMajor, AlertMajor, AnalyticsMajor } from '@shopify/polaris-icons';
+// Import specific icons from polaris-icons with corrected names
+import { ProductsIcon, AlertIcon, AnalyticsIcon } from '@shopify/polaris-icons';
 import React from 'react';
 
 interface MetricsProps {
@@ -25,10 +25,10 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               padding="100"
               borderRadius="full"
               width="32px"
-              height="32px"
+              minHeight="32px" // Changed from height to minHeight
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={ProductsMajor} tone="success" /> {/* Using imported ProductsMajor */}
+                <Icon source={ProductsIcon} tone="success" />
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{totalProducts}</Text>
@@ -46,10 +46,10 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               padding="100"
               borderRadius="full"
               width="32px"
-              height="32px"
+              minHeight="32px" // Changed from height to minHeight
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AlertMajor} tone="critical" /> {/* Using imported AlertMajor */}
+                <Icon source={AlertIcon} tone="critical" />
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{lowStockItemsCount}</Text>
@@ -67,10 +67,10 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
               padding="100"
               borderRadius="full"
               width="32px"
-              height="32px"
+              minHeight="32px" // Changed from height to minHeight
             >
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AnalyticsMajor} tone="info" /> {/* Using imported AnalyticsMajor */}
+                <Icon source={AnalyticsIcon} tone="info" />
               </div>
             </Box>
             <Text as="h2" variant="headingLg">{totalInventoryUnits}</Text>

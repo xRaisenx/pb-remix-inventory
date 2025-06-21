@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BlockStack, TextField, Text, Spinner, LegacyCard, ButtonGroup, Link as PolarisLink } from '@shopify/polaris';
 import { CustomCard } from '~/components/common/Card';
-import { Button } from '~/components/common/Button'; // Assuming this is your custom Button
+import { Button } from '~/components/common/Button';
 import { useFetcher } from '@remix-run/react';
 import { INTENT } from '~/utils/intents';
 
@@ -12,13 +12,13 @@ interface AIProductResponseItem {
   inventory: number;
   price: string;
   category?: string;
-  shopifyProductId?: string; // For linking
+  shopifyProductId?: string;
 }
 
 interface AIListResponseItem {
   name: string;
   value: string | number;
-  shopifyProductId?: string; // For linking
+  shopifyProductId?: string;
 }
 
 interface AISummaryResponseData {
@@ -39,7 +39,8 @@ interface AIMessage {
 }
 
 // --- Helper Display Components ---
-const ProductDisplay: React.FC<{ item: AIProductResponseItem }> = ({ item }) => (
+// Updated ProductDisplay to accept shopName
+const ProductDisplay: React.FC<{ item: AIProductResponseItem; shopName?: string }> = ({ item, shopName = "your-shop" }) => (
   <LegacyCard.Section title={item.name}>
     <BlockStack gap="100">
       <Text as="p">Inventory: {item.inventory}</Text>
@@ -47,7 +48,7 @@ const ProductDisplay: React.FC<{ item: AIProductResponseItem }> = ({ item }) => 
       {item.category && <Text as="p">Category: {item.category}</Text>}
       {item.shopifyProductId && (
         <PolarisLink
-          url={`https://admin.shopify.com/store/YOUR_STORE_NAME/products/${item.shopifyProductId.split('/').pop()}`}
+          url={`https://admin.shopify.com/store/${shopName}/products/${item.shopifyProductId.split('/').pop()}`}
           target="_blank"
           removeUnderline
         >
@@ -58,7 +59,8 @@ const ProductDisplay: React.FC<{ item: AIProductResponseItem }> = ({ item }) => 
   </LegacyCard.Section>
 );
 
-const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[] }> = ({ title, items }) => (
+// Updated ListDisplay to accept shopName
+const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[]; shopName?: string }> = ({ title, items, shopName = "your-shop" }) => (
   <LegacyCard.Section title={title}>
     <BlockStack gap="100">
       {items.map((item, index) => (
@@ -69,7 +71,7 @@ const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[] }> = ({
               <>
                 {' '}
                 <PolarisLink
-                  url={`https://admin.shopify.com/store/YOUR_STORE_NAME/products/${item.shopifyProductId.split('/').pop()}`}
+                  url={`https://admin.shopify.com/store/${shopName}/products/${item.shopifyProductId.split('/').pop()}`}
                   target="_blank"
                   removeUnderline
                 >
@@ -117,7 +119,7 @@ const SuggestedQuestionsDisplay: React.FC<SuggestedQuestionsDisplayProps> = ({ q
     <Text as="p" variant="bodyMd" tone="subdued">Suggested Questions:</Text>
     <ButtonGroup>
       {questions.map((q, i) => (
-        <Button key={i} onClick={() => onQuestionClick(q)} size="slim" variant="tertiary">
+        <Button key={i} onClick={() => onQuestionClick(q)} size="slim">
           {q}
         </Button>
       ))}
@@ -126,40 +128,47 @@ const SuggestedQuestionsDisplay: React.FC<SuggestedQuestionsDisplayProps> = ({ q
 );
 // --- End Helper Display Components ---
 
+interface AIAssistantProps {
+  shopName?: string; // shopName is the part of the domain like "your-shop" from "your-shop.myshopify.com"
+}
 
-export const AIAssistant: React.FC = () => {
+export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName }) => {
   const [inputValue, setInputValue] = useState('');
   const [conversation, setConversation] = useState<AIMessage[]>([
     { sender: 'AI', contentElement: <Text as="p">Welcome! Ask about inventory levels, sales trends, or restocking recommendations.</Text> }
   ]);
-  // Update fetcher type to expect AIStructuredResponse
   const fetcher = useFetcher<{ structuredResponse?: AIStructuredResponse; error?: string }>();
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleInputChange = (value: string) => setInputValue(value);
 
   const handleSuggestedQuestionClick = (question: string) => {
     setInputValue(question);
-    // Optionally auto-send, or let user press send
-    // For now, just populates input
+    // Optionally, auto-submit if you want:
+    // if (formRef.current) {
+    //   const formData = new FormData(formRef.current);
+    //   formData.set('query', question); // Ensure the query is updated if using this approach
+    //   fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
+    //   const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{question}</Text> };
+    //   setConversation(prev => [...prev, userMessage]);
+    //   setInputValue(''); // Clear input after auto-submitting
+    // }
   };
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-
-    const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
-    setConversation(prev => [...prev, userMessage]);
-
-    const formData = new FormData();
-    formData.append('_action', INTENT.AI_CHAT);
-    formData.append('query', inputValue);
-
-    fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
-    setInputValue('');
-  };
+  // This function is no longer directly called by a button, but by the form's onSubmit
+  // const handleSend = () => {
+  //   if (!inputValue.trim() || !formRef.current) return;
+  //   const formData = new FormData(formRef.current);
+  //   // No need to append intent and query here if they are part of the form's hidden/visible inputs
+  //   fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
+  //   const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
+  //   setConversation(prev => [...prev, userMessage]);
+  //   setInputValue('');
+  // };
 
   useEffect(() => {
-    if (fetcher.data) {
+    if (fetcher.state === 'idle' && fetcher.data) {
       let aiContentElement: JSX.Element;
       let suggestedQuestionsElement: JSX.Element | null = null;
 
@@ -167,10 +176,10 @@ export const AIAssistant: React.FC = () => {
         const response = fetcher.data.structuredResponse;
         switch (response.type) {
           case 'product':
-            aiContentElement = <ProductDisplay item={response.content as AIProductResponseItem} />;
+            aiContentElement = <ProductDisplay item={response.content as AIProductResponseItem} shopName={shopName} />;
             break;
           case 'list':
-            aiContentElement = <ListDisplay title="Results:" items={response.content as AIListResponseItem[]} />;
+            aiContentElement = <ListDisplay title="Results:" items={response.content as AIListResponseItem[]} shopName={shopName} />;
             break;
           case 'summary':
             aiContentElement = <SummaryDisplay data={response.content as AISummaryResponseData} />;
@@ -179,7 +188,6 @@ export const AIAssistant: React.FC = () => {
             aiContentElement = <Text as="p">{response.content as string}</Text>;
             break;
           case 'error':
-            // This line was already correct in the provided file content, but ensuring it stays:
             aiContentElement = <Text as="p" tone="critical">{response.content as string}</Text>;
             break;
           default:
@@ -194,15 +202,11 @@ export const AIAssistant: React.FC = () => {
           );
         }
       } else if (fetcher.data.error) {
-        // This line was already correct in the provided file content, but ensuring it stays:
         aiContentElement = <Text as="p" tone="critical">Error: {fetcher.data.error}</Text>;
       } else {
-        // Fallback for unexpected fetcher.data structure
-        // This line was already correct in the provided file content, but ensuring it stays:
         aiContentElement = <Text as="p" tone="critical">Error: Received unexpected data from AI.</Text>;
       }
 
-      // Combine main content and suggested questions if any
       const finalAiElement = (
         <BlockStack gap="300">
           {aiContentElement}
@@ -212,10 +216,9 @@ export const AIAssistant: React.FC = () => {
 
       setConversation(prev => [...prev, { sender: 'AI', contentElement: finalAiElement }]);
     }
-  }, [fetcher.data]);
+  }, [fetcher.data, fetcher.state]);
 
   useEffect(() => {
-    // Scroll to bottom of chat history
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
@@ -228,20 +231,19 @@ export const AIAssistant: React.FC = () => {
         <div
           ref={chatScrollRef}
           style={{
-            maxHeight: '300px', // Increased height
+            maxHeight: '300px',
             overflowY: 'auto',
             padding: 'var(--p-space-400)',
             border: '1px solid var(--p-color-border)',
             borderRadius: 'var(--p-border-radius-200)'
           }}
         >
-          <BlockStack gap="300"> {/* Slightly more gap for messages */}
+          <BlockStack gap="300">
             {conversation.map((msg, index) => (
-              <BlockStack key={index} gap="100"> {/* Increased gap for better separation of sender and content */}
+              <BlockStack key={index} gap="100">
                 <Text as="p" fontWeight={msg.sender === 'AI' ? 'medium' : 'bold'} variant="bodyMd">
                   {msg.sender}:
                 </Text>
-                {/* Render the JSX element directly */}
                 {msg.contentElement}
               </BlockStack>
             ))}
@@ -253,21 +255,46 @@ export const AIAssistant: React.FC = () => {
             )}
           </BlockStack>
         </div>
-        <TextField
-          label="Your question"
-          labelHidden
-          placeholder="Ask about Planet Beauty inventory..."
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => { if (event.key === 'Enter' && fetcher.state !== 'submitting') handleSend(); }}
-          autoComplete="off"
-          connectedRight={
-            <Button onClick={handleSend} variant="primary" loading={fetcher.state === 'submitting'} disabled={fetcher.state === 'submitting' || !inputValue.trim()}>
-              Send
-            </Button>
-          }
-        />
+        <fetcher.Form
+          method="post"
+          action="/app/aiQuery" // Ensure this is your AI query endpoint
+          ref={formRef}
+          onSubmit={(e) => {
+            // This onSubmit is for client-side effects before submission
+            // The actual submission is handled by the form itself
+            if (!inputValue.trim()) {
+              e.preventDefault(); // Prevent submission if input is empty
+              return;
+            }
+            const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
+            setConversation(prev => [...prev, userMessage]);
+            // Don't setInputValue('') here if you want the input value to be part of the form data submitted
+            // It will be cleared below IF the submission proceeds.
+          }}
+        >
+          <input type="hidden" name="intent" value={INTENT.AI_CHAT} />
+          <TextField
+            label="Your question"
+            labelHidden
+            name="query" // This will be part of the FormData
+            placeholder="Ask about Planet Beauty inventory..."
+            value={inputValue}
+            onChange={handleInputChange}
+            autoComplete="off"
+            connectedRight={
+              <Button
+                submit // This makes the button trigger the form submission
+                variant="primary"
+                loading={fetcher.state === 'submitting'}
+                disabled={fetcher.state === 'submitting' || !inputValue.trim()}
+                // onClick is not needed here as `submit` prop handles it
+              >
+                Send
+              </Button>
+            }
+          />
+        </fetcher.Form>
       </BlockStack>
-    </Card>
+    </CustomCard>
   );
 };
