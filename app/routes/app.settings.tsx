@@ -19,6 +19,7 @@ import type { NotificationSettings as NotificationSettingsPrismaType, Shop as Sh
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import React, { useState } from "react"; // Required for JSX
+import { INTENT } from "~/utils/intents";
 
 // [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
 // import polaris from '@shopify/polaris';
@@ -119,7 +120,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
   const errors: FormErrors = {};
 
-  if (intent === 'saveSettings') {
+  if (intent === INTENT.SAVE_SETTINGS) {
     const emailEnabled = formData.get('emailEnabled') === 'on';
     const slackEnabled = formData.get('slackEnabled') === 'on';
     // ... (get other boolean flags)
@@ -288,7 +289,7 @@ export default function SettingsPage() {
   const fieldErrors = (actionResponse && 'errors' in actionResponse ? actionResponse.errors : {}) as Record<string, string>;
   const displaySuccess = (actionResponse && 'success' in actionResponse ? actionResponse.success : undefined) || loaderSuccess;
 
-  const isSaving = fetcher.state === "submitting" && fetcher.formData?.get('intent') === 'saveSettings';
+  const isSaving = fetcher.state === "submitting" && fetcher.formData?.get('intent') === INTENT.SAVE_SETTINGS;
   const isSendingTest = fetcher.state === "submitting" && fetcher.formData?.get('intent')?.toString().startsWith('sendTest');
 
   // Example: show toast on some event
@@ -421,7 +422,7 @@ export default function SettingsPage() {
                 variant="primary" 
                 fullWidth 
                 loading={isSaving} 
-                onClick={() => fetcher.submit(formStateToFormData(formState, 'saveSettings'), { method: 'post' })}
+                 onClick={() => fetcher.submit(formStateToFormData(formState, INTENT.SAVE_SETTINGS), { method: 'post' })}
               >
                 Save Settings
               </Button>
