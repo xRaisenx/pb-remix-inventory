@@ -7,35 +7,28 @@ import {
 } from "@remix-run/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
+import "~/cron/dailyAnalysis"; // Correct way to import for side-effects
 
-// import shopify from "./shopify.server"; // Corrected import path
-import './cron/dailyAnalysis'; // Added for cron job initialization
+const ABORT_DELAY = 5000;
 
-export const streamTimeout = 5000;
-
-export default async function handleRequest(
+export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
   addDocumentResponseHeaders(request, responseHeaders);
-  const userAgent = request.headers.get("user-agent");
-  const callbackName = isbot(userAgent ?? '')
+  const callbackName = isbot(request.headers.get("user-agent"))
     ? "onAllReady"
     : "onShellReady";
 
   return new Promise((resolve, reject) => {
     const { pipe, abort } = renderToPipeableStream(
-      <RemixServer
-        context={remixContext}
-        url={request.url}
-      />,
+      <RemixServer context={remixContext} url={request.url} />,
       {
-        [callbackName]: () => {
+        [callbackName]() {
           const body = new PassThrough();
           const stream = createReadableStreamFromReadable(body);
-
           responseHeaders.set("Content-Type", "text/html");
           resolve(
             new Response(stream, {
@@ -45,18 +38,16 @@ export default async function handleRequest(
           );
           pipe(body);
         },
-        onShellError(error) {
+        onShellError(error: unknown) {
           reject(error);
         },
-        onError(error) {
-          responseStatusCode = 500;
+        onError(error: unknown) {
           console.error(error);
+          responseStatusCode = 500;
         },
       }
     );
 
-    // Automatically timeout the React renderer after 6 seconds, which ensures
-    // React has enough time to flush down the rejected boundary contents
-    setTimeout(abort, streamTimeout + 1000);
+    setTimeout(abort, ABORT_DELAY);
   });
 }
