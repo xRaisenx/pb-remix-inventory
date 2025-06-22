@@ -8,8 +8,9 @@ generator client {
 }
 
 model Session {
-  id          String    @id
-  shop        String
+  id          String    @id @default(cuid())
+  shopId      String
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   state       String
   isOnline    Boolean   @default(false)
   scope       String?
@@ -17,8 +18,7 @@ model Session {
   accessToken String
   userId      BigInt?
 
-  // PrismaSessionStorage does not require a relation to Shop
-  @@index([shop])
+  @@index([shopId])
 }
 
 model Shop {
@@ -30,7 +30,7 @@ model Shop {
   telegramChatId              String?
   whatsAppApiCredentialsJson  String?
   lowStockThreshold           Int?                    @default(10)
-  initialSyncCompleted Boolean @default(false) // ADD THIS LINE
+  initialSyncCompleted        Boolean                 @default(false)
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
 
@@ -38,11 +38,12 @@ model Shop {
   NotificationSettings NotificationSetting[]
   warehouses           Warehouse[]
   notificationLogs     NotificationLog[]
+  sessions             Session[]
 }
 
 model NotificationSetting {
   id                          String    @id @default(cuid())
-  shopId                      String    @unique // A shop should only have one settings object
+  shopId                      String    @unique
   shop                        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   email                       Boolean   @default(false)
   slack                       Boolean   @default(false)
