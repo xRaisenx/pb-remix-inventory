@@ -5,7 +5,7 @@ import {
   HomeIcon,
   ProductIcon, // Corrected from ProductsIcon
   SettingsIcon,
-  AnalyticsIcon,
+  ChartVerticalIcon, // Corrected from AnalyticsIcon
   NotificationIcon,
 } from '@shopify/polaris-icons';
 import { useLocation } from '@remix-run/react';
@@ -71,7 +71,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigationItems = [
     { url: '/app', label: 'Dashboard', icon: HomeIcon, selected: location.pathname === '/app', },
     { url: '/app/products', label: 'Products', icon: ProductIcon, selected: location.pathname.startsWith('/app/products'), }, // Corrected from ProductsIcon
-    { url: '/app/reports', label: 'Reports', icon: AnalyticsIcon, selected: location.pathname === '/app/reports', },
+    { url: '/app/reports', label: 'Reports', icon: ChartVerticalIcon, selected: location.pathname === '/app/reports', }, // Corrected from AnalyticsIcon
     { url: '/app/alerts', label: 'Alerts', icon: NotificationIcon, selected: location.pathname === '/app/alerts', },
     { url: '/app/settings', label: 'Settings', icon: SettingsIcon, selected: location.pathname === '/app/settings', },
   ];
