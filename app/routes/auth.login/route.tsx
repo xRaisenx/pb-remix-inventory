@@ -84,8 +84,9 @@ export default function AuthLoginPage() {
                       placeholder="your-store.myshopify.com"
                       autoComplete="on"
                       error={shopError} // Display error for the shop field
+                      disabled={false} // Explicitly set disabled to false
                     />
-                    <Button submit variant="primary" fullWidth>Log in</Button>
+                    <Button submit variant="primary" fullWidth disabled={false}>Log in</Button>
                   </FormLayout>
                 </Form>
                 {/* Display other general errors if any */}
