@@ -1,6 +1,6 @@
 // app/components/AIAssistant.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { BlockStack, TextField, Text, Spinner, LegacyCard, ButtonGroup, Link as PolarisLink } from '@shopify/polaris';
+import { BlockStack, TextField, Text, Spinner, ButtonGroup, Link as PolarisLink } from '@shopify/polaris';
 import { CustomCard } from '~/components/common/Card';
 import { Button } from '~/components/common/Button';
 import { useFetcher } from '@remix-run/react';
@@ -40,8 +40,10 @@ interface AIMessage {
 
 // --- Helper Display Components ---
 // Updated ProductDisplay to accept shopName
+// Replaced LegacyCard.Section with BlockStack and Text for title
 const ProductDisplay: React.FC<{ item: AIProductResponseItem; shopName?: string }> = ({ item, shopName = "your-shop" }) => (
-  <LegacyCard.Section title={item.name}>
+  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
+    <Text as="h3" variant="headingMd" fontWeight="semibold">{item.name}</Text> {/* Title */}
     <BlockStack gap="100">
       <Text as="p">Inventory: {item.inventory}</Text>
       <Text as="p">Price: ${item.price}</Text>
@@ -56,12 +58,14 @@ const ProductDisplay: React.FC<{ item: AIProductResponseItem; shopName?: string 
         </PolarisLink>
       )}
     </BlockStack>
-  </LegacyCard.Section>
+  </BlockStack>
 );
 
 // Updated ListDisplay to accept shopName
+// Replaced LegacyCard.Section with BlockStack and Text for title
 const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[]; shopName?: string }> = ({ title, items, shopName = "your-shop" }) => (
-  <LegacyCard.Section title={title}>
+  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
+    <Text as="h3" variant="headingMd" fontWeight="semibold">{title}</Text> {/* Title */}
     <BlockStack gap="100">
       {items.map((item, index) => (
         <BlockStack key={index}>
@@ -83,11 +87,13 @@ const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[]; shopNa
         </BlockStack>
       ))}
     </BlockStack>
-  </LegacyCard.Section>
+  </BlockStack>
 );
 
+// Replaced LegacyCard.Section with BlockStack and Text for title
 const SummaryDisplay: React.FC<{ data: AISummaryResponseData }> = ({ data }) => (
-  <LegacyCard.Section title="Summary">
+  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
+    <Text as="h3" variant="headingMd" fontWeight="semibold">Summary</Text> {/* Title */}
     <BlockStack gap="200">
       <Text as="h3" variant="headingSm">Key Metrics:</Text>
       <BlockStack gap="100">
@@ -106,7 +112,7 @@ const SummaryDisplay: React.FC<{ data: AISummaryResponseData }> = ({ data }) => 
         </>
       )}
     </BlockStack>
-  </LegacyCard.Section>
+  </BlockStack>
 );
 
 interface SuggestedQuestionsDisplayProps {

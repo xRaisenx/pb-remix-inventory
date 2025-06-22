@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
-import { Provider as AppBridgeProvider } from "@shopify/app-bridge-react";
+// Provider as AppBridgeProvider from "@shopify/app-bridge-react" is no longer needed
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
@@ -44,13 +44,22 @@ export default function App() {
     );
   }
 
+  // The AppBridgeProvider wrapper is removed.
+  // The necessary App Bridge config (apiKey, host) is passed to PolarisAppProvider.
+  // forceRedirect is generally a default behavior or handled internally by App Bridge
+  // when it receives the host and apiKey.
   return (
-    <PolarisAppProvider i18n={enTranslations}>
-      <AppBridgeProvider config={{ apiKey: apiKey!, host: host, forceRedirect: true }}>
-        <AppLayout>
-          <Outlet />
-        </AppLayout>
-      </AppBridgeProvider>
+    <PolarisAppProvider
+      i18n={enTranslations}
+      appBridge={{
+        apiKey: apiKey!, // Non-null assertion as apiKey presence is checked above
+        host: host,
+        // forceRedirect: true, // This is usually implicit or handled by App Bridge
+      }}
+    >
+      <AppLayout>
+        <Outlet />
+      </AppLayout>
     </PolarisAppProvider>
   );
 }

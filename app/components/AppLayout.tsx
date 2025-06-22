@@ -1,6 +1,6 @@
 // app/components/AppLayout.tsx
 import React, { useState, useCallback } from 'react';
-import { Frame, TopBar, Navigation } from '@shopify/polaris';
+import { Frame, TopBar, Navigation, Icon } from '@shopify/polaris'; // Added Icon
 import {
   HomeIcon,
   ProductIcon, // Corrected from ProductsIcon
@@ -52,7 +52,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <TopBar.Menu
           activatorContent={
             <span>
-              <NotificationIcon />
+              <Icon source={NotificationIcon} />
             </span>
           }
           open={isSecondaryMenuOpen}
