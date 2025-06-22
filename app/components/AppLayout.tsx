@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { Frame, TopBar, Navigation } from '@shopify/polaris';
 import {
   HomeIcon,
-  ProductsIcon,
+  ProductIcon, // Corrected from ProductsIcon
   SettingsIcon,
   AnalyticsIcon,
   NotificationIcon,
@@ -70,7 +70,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const navigationItems = [
     { url: '/app', label: 'Dashboard', icon: HomeIcon, selected: location.pathname === '/app', },
-    { url: '/app/products', label: 'Products', icon: ProductsIcon, selected: location.pathname.startsWith('/app/products'), },
+    { url: '/app/products', label: 'Products', icon: ProductIcon, selected: location.pathname.startsWith('/app/products'), }, // Corrected from ProductsIcon
     { url: '/app/reports', label: 'Reports', icon: AnalyticsIcon, selected: location.pathname === '/app/reports', },
     { url: '/app/alerts', label: 'Alerts', icon: NotificationIcon, selected: location.pathname === '/app/alerts', },
     { url: '/app/settings', label: 'Settings', icon: SettingsIcon, selected: location.pathname === '/app/settings', },
