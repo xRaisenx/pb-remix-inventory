@@ -1,5 +1,5 @@
 import {
-  Box,
+  // Box, // Replaced with Inline
   Card,
   Layout,
   Link,
@@ -7,6 +7,7 @@ import {
   Page,
   Text,
   BlockStack,
+  // Inline, // Will use BlockStack instead due to build issue
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 
@@ -66,9 +67,15 @@ export default function AdditionalPage() {
 }
 
 function Code({ children }: { children: React.ReactNode }) {
+  // Replaced Box with Inline for styling inline code elements.
+  // TODO: Manual review recommended for layout/appearance changes due to Box replacement.
+  // The `as="span"` prop is removed as Inline should provide appropriate inline layout.
+  // Using BlockStack instead of Inline due to build issues.
+  // This might change the display behavior from inline to block.
+  // TODO: Manual review recommended for layout/appearance changes.
   return (
-    <Box
-      as="span"
+    <BlockStack
+      as="span" // Attempting to keep inline behavior with BlockStack
       padding="025"
       paddingInlineStart="100"
       paddingInlineEnd="100"
@@ -78,6 +85,6 @@ function Code({ children }: { children: React.ReactNode }) {
       borderRadius="100"
     >
       <code>{children}</code>
-    </Box>
+    </BlockStack>
   );
 }

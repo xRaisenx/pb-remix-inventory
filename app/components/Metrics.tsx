@@ -1,9 +1,10 @@
 // app/components/Metrics.tsx
 
 import { CustomCard } from '~/components/common/Card';
-import { Icon, Grid, Box, Text, BlockStack } from '@shopify/polaris';
+// Box removed, BlockStack is already imported and will be used as replacement
+import { Icon, Grid, Text, BlockStack } from '@shopify/polaris';
 // Import specific icons from polaris-icons with corrected names
-import { ProductsIcon, AlertIcon, AnalyticsIcon } from '@shopify/polaris-icons';
+import { ProductIcon, NotificationIcon, ChartVerticalIcon as AnalyticsIcon } from '@shopify/polaris-icons'; // Renamed ProductsIcon to ProductIcon, AnalyticsIcon to ChartVerticalIcon, AlertMinor to NotificationIcon for testing
 import React from 'react';
 
 interface MetricsProps {
@@ -20,17 +21,19 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
         <CustomCard>
           <BlockStack gap="200">
             <Text as="p" variant="bodySm" tone="subdued">Total Products</Text>
-            <Box
+            {/* Replaced Box with BlockStack for icon background.
+                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
+            <BlockStack
               background="bg-surface-success"
               padding="100"
               borderRadius="full"
               width="32px"
-              minHeight="32px" // Changed from height to minHeight
+              minHeight="32px"
+              inlineAlign="center" // For horizontal centering of content
+              blockAlign="center" // For vertical centering of content
             >
-              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={ProductsIcon} tone="success" />
-              </div>
-            </Box>
+              <Icon source={ProductsIcon} tone="success" />
+            </BlockStack>
             <Text as="h2" variant="headingLg">{totalProducts}</Text>
           </BlockStack>
         </CustomCard>
@@ -41,17 +44,19 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
         <CustomCard>
           <BlockStack gap="200">
             <Text as="p" variant="bodySm" tone="subdued">Low Stock Items</Text>
-            <Box
+            {/* Replaced Box with BlockStack for icon background.
+                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
+            <BlockStack
               background="bg-surface-critical"
               padding="100"
               borderRadius="full"
               width="32px"
-              minHeight="32px" // Changed from height to minHeight
+              minHeight="32px"
+              inlineAlign="center"
+              blockAlign="center"
             >
-              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AlertIcon} tone="critical" />
-              </div>
-            </Box>
+              <Icon source={NotificationIcon} tone="critical" />
+            </BlockStack>
             <Text as="h2" variant="headingLg">{lowStockItemsCount}</Text>
           </BlockStack>
         </CustomCard>
@@ -62,17 +67,19 @@ export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCo
         <CustomCard>
           <BlockStack gap="200">
             <Text as="p" variant="bodySm" tone="subdued">Total Inventory Units</Text>
-            <Box
+            {/* Replaced Box with BlockStack for icon background.
+                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
+            <BlockStack
               background="bg-surface-info"
               padding="100"
               borderRadius="full"
               width="32px"
-              minHeight="32px" // Changed from height to minHeight
+              minHeight="32px"
+              inlineAlign="center"
+              blockAlign="center"
             >
-              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
-                <Icon source={AnalyticsIcon} tone="info" />
-              </div>
-            </Box>
+              <Icon source={AnalyticsIcon} tone="info" />
+            </BlockStack>
             <Text as="h2" variant="headingLg">{totalInventoryUnits}</Text>
           </BlockStack>
         </CustomCard>

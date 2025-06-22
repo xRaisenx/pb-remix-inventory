@@ -1,7 +1,7 @@
 // app/routes/app.warehouses.tsx
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node"; // Added redirect
 import { Form, useLoaderData } from "@remix-run/react"; // Added Form, useNavigation
-import { Page, Card, DataTable, Text, Button, EmptyState, InlineStack } from "@shopify/polaris"; // Added InlineStack
+import { Page, Card, DataTable, Text, Button, EmptyState, ButtonGroup } from "@shopify/polaris"; // Replaced Inline with ButtonGroup
 import { authenticate } from "~/shopify.server";
 import prisma  from "~/db.server";
 
@@ -115,7 +115,8 @@ export default function WarehousesPage() {
   const rows = warehouses.map(w => [
     w.name,
     w.location,
-    <InlineStack gap="200" key={w.id}>
+    // Replaced Inline with ButtonGroup for action buttons
+    <ButtonGroup key={w.id}>
       <Button url={`./${w.id}/edit`} size="slim">Edit</Button>
       <Form method="post" onSubmit={(event) => { if (!confirm('Are you sure you want to delete this warehouse? This cannot be undone.')) { event.preventDefault(); } }}>
         <input type="hidden" name="_action" value="delete_warehouse" />
@@ -127,7 +128,7 @@ export default function WarehousesPage() {
           Delete
         </Button>
       </Form>
-    </InlineStack>
+    </ButtonGroup>
   ]);
 
   return (

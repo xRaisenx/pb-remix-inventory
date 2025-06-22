@@ -2,7 +2,7 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
-import { Page, Card, Text, Button, BlockStack } from "@shopify/polaris"; // Replaced AlphaCard with Card
+import { Page, Card, Text, Button, BlockStack, Banner } from "@shopify/polaris"; // Replaced AlphaCard with Card, Added Banner
 import type { Prisma } from "@prisma/client"; // Correct Prisma import for types
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
