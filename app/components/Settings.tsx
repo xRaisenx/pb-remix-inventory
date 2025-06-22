@@ -1,18 +1,15 @@
 import React, { useState } from "react";
 import {
-  AppProvider,
   Card,
   TextField,
   Button,
   Select,
-  InlineStack,
   BlockStack,
   Checkbox, // Added Checkbox
   Frame, // Added Frame for Toast
   Toast, // Added Toast
   Text, // Added Text for section titles
 } from '@shopify/polaris';
-import enTranslations from '@shopify/polaris/locales/en.json';
 // Removed useToast import as it's not directly available in older Polaris versions without context.
 // We will use the Toast component directly if needed, managed by local state.
 // However, the original ticket asked to REMOVE custom Toast, so we'll remove all toast functionality

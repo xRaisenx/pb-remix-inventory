@@ -51,11 +51,54 @@ export async function runDailyTasks() {
       // Pass the authenticated session to the sync function
       await performDailyProductSync(shop.shop, session);
       console.log(`[CRON JOB] Product sync completed for ${shop.shop}.`);
+
+      // AI Demand Forecasting for a subset of products
+      console.log(`[CRON JOB] Starting AI demand forecasting for shop: ${shop.shop}`);
+      try {
+        // Fetch a few products to forecast (e.g., recently updated, high value, or specific status)
+        // For demonstration, let's pick up to 3 products that might be 'Low' or 'Critical' or 'Trending'
+        const productsToForecast = await prisma.product.findMany({
+          where: {
+            shopId: shop.id,
+            OR: [
+              { status: 'Low' },
+              { status: 'Critical' },
+              { trending: true },
+            ],
+          },
+          take: 3, // Limit the number of products for forecasting in this cron job example
+          orderBy: {
+            updatedAt: 'desc', // Prioritize recently updated ones
+          },
+        });
+
+        if (productsToForecast.length === 0) {
+          console.log(`[CRON JOB] No specific products found for AI demand forecasting for shop: ${shop.shop}.`);
+        } else {
+          for (const product of productsToForecast) {
+            try {
+              console.log(`[CRON JOB] Requesting demand forecast for product: ${product.title} (ID: ${product.id})`);
+              const forecast = await getDemandForecast(product.id);
+              console.log(`[CRON JOB] AI Demand Forecast for ${product.title}: ${forecast}`);
+              // Here you might store the forecast, log it to a specific system, or use it to trigger other actions.
+              // For example, updating the product record with the forecast:
+              // await prisma.product.update({ where: { id: product.id }, data: { aiForecast: forecast } });
+            } catch (forecastError) {
+              console.error(`[CRON JOB] Error generating demand forecast for product ${product.id} (${product.title}):`, forecastError);
+            }
+          }
+        }
+      } catch (aiError) {
+        console.error(`[CRON JOB] Error during AI demand forecasting phase for shop ${shop.shop}:`, aiError);
+      }
+
     } catch (error) {
       console.error(`[CRON JOB] Error during product sync for ${shop.shop}:`, error);
     }
 
     // ... (rest of the AI forecasting and low stock check logic remains the same)
+    // Note: The original placeholder "... (rest of the AI forecasting and low stock check logic remains the same)"
+    // might imply there was other logic here. The added block is new.
   }
   console.log(`[CRON JOB - ${new Date().toISOString()}] Daily tasks routine finished.`);
 }

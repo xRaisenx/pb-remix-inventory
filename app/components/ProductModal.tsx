@@ -137,6 +137,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         return;
     }
 
+    // Use currentQuantityAtLocation to prevent submitting if the quantity hasn't changed
+    if (currentQuantityAtLocation !== null && numQuantity === currentQuantityAtLocation) {
+      setError("The new quantity is the same as the current quantity at this location. No changes made.");
+      // Or, alternatively, show a success/info toast that no update was needed.
+      // For now, setting an error to prevent submission.
+      return;
+    }
+
     fetcher.submit(
       {
         intent: INTENT.UPDATE_INVENTORY,

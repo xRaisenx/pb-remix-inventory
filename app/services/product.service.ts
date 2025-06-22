@@ -1,6 +1,7 @@
 // app/services/product.service.ts
 import prisma from '~/db.server';
-import type { Product, Variant, Shop, NotificationSetting } from '@prisma/client'; // Assuming these types are needed
+// Unused types Shop and NotificationSetting removed from this import. Product and Variant are used.
+import type { Product, Variant } from '@prisma/client';
 
 // Interface for product data passed to calculateProductMetrics
 // Ensure salesVelocityFloat is part of the Product model or added if it's calculated elsewhere before this step.

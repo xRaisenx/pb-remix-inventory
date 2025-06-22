@@ -5,7 +5,7 @@ import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from
 import { Form, useActionData, useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
 import { Page, Card, TextField, Button, Banner, BlockStack, Text, Select } from "@shopify/polaris"; // Added Select
 import { authenticate } from "~/shopify.server";
-import prisma  from "~/db.server";
+import prisma from "~/db.server";
 import { z } from "zod";
 
 import type { Warehouse } from "~/types";
@@ -78,7 +78,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs): Promise<R
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request); // admin variable removed as it's unused
   const shopDomain = session.shop;
   const warehouseId = params.warehouseId;
   const formData = await request.formData();

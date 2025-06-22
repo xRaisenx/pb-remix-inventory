@@ -1,7 +1,7 @@
 // app/components/ProductAlerts.tsx
-import { Banner, BlockStack, Button, Text } from '@shopify/polaris';
+import { Banner, BlockStack, Text } from '@shopify/polaris';
 import { useFetcher } from '@remix-run/react';
-import React, { useEffect } from 'react';
+import React from 'react';
 import type { DashboardAlertProduct } from '~/types'; // Import the centralized type
 // [FIX] useToast is not available in your version of Polaris. All toast logic is commented out for now.
 // import polaris from '@shopify/polaris';
@@ -35,16 +35,7 @@ export const ProductAlerts: React.FC<ProductAlertsProps> = ({ lowStockProducts, 
   };
 
   // All showToast usages are commented out below. Replace with a supported notification system if needed.
-  // useEffect(() => {
-  //   if (fetcher.data) {
-  //     const data = fetcher.data as { success?: boolean; message?: string; error?: string };
-  //     if (data.success && data.message) {
-  //       showToast(data.message, { tone: 'success' });
-  //     } else if (data.error) {
-  //       showToast(data.error, { tone: 'critical' });
-  //     }
-  //   }
-  // }, [fetcher.data, showToast]);
+  // The useEffect related to fetcher.data and showToast has been removed as useEffect itself was unused.
 
   return (
     <BlockStack gap="400">

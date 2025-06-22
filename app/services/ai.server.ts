@@ -1,7 +1,7 @@
 // app/services/ai.server.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "~/db.server";
-import type { Prisma as PrismaTypes } from '@prisma/client';
+// Removed unused import: import type { Prisma as PrismaTypes } from '@prisma/client';
 
 // Structured Response Types
 export interface AIProductResponseItem {
