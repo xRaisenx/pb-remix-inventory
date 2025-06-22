@@ -10,34 +10,31 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Ensure
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // The login helper from @shopify/shopify-app-remix can parse errors from the URL
-  const rawErrors = login.parseError(await login.error(request));
+  // This loader is for the /auth/login page.
+  // It should display the login form.
+  // If Shopify redirects here with an error, the error parameters will be in the URL.
+  // Example: /auth/login?shop=your-store.myshopify.com&error=access_denied&error_description=...
+  const url = new URL(request.url);
+  const errorParam = url.searchParams.get("error");
+  const errorDescriptionParam = url.searchParams.get("error_description");
+  const shopParam = url.searchParams.get("shop");
 
-  // Dynamically import server-only module here
-  const { loginErrorMessage } = await import("./error.server");
-  const displayableErrors = loginErrorMessage(rawErrors);
+  let errors: Record<string, string> = {};
+  if (errorParam) {
+    errors.shop = errorDescriptionParam || errorParam; // Use error_description if available, else the error code itself.
+  }
 
-  // If the "shop" query parameter is present, it means Shopify has redirected back
-  // to this page, possibly with an error. Or, the user is trying to log in to a specific shop.
-  // The login() helper will handle redirection to Polaris auth if necessary.
-  // If already authenticated for this shop, authenticate.admin() in a protected route
-  // would redirect them to the app.
-  // For the login page itself, we mostly just display errors if any.
-  return { errors: displayableErrors }; // Return processed errors
+  // It's also possible this page is loaded due to a direct navigation or after a failed form submission.
+  // The `loginErrorMessage` was designed to process errors caught by the Shopify library,
+  // which we are removing. For now, we will just pass basic errors.
+  // If `error.server.ts` `loginErrorMessage` is generic enough, it could be adapted,
+  // but let's simplify first.
+
+  return { errors, shop: shopParam }; // Return any errors parsed from URL
 };
 
 export async function action({ request }: ActionFunctionArgs) {
   // This action is triggered when the user submits the login form (shop domain).
-  const rawErrors = login.parseError(await login.error(request));
-
-  // If there are errors from a previous attempt (e.g., invalid shop domain format from URL), show them.
-  if (rawErrors) {
-    // Dynamically import server-only module here
-    const { loginErrorMessage } = await import("./error.server");
-    const displayableErrors = loginErrorMessage(rawErrors);
-    return { errors: displayableErrors }; // Return processed errors
-  }
-
   // The login() helper from @shopify/shopify-app-remix will construct the
   // OAuth kickoff URL and redirect the user to Shopify's authentication page.
   // It requires the shop domain from the form submission.
