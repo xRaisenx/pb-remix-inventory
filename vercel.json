@@ -4,5 +4,11 @@
       "path": "/api/cron/daily-analysis",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build/client",
+  "framework": "remix",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev"
 }
+
