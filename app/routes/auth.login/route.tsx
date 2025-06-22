@@ -3,7 +3,7 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import type { ActionFunctionArgs, LoaderFunctionArgs, LinksFunction } from "@remix-run/node"; // Added LinksFunction
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { login } from "~/shopify.server"; // Corrected import path assuming shopify.server.ts is in app root
-import { loginErrorMessage } from "./error.server"; // Assuming this path is correct
+// Removed direct import of loginErrorMessage from client-facing code
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Ensure ?url suffix
 
 // Corrected links function
@@ -11,7 +11,11 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: polarisSty
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // The login helper from @shopify/shopify-app-remix can parse errors from the URL
-  const errors = login.parseError(await login.error(request));
+  const rawErrors = login.parseError(await login.error(request));
+
+  // Dynamically import server-only module here
+  const { loginErrorMessage } = await import("./error.server");
+  const displayableErrors = loginErrorMessage(rawErrors);
 
   // If the "shop" query parameter is present, it means Shopify has redirected back
   // to this page, possibly with an error. Or, the user is trying to log in to a specific shop.
@@ -19,16 +23,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // If already authenticated for this shop, authenticate.admin() in a protected route
   // would redirect them to the app.
   // For the login page itself, we mostly just display errors if any.
-  return { errors };
+  return { errors: displayableErrors }; // Return processed errors
 };
 
 export async function action({ request }: ActionFunctionArgs) {
   // This action is triggered when the user submits the login form (shop domain).
-  const errors = login.parseError(await login.error(request));
+  const rawErrors = login.parseError(await login.error(request));
 
   // If there are errors from a previous attempt (e.g., invalid shop domain format from URL), show them.
-  if (errors) {
-    return { errors };
+  if (rawErrors) {
+    // Dynamically import server-only module here
+    const { loginErrorMessage } = await import("./error.server");
+    const displayableErrors = loginErrorMessage(rawErrors);
+    return { errors: displayableErrors }; // Return processed errors
   }
 
   // The login() helper from @shopify/shopify-app-remix will construct the
@@ -53,10 +60,11 @@ export default function AuthLoginPage() {
   const { errors: loaderErrors } = useLoaderData<typeof loader>();
   // Use action data for errors from form submission attempts
   const actionData = useActionData<typeof action>();
+  // Errors are now directly the displayable messages processed by loader/action
   const formErrors = actionData?.errors || loaderErrors;
 
-  // loginErrorMessage is a helper to get a specific error message for the shop field
-  const { shop: shopError } = loginErrorMessage(formErrors); // Corrected variable name
+  // shopError is now directly available if it exists in formErrors
+  const shopError = formErrors?.shop;
 
   return (
     <AppProvider i18n={enTranslations}>
