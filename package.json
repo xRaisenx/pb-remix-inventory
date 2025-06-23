@@ -58,8 +58,7 @@
     "prisma": "^6.10.1",
     "typescript": "^5.2.2",
     "vite": "^6.2.2",
-    "@shopify/cli": "^3.59.0",
-    "@shopify/app": "^3.59.0"
+    "@shopify/cli": "^3.59.0"
   },
   "workspaces": {
     "packages": [
