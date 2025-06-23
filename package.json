@@ -2,7 +2,7 @@
   "name": "app",
   "private": true,
   "scripts": {
-    "shopify:deploy": "shopify app deploy --client-id $SHOPIFY_API_KEY --force",
+    "shopify:deploy": "shopify app deploy --client-id $SHOPIFY_API_KEY --force --verbose",
     "build": "npm run shopify:deploy && prisma generate && remix vite:build",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
