@@ -2,7 +2,8 @@
   "name": "app",
   "private": true,
   "scripts": {
-    "build": "prisma generate && remix vite:build",
+    "shopify:deploy": "shopify app deploy --api-key $SHOPIFY_API_KEY --force",
+    "build": "npm run shopify:deploy && prisma generate && remix vite:build",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
@@ -56,7 +57,9 @@
     "prettier": "^3.2.4",
     "prisma": "^6.10.1",
     "typescript": "^5.2.2",
-    "vite": "^6.2.2"
+    "vite": "^6.2.2",
+    "@shopify/cli": "^3.59.0",
+    "@shopify/app": "^3.59.0"
   },
   "workspaces": {
     "packages": [
