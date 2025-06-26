@@ -30,10 +30,10 @@ export async function updateInventoryQuantityInShopifyAndDB(
   // 2. --- Get Data from Your Database ---
   const variant = await prisma.variant.findUnique({
     where: { id: variantId },
-    select: { shopifyInventoryItemId: true, sku: true, productId: true },
+    select: { inventoryItemId: true, sku: true, productId: true },
   });
 
-  if (!variant?.shopifyInventoryItemId) {
+  if (!variant?.inventoryItemId) {
     return { success: false, error: `Variant (ID: ${variantId}, SKU: ${variant?.sku || 'Unknown'}) is not linked to a Shopify Inventory Item.` };
   }
   if (!variant.productId) {
@@ -42,7 +42,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
   // 3. --- Get Authenticated Shopify Client ---
   const offlineSessionRecord = await prisma.session.findFirst({
-    where: { shop: shopDomain, isOnline: false, accessToken: { not: null } },
+    where: { shop: { shop: shopDomain }, isOnline: false, accessToken: { not: null } },
     orderBy: { expires: 'desc' },
   });
 
@@ -74,7 +74,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
     input: {
       reason: "correction",
       setQuantities: [{
-        inventoryItemId: variant.shopifyInventoryItemId,
+        inventoryItemId: variant.inventoryItemId,
         locationId: shopifyLocationGid,
         quantity: newQuantity,
       }],

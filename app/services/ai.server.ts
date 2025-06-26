@@ -100,7 +100,7 @@ export async function getAiChatResponse(userQuery: string, shopId: string): Prom
 
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
-    include: { notificationSettings: true }
+    include: { NotificationSettings: true }
   });
   if (!shop) {
     console.error(`Shop not found for ID: ${shopId} in getAiChatResponse.`);
