@@ -57,7 +57,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
-  const notificationSettings = await prisma.notificationSettings.findUnique({
+  const notificationSettings = await prisma.NotificationSetting.findUnique({
     where: { shopId: shopRecord.id },
   });
 
@@ -142,7 +142,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Upsert NotificationSettings
     const { shopLowStockThreshold, ...notificationSpecificData } = dataToSave; // Exclude shop-level field from NS table
-    await prisma.notificationSettings.upsert({
+    await prisma.NotificationSetting.upsert({
       where: { shopId: shopRecord.id },
       create: { shopId: shopRecord.id, ...notificationSpecificData },
       update: notificationSpecificData,

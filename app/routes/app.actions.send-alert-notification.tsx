@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: session.shop },
-      include: { notificationSettings: true },
+      include: { NotificationSettings: true },
     });
 
     if (!shopRecord) {

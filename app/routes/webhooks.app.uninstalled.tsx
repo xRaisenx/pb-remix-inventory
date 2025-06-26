@@ -33,7 +33,7 @@ export async function action({ request }: ActionFunctionArgs) {
         console.log(`Shop data deleted for ${shop} due to app uninstall.`);
 
         // Explicitly delete sessions associated with the shop
-        await prisma.session.deleteMany({ where: { shop: shop } });
+        await prisma.session.deleteMany({ where: { shop: { shop: shop } } });
         console.log(`Sessions deleted for ${shop}.`);
 
       } else {

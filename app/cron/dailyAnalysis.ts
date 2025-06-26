@@ -14,7 +14,7 @@ export async function runDailyTasks() {
   const shops = await prisma.shop.findMany({
     // where: { accessToken: { not: null } }, // Original condition
     where: { initialSyncCompleted: true }, // Only run for shops that have completed the initial sync.
-    include: { notificationSettings: true },
+    include: { NotificationSettings: true },
   });
 
   if (shops.length === 0) {
@@ -28,7 +28,7 @@ export async function runDailyTasks() {
 
     // Fetch a valid offline session to perform API calls
     const offlineSessionRecord = await prisma.session.findFirst({
-      where: { shop: shop.shop, isOnline: false, accessToken: { not: null } },
+      where: { shop: { shop: shop.shop }, isOnline: false, accessToken: { not: null } },
       orderBy: { expires: 'desc' },
     });
 
