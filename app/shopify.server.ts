@@ -12,7 +12,7 @@ import {
   AppDistribution,
   DeliveryMethod,
   shopifyApp,
-  LATEST_API_VERSION,
+  // LATEST_API_VERSION, // Comment out or remove
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "~/db.server";
@@ -20,7 +20,7 @@ import prisma from "~/db.server";
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: LATEST_API_VERSION,
+  apiVersion: "2024-07", // Pinned API version
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -58,7 +58,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = LATEST_API_VERSION;
+export const apiVersion = "2024-07"; // Pinned API version
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
