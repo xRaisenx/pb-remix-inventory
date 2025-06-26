@@ -1,6 +1,6 @@
 // app/services/product.service.ts
 import prisma from '~/db.server';
-import type { Product, Variant, Shop, NotificationSetting } from '@prisma/client'; // Assuming these types are needed
+import { ProductStatus, type Product, type Variant, type Shop, type NotificationSetting } from '@prisma/client';
 
 // Interface for product data passed to calculateProductMetrics
 // Ensure salesVelocityFloat is part of the Product model or added if it's calculated elsewhere before this step.
@@ -14,7 +14,7 @@ interface ProductWithVariantsAndSalesVelocity extends Product {
 interface ProductMetrics {
   currentTotalInventory: number;
   stockoutDays: number | null; // Can be null if sales velocity is 0 or inventory is 0 with no velocity
-  status: 'Healthy' | 'Low' | 'Critical' | 'Unknown'; // Status based on thresholds
+  status: ProductStatus; // Status based on thresholds
 }
 
 // Shop-specific settings needed for metric calculation
@@ -42,23 +42,23 @@ export function calculateProductMetrics(
     stockoutDays = 0;
   }
 
-  let status: ProductMetrics['status'] = 'Healthy'; // Default status
+  let status: ProductStatus = ProductStatus.OK; // Default status (assuming OK for Healthy)
   const { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays } = shopSettings;
 
   // Determine status based on inventory levels and stockout days
   if (currentTotalInventory === 0) {
-    status = 'Critical'; // No stock is always critical
+    status = ProductStatus.Critical; // No stock is always critical
   } else if (currentTotalInventory <= criticalStockThresholdUnits) {
     // Below or at critical units threshold
-    status = 'Critical';
+    status = ProductStatus.Critical;
   } else if (stockoutDays !== null && stockoutDays !== Infinity && stockoutDays <= criticalStockoutDays && salesVelocity > 0) {
     // Will stock out within critical days period, and there are sales
-    status = 'Critical';
+    status = ProductStatus.Critical;
   } else if (currentTotalInventory <= lowStockThresholdUnits) {
     // Below or at low units threshold (but not critical)
-    status = 'Low';
+    status = ProductStatus.Low;
   }
-  // Otherwise, it remains 'Healthy'
+  // Otherwise, it remains ProductStatus.OK
 
   return {
     currentTotalInventory,

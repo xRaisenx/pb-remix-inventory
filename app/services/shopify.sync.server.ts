@@ -1,6 +1,7 @@
 // app/services/shopify.sync.server.ts
 import shopify from '~/shopify.server'; // Your Shopify app instance
 import prisma from '~/db.server';       // Your Prisma client instance
+import { ProductStatus } from "@prisma/client"; // Added ProductStatus
 import { Session } from "@shopify/shopify-api"; // Shopify API Session type
 import { updateAllProductMetricsForShop } from './product.service'; // Service to update metrics post-sync
 
@@ -164,7 +165,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
           create: {
             shopifyId: sp.id, title: sp.title, vendor: sp.vendor || 'Unknown',
             productType: sp.productType, tags: sp.tags, shopId: shopId,
-            status: 'Unknown', trending: false, // Default status/trending
+            status: ProductStatus.Unknown, trending: false, // Default status/trending
           },
         });
         totalProductsSynced++;

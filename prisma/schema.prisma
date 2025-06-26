@@ -7,6 +7,33 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum ProductStatus {
+  Unknown
+  OK
+  Low
+  Critical
+  // OutOfStock // Example if needed
+}
+
+enum NotificationChannel {
+  Email
+  Slack
+  Telegram
+  MobilePush
+  System
+}
+
+enum NotificationStatus {
+  Sent
+  Delivered
+  Failed
+  Error
+  Simulated
+  FailedConfiguration
+  Pending
+  // Read // Example if needed
+}
+
 model Session {
   id          String    @id @default(cuid())
   shopId      String
@@ -53,7 +80,7 @@ model NotificationSetting {
   slackWebhookUrl             String?
   telegramBotToken            String?
   telegramChatId              String?
-  frequency                   String    @default("daily")
+  frequency                   String    @default("daily") // Could be an Enum too if values are fixed
   lowStockThreshold           Int?
   salesVelocityThreshold      Float?
   criticalStockThresholdUnits Int?
@@ -69,7 +96,7 @@ model Product {
   title              String
   vendor             String
   productType        String?
-  status             String?          @default("Unknown")
+  status             ProductStatus?   @default(Unknown) // Updated to Enum
   trending           Boolean?         @default(false)
   salesVelocityFloat Float?
   stockoutDays       Float?
@@ -94,7 +121,7 @@ model Variant {
   sku                 String?
   price               Decimal?
   inventoryQuantity   Int?
-  inventoryItemId     String?   @unique
+  inventoryItemId     String?   @unique // Was shopifyInventoryItemId in some queries
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   productId           String
@@ -144,18 +171,18 @@ model DemandForecast {
 }
 
 model NotificationLog {
-  id           String   @id @default(cuid())
+  id           String             @id @default(cuid())
   shopId       String
-  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  channel      String
+  shop         Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel      NotificationChannel // Updated to Enum
   recipient    String?
   message      String
-  status       String
+  status       NotificationStatus // Updated to Enum
   productId    String?
   productTitle String?
-  alertType    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  alertType    String?            // Kept as String? for flexibility
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@index([shopId])
 }
