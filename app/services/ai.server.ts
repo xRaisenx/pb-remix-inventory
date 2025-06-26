@@ -1,7 +1,7 @@
 // app/services/ai.server.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "~/db.server";
-import type { Prisma as PrismaTypes } from '@prisma/client';
+import { ProductStatus, type Prisma as PrismaTypes } from '@prisma/client';
 
 // Structured Response Types
 export interface AIProductResponseItem {
@@ -121,7 +121,7 @@ export async function getAiChatResponse(userQuery: string, shopId: string): Prom
       const products = await prisma.product.findMany({
         where: {
           shopId: shop.id,
-          OR: [ { status: 'Low' }, { status: 'Critical' } ]
+          OR: [ { status: ProductStatus.Low }, { status: ProductStatus.Critical } ]
         },
         take: 10, // Limit for chat response brevity
         include: { variants: { select: { inventoryQuantity: true }}},
@@ -168,8 +168,8 @@ export async function getAiChatResponse(userQuery: string, shopId: string): Prom
                 totalInventoryValue += Number(v.price) * v.inventoryQuantity;
             }
           });
-          if (p.status === 'Low') lowStockCount++;
-          if (p.status === 'Critical') criticalStockCount++;
+          if (p.status === ProductStatus.Low) lowStockCount++;
+          if (p.status === ProductStatus.Critical) criticalStockCount++;
       });
       const summaryData: AISummaryResponseData = {
         totalProducts: productsForSummary.length,
@@ -196,7 +196,7 @@ export async function getAiChatResponse(userQuery: string, shopId: string): Prom
                 price: product.variants[0]?.price?.toString() ?? 'N/A',
                 inventory: totalInventory,
                 salesVelocity: product.salesVelocityFloat,
-                stockoutRisk: product.status ?? 'Unknown', // Map status to risk
+                stockoutRisk: product.status ? product.status.toString() : ProductStatus.Unknown.toString(), // Map status to risk
                 // imageUrl: product.imageUrl,
             };
             return { type: 'product', product: productItem, suggestedQuestions: [`What's the sales trend for ${product.title}?`, "Any alerts for this product?"] };

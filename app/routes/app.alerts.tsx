@@ -3,6 +3,7 @@ import { useLoaderData } from "@remix-run/react";
 import { Page, Card, Text, EmptyState, BlockStack, Link as PolarisLink, Banner, DataTable } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import { ProductStatus } from "@prisma/client";
 import AlertsDisplay, { type AlertItem } from "~/components/Alerts"; // Corrected import for AlertsDisplay
 import type { NotificationLog as PrismaNotificationLog } from "@prisma/client"; // Prisma generated type
 
@@ -80,7 +81,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Generate Critical Stock Alerts
     const criticalStatusProducts = await prisma.product.findMany({
-      where: { shopId, status: 'Critical' },
+      where: { shopId, status: ProductStatus.Critical },
       select: { id: true, title: true, variants: { select: { inventoryQuantity: true } } },
       take: 10, // Limit alerts for performance
     });
@@ -97,7 +98,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Generate Low Stock Alerts
     const lowStatusProducts = await prisma.product.findMany({
-      where: { shopId, status: 'Low' },
+      where: { shopId, status: ProductStatus.Low },
       select: { id: true, title: true, variants: { select: { inventoryQuantity: true } } },
       take: 10, // Limit alerts
     });

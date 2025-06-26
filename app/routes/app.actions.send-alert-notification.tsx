@@ -1,6 +1,7 @@
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import { NotificationChannel, NotificationStatus } from "@prisma/client";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -27,7 +28,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const notificationSettings = shopRecord.notificationSettings;
     let notificationSentViaChannel = false;
-    let logStatus = "Failed";
+    let logStatus: NotificationStatus = NotificationStatus.Failed; // Default to Failed
     let logRecipient = null;
 
     if (notificationSettings?.email && notificationSettings.emailAddress) {
@@ -35,15 +36,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         `Simulating email to ${notificationSettings.emailAddress} for product ${productTitle} (ID: ${productId}) regarding ${alertType}: ${message}`
       );
       notificationSentViaChannel = true;
-      logStatus = "Simulated";
+      logStatus = NotificationStatus.Simulated; // Update to Enum
       logRecipient = notificationSettings.emailAddress;
       await prisma.notificationLog.create({
         data: {
           shopId: shopRecord.id,
-          channel: "Email",
+          channel: NotificationChannel.Email, // Update to Enum
           recipient: logRecipient,
           message: message,
-          status: logStatus,
+          status: logStatus, // Already an Enum
           productId: productId,
           productTitle: productTitle,
           alertType: alertType,
@@ -60,10 +61,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await prisma.notificationLog.create({
         data: {
           shopId: shopRecord.id,
-          channel: "Slack",
+          channel: NotificationChannel.Slack, // Update to Enum
           recipient: notificationSettings.slackWebhookUrl, // Or a channel ID if known
           message: message,
-          status: "Simulated", // Or "Sent"
+          status: NotificationStatus.Simulated, // Update to Enum
           productId: productId,
           productTitle: productTitle,
           alertType: alertType,
@@ -78,9 +79,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await prisma.notificationLog.create({
         data: {
           shopId: shopRecord.id,
-          channel: "System",
+          channel: NotificationChannel.System, // Update to Enum
           message: `No notification channels configured or enabled for alert type: ${alertType} for product: ${productTitle}`,
-          status: "FailedConfiguration",
+          status: NotificationStatus.FailedConfiguration, // Update to Enum
           productId: productId,
           productTitle: productTitle,
           alertType: alertType,
@@ -101,9 +102,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         await prisma.notificationLog.create({
           data: {
             shopId: shop.id,
-            channel: "System",
+            channel: NotificationChannel.System, // Update to Enum
             message: `Error processing notification: ${error instanceof Error ? error.message : String(error)}`,
-            status: "Error",
+            status: NotificationStatus.Error, // Update to Enum
             productId: productId,
             productTitle: productTitle,
             alertType: alertType,

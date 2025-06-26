@@ -3,6 +3,7 @@ import { useLoaderData, useFetcher } from "@remix-run/react";
 import { Page, BlockStack, Grid, Card, Banner, Button, Text, Spinner } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import { ProductStatus } from "@prisma/client";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server"; // Import the sync function
 import { Metrics } from "~/components/Metrics";
 import { TrendingProducts } from "~/components/TrendingProducts";
@@ -29,7 +30,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const totalProducts = await prisma.product.count({ where: { shopId } });
   const lowStockItemsCount = await prisma.product.count({
-    where: { shopId, status: { in: ["Low", "Critical"] } }, // Assuming status is a string field
+    where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
   });
 
   // Explicitly type the variants for reduce
@@ -51,7 +52,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Cast to DashboardAlertProduct[] as per user's provided code for lowStockProductsForAlerts
   const lowStockProductsForAlerts = await prisma.product.findMany({
-    where: { shopId, status: { in: ['Low', 'Critical'] } },
+    where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
     select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } },
     take: 3,
   }).then(products => products.map(p => ({
