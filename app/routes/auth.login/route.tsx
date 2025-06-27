@@ -38,18 +38,13 @@ export async function action({ request }: ActionFunctionArgs) {
   // The login() helper from @shopify/shopify-app-remix will construct the
   // OAuth kickoff URL and redirect the user to Shopify's authentication page.
   // It requires the shop domain from the form submission.
-  // If the shop domain is invalid or missing, it might throw an error or return null,
-  // which `login.parseError` would then catch on a subsequent load.
-  try {
-    await login(request); // This will trigger a redirect, so code below might not be reached.
-    return null; // Should not be reached if login() redirects.
-  } catch (error) {
-    // This catch block might be for errors within the login() utility itself,
-    // though typically it handles errors by redirecting with error params.
-    console.error("Error during login action:", error);
-    // Return a generic error or re-throw to an error boundary
-    return { errors: { shop: "An unexpected error occurred during login." } };
-  }
+
+  // The login function from @shopify/shopify-app-remix is designed to throw
+  // a Remix Response object to perform the redirect to Shopify's OAuth page.
+  // Remix will automatically handle this thrown Response.
+  // If login() encounters an actual error (not a redirect Response),
+  // that error will propagate and be handled by Remix's error boundaries.
+  return login(request);
 }
 
 export default function AuthLoginPage() {
