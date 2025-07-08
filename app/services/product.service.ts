@@ -1,6 +1,6 @@
 // app/services/product.service.ts
 import prisma from '~/db.server';
-import { ProductStatus, type Product, type Variant, type Shop, type NotificationSetting } from '@prisma/client';
+import { ProductStatus, type Product, type Variant } from '@prisma/client';
 
 // Interface for product data passed to calculateProductMetrics
 // Ensure salesVelocityFloat is part of the Product model or added if it's calculated elsewhere before this step.

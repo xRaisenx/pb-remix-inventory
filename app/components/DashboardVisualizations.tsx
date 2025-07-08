@@ -7,10 +7,7 @@ interface DashboardVisualizationsProps {
   // Example: inventoryData: any[];
 }
 
-export function DashboardVisualizations({
-  // salesData,
-  // inventoryData,
-}: DashboardVisualizationsProps) {
+export function DashboardVisualizations(_props: DashboardVisualizationsProps) {
   return (
     <BlockStack gap="400">
       <Text variant="headingMd" as="h2">

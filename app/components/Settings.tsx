@@ -81,7 +81,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
     return /^\d+:[A-Za-z0-9_-]{35}$/.test(token);
   };
 
-  const validateSettings = (settings: NotificationSettingsType): ValidationErrors => {
+  const validateSettings = useCallback((settings: NotificationSettingsType): ValidationErrors => {
     const errors: ValidationErrors = {};
 
     // Email validation
@@ -121,7 +121,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
     }
 
     return errors;
-  };
+  }, []);
 
   // Debounced input change handler to prevent race conditions
   const debouncedInputChange = useMemo(
@@ -142,7 +142,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
         setValidationErrors((prev: ValidationErrors) => ({ ...prev, [channel]: '' }));
       }
     }, 300),
-    [validationErrors]
+    [validationErrors, setNotificationSettings]
   );
 
   const handleInputChange = useCallback((channel: keyof NotificationSettingsType, field: string, value: any) => {
@@ -159,24 +159,10 @@ export default function Settings({ notificationSettings, setNotificationSettings
     if (validationErrors[field as string]) {
       setValidationErrors((prev: ValidationErrors) => ({ ...prev, [field as string]: '' }));
     }
-  }, [validationErrors]);
+  }, [validationErrors, setNotificationSettings]);
 
-  const testNotification = (channel: string) => {
-    const message = `Test notification sent via ${channel}`;
-    const historyEntry: NotificationHistoryItem = {
-      message,
-      timestamp: new Date().toLocaleString(),
-      status: "Sent",
-      channel: channel.charAt(0).toUpperCase() + channel.slice(1)
-    };
-    
-    const updatedHistory = [...notificationHistory, historyEntry];
-    setNotificationHistory(updatedHistory.slice(-5)); // Keep last 5 notifications
-    
-    console.log(`${channel.charAt(0).toUpperCase() + channel.slice(1)} test sent: ${message}`);
-  };
-
-  const handleSubmit = async () => {
+  // Memoize handleSubmit to prevent dependency changes
+  const handleSubmit = useCallback(async () => {
     // Validate before submitting
     const errors = validateSettings(notificationSettings);
     if (Object.keys(errors).length > 0) {
@@ -202,13 +188,28 @@ export default function Settings({ notificationSettings, setNotificationSettings
     }
     
     setIsSaving(false);
-  };
+  }, [notificationSettings, onSubmit, validateSettings]);
 
   // Debounced submit to prevent double-clicking
   const debouncedSubmit = useMemo(
     () => debounce(handleSubmit, 500, { leading: true, trailing: false }),
     [handleSubmit]
   );
+
+  const testNotification = (channel: string) => {
+    const message = `Test notification sent via ${channel}`;
+    const historyEntry: NotificationHistoryItem = {
+      message,
+      timestamp: new Date().toLocaleString(),
+      status: "Sent",
+      channel: channel.charAt(0).toUpperCase() + channel.slice(1)
+    };
+    
+    const updatedHistory = [...notificationHistory, historyEntry];
+    setNotificationHistory(updatedHistory.slice(-5)); // Keep last 5 notifications
+    
+    console.log(`${channel.charAt(0).toUpperCase() + channel.slice(1)} test sent: ${message}`);
+  };
 
   return (
     <div className="pb-space-y-6">
