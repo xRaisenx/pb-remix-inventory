@@ -2,7 +2,7 @@
 
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
-import { getAiChatResponse } from "~/services/ai.server";
+import { processAIQuery } from "~/services/ai.server";
 import prisma from "~/db.server";
 import { INTENT } from "~/utils/intents"; // Import INTENT
 
@@ -27,17 +27,38 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const aiResponseObject = await getAiChatResponse(query, shopRecord.id);
+      // Use the new processAIQuery function
+      const aiResponse = await processAIQuery({
+        text: query,
+        shopId: shopRecord.id,
+        sessionId: session.id
+      });
 
-      if (aiResponseObject.type === 'error') {
-        // Status codes can be adjusted based on the error message from the service
-        return json({ structuredResponse: aiResponseObject }, { status: 500 });
+      if (!aiResponse.success) {
+        return json({ 
+          structuredResponse: { 
+            type: 'error', 
+            content: aiResponse.message || "The AI service encountered an error." 
+          } 
+        }, { status: 500 });
       }
 
-      return json({ structuredResponse: aiResponseObject });
+      // Convert to legacy format for compatibility
+      const legacyResponse = {
+        type: 'text',
+        content: aiResponse.message,
+        suggestedQuestions: aiResponse.suggestions || []
+      };
+
+      return json({ structuredResponse: legacyResponse });
     } catch (error: any) {
       console.error("AI Chat Action Error in app.aiQuery.tsx:", error);
-      return json({ structuredResponse: { type: 'error', content: error.message || "The AI service encountered an unexpected problem." } }, { status: 500 });
+      return json({ 
+        structuredResponse: { 
+          type: 'error', 
+          content: error.message || "The AI service encountered an unexpected problem." 
+        } 
+      }, { status: 500 });
     }
   }
 

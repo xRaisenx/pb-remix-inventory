@@ -7,8 +7,6 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  isRouteErrorResponse,
-  useRouteError,
 } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";

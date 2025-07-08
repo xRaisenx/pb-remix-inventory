@@ -1,119 +1,225 @@
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { NotificationChannel, NotificationStatus } from "@prisma/client";
+import { sendNotification, type NotificationPayload } from "~/services/notification.service";
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const formData = await request.formData();
+// Input validation schema
+interface SendNotificationInput {
+  productId: string;
+  productTitle: string;
+  alertType: string;
+  message: string;
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
 
-  const productId = formData.get("productId") as string;
-  const productTitle = formData.get("productTitle") as string;
-  const alertType = formData.get("alertType") as string;
-  const message = formData.get("message") as string;
+function validateNotificationInput(input: Partial<SendNotificationInput>): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
 
-  if (!productId || !productTitle || !alertType || !message) {
-    return json({ error: "Missing required parameters for notification." }, { status: 400 });
+  if (!input.productId || typeof input.productId !== 'string') {
+    errors.push('Product ID is required');
   }
 
+  if (!input.productTitle || typeof input.productTitle !== 'string') {
+    errors.push('Product title is required');
+  }
+
+  if (!input.alertType || typeof input.alertType !== 'string') {
+    errors.push('Alert type is required');
+  }
+
+  if (!input.message || typeof input.message !== 'string') {
+    errors.push('Message is required');
+  } else if (input.message.length > 2000) {
+    errors.push('Message cannot exceed 2000 characters');
+  }
+
+  if (input.severity && !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(input.severity)) {
+    errors.push('Invalid severity level');
+  }
+
+  return { isValid: errors.length === 0, errors };
+}
+
+export const action = async ({ request }: ActionFunctionArgs) => {
   try {
+    const { session } = await authenticate.admin(request);
+    const formData = await request.formData();
+
+    // Extract and validate input
+    const input: Partial<SendNotificationInput> = {
+      productId: formData.get("productId") as string,
+      productTitle: formData.get("productTitle") as string,
+      alertType: formData.get("alertType") as string,
+      message: formData.get("message") as string,
+      severity: (formData.get("severity") as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL') || 'MEDIUM'
+    };
+
+    // Validate input
+    const validation = validateNotificationInput(input);
+    if (!validation.isValid) {
+      return json({ 
+        success: false,
+        error: 'Invalid input data',
+        details: validation.errors.join(', ')
+      }, { status: 400 });
+    }
+
+    const { productId, productTitle, alertType, message, severity } = input as SendNotificationInput;
+
+    // Get shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: session.shop },
       include: { NotificationSettings: true },
     });
 
     if (!shopRecord) {
-      return json({ error: "Shop not found." }, { status: 404 });
+      return json({ 
+        success: false,
+        error: 'Shop configuration not found. Please reinstall the app.'
+      }, { status: 404 });
     }
 
-    const notificationSettings = shopRecord.notificationSettings;
-    let notificationSentViaChannel = false;
-    let logStatus: NotificationStatus = NotificationStatus.Failed; // Default to Failed
-    let logRecipient = null;
-
-    if (notificationSettings?.email && notificationSettings.emailAddress) {
-      console.log(
-        `Simulating email to ${notificationSettings.emailAddress} for product ${productTitle} (ID: ${productId}) regarding ${alertType}: ${message}`
-      );
-      notificationSentViaChannel = true;
-      logStatus = NotificationStatus.Simulated; // Update to Enum
-      logRecipient = notificationSettings.emailAddress;
-      await prisma.notificationLog.create({
-        data: {
-          shopId: shopRecord.id,
-          channel: NotificationChannel.Email, // Update to Enum
-          recipient: logRecipient,
-          message: message,
-          status: logStatus, // Already an Enum
-          productId: productId,
-          productTitle: productTitle,
-          alertType: alertType,
-        },
-      });
+    // Check if notifications are configured
+    const notificationSettings = shopRecord.NotificationSettings?.[0];
+    if (!notificationSettings) {
+      return json({ 
+        success: false,
+        error: 'Notification settings not configured. Please configure notifications in Settings.'
+      }, { status: 400 });
     }
 
-    if (notificationSettings?.slack && notificationSettings.slackWebhookUrl) {
-      console.log(
-        `TODO: Send Slack notification for product ${productTitle} (ID: ${productId}) regarding ${alertType}: ${message} to ${notificationSettings.slackWebhookUrl}`
-      );
-      notificationSentViaChannel = true;
-      // In a real app, status might be "Sent" after successful API call
-      await prisma.notificationLog.create({
-        data: {
-          shopId: shopRecord.id,
-          channel: NotificationChannel.Slack, // Update to Enum
-          recipient: notificationSettings.slackWebhookUrl, // Or a channel ID if known
-          message: message,
-          status: NotificationStatus.Simulated, // Update to Enum
-          productId: productId,
-          productTitle: productTitle,
-          alertType: alertType,
-        },
-      });
+    // Check if any notification channels are enabled
+    const hasEnabledChannels = notificationSettings.email || 
+                              notificationSettings.slack || 
+                              notificationSettings.telegram || 
+                              notificationSettings.sms || 
+                              notificationSettings.webhook;
+
+    if (!hasEnabledChannels) {
+      return json({ 
+        success: false,
+        error: 'No notification channels are enabled. Please enable at least one notification method in Settings.'
+      }, { status: 400 });
     }
 
-    // Add other notification channels here (Telegram, Mobile Push) with similar console logs and logging
+    // Prepare notification payload
+    const notificationPayload: NotificationPayload = {
+      shopId: shopRecord.id,
+      productId,
+      productTitle,
+      alertType,
+      severity: severity || 'MEDIUM',
+      title: `${alertType}: ${productTitle}`,
+      message,
+      metadata: {
+        manualTrigger: true,
+        triggeredBy: 'user',
+        shopDomain: session.shop,
+        timestamp: new Date().toISOString()
+      }
+    };
 
-    if (!notificationSentViaChannel) {
-      // Log a general failure if no channels were even attempted
-      await prisma.notificationLog.create({
-        data: {
-          shopId: shopRecord.id,
-          channel: NotificationChannel.System, // Update to Enum
-          message: `No notification channels configured or enabled for alert type: ${alertType} for product: ${productTitle}`,
-          status: NotificationStatus.FailedConfiguration, // Update to Enum
-          productId: productId,
-          productTitle: productTitle,
-          alertType: alertType,
-        },
-      });
-      return json({ error: "No notification channels configured or enabled for this alert type." }, { status: 400 });
+    // Send notifications via all enabled channels
+    const notificationResults = await sendNotification(shopRecord.id, notificationPayload);
+
+    // Analyze results
+    const successfulNotifications = notificationResults.filter(r => r.success);
+    const failedNotifications = notificationResults.filter(r => !r.success);
+
+    if (successfulNotifications.length === 0) {
+      // All notifications failed
+      const primaryError = failedNotifications[0]?.error || 'All notification channels failed';
+      
+      return json({ 
+        success: false,
+        error: 'Failed to send notifications via any channel.',
+        details: primaryError,
+        results: notificationResults.map(r => ({
+          channel: r.channel,
+          success: r.success,
+          status: r.status,
+          error: r.error
+        }))
+      }, { status: 500 });
     }
 
-    return json({ success: true, message: "Notifications dispatched (simulated) and logged." });
+    // At least some notifications succeeded
+    const responseMessage = successfulNotifications.length === notificationResults.length
+      ? `Notifications sent successfully via ${successfulNotifications.length} channel(s).`
+      : `Notifications sent via ${successfulNotifications.length} of ${notificationResults.length} channel(s). ${failedNotifications.length} channel(s) failed.`;
+
+    return json({ 
+      success: true,
+      message: responseMessage,
+      results: {
+        total: notificationResults.length,
+        successful: successfulNotifications.length,
+        failed: failedNotifications.length,
+        channels: notificationResults.map(r => ({
+          channel: r.channel,
+          success: r.success,
+          status: r.status,
+          message: r.message,
+          error: r.error
+        }))
+      }
+    });
 
   } catch (error) {
     console.error("Failed to process notification action:", error);
-    // Log error to notification log as well, if possible (shopId might not be available if error is early)
-    // This part might need more robust error handling for shopId
+    
+    // Provide user-friendly error message
+    let userMessage = 'An unexpected error occurred while sending notifications.';
+    let errorCode = 'UNKNOWN_ERROR';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('timeout')) {
+        userMessage = 'The notification request timed out. Please try again.';
+        errorCode = 'TIMEOUT_ERROR';
+      } else if (error.message.includes('network')) {
+        userMessage = 'Network error occurred. Please check your connection and try again.';
+        errorCode = 'NETWORK_ERROR';
+      } else if (error.message.includes('rate limit')) {
+        userMessage = 'Too many notification requests. Please wait a moment and try again.';
+        errorCode = 'RATE_LIMIT_ERROR';
+      } else if (error.message.includes('authentication')) {
+        userMessage = 'Authentication failed. Please reinstall the app.';
+        errorCode = 'AUTH_ERROR';
+      }
+    }
+
+    // Try to log the error if possible
     try {
-      const shop = await prisma.shop.findUnique({ where: { shop: session.shop } });
-      if (shop) {
+      const shopRecord = await prisma.shop.findUnique({ 
+        where: { shop: (await authenticate.admin(request)).session.shop } 
+      });
+      
+      if (shopRecord) {
         await prisma.notificationLog.create({
           data: {
-            shopId: shop.id,
-            channel: NotificationChannel.System, // Update to Enum
+            shopId: shopRecord.id,
+            channel: 'System',
             message: `Error processing notification: ${error instanceof Error ? error.message : String(error)}`,
-            status: NotificationStatus.Error, // Update to Enum
-            productId: productId,
-            productTitle: productTitle,
-            alertType: alertType,
+            status: 'Error',
+            productId: (await request.formData()).get("productId") as string || undefined,
+            productTitle: (await request.formData()).get("productTitle") as string || undefined,
+            alertType: (await request.formData()).get("alertType") as string || undefined,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            metadata: {
+              errorCode,
+              stackTrace: error instanceof Error ? error.stack : undefined
+            }
           },
         });
       }
     } catch (logError) {
       console.error("Failed to write to notification log during error handling:", logError);
     }
-    return json({ error: "Failed to send notifications due to a server error." }, { status: 500 });
+
+    return json({ 
+      success: false,
+      error: userMessage,
+      code: errorCode
+    }, { status: 500 });
   }
 };

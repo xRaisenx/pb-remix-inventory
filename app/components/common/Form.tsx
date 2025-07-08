@@ -1,4 +1,5 @@
-import { Form as PolarisForm, FormProps } from '@shopify/polaris';
+import type { FormProps } from '@shopify/polaris';
+import { Form as PolarisForm } from '@shopify/polaris';
 import React from 'react';
 
 interface CustomFormProps extends Omit<FormProps, 'onSubmit' | 'children'> {

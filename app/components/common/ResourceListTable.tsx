@@ -1,4 +1,5 @@
-import { IndexTable, IndexTableProps, Card as PolarisCard } from '@shopify/polaris';
+import type { IndexTableProps} from '@shopify/polaris';
+import { IndexTable, Card as PolarisCard } from '@shopify/polaris';
 import React from 'react';
 
 // Keep headings simple for now, Polaris.IndexTableHeading[] is complex for a generic wrapper initially
