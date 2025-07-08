@@ -517,3 +517,434 @@ Try Planet Beauty Inventory AI risk-free:
 ---
 
 *© 2025 Planet Beauty Inventory AI. All rights reserved. Built with ❤️ for beauty retailers worldwide.*
+
+---
+
+### **AI Interaction & Merchant Command Testing Protocol**  
+
+#### **1. Natural Language Processing (NLP) Validation**  
+- **Intent Recognition**  
+  - Test ambiguous merchant queries (e.g., *"Show me best sellers but exclude clearance"*) → Verify correct filters applied.  
+  - Mispronounced/wrongly spelled product names (e.g., *"Nike Air Maxx"*) → Check fuzzy matching.  
+  - Multi-action commands (e.g., *"Add 5 red shirts to cart and apply discount"*) → Confirm sequential execution.  
+
+- **Tone & Context**  
+  - Test casual vs. formal language (e.g., *"Yo, what’s trending?"* vs. *"Display top-selling products"*) → Ensure consistent professionalism.  
+  - Long conversational threads (e.g., *"Find blue shoes… No, under $100… Only size 10"*) → Validate context retention.  
+
+#### **2. Query Execution & Data Accuracy**  
+- **Read Operations**  
+  - Complex filters (e.g., *"Show products with <5 stock, priced $20–50, tagged ‘Summer’"*) → Verify accurate query results.  
+  - Cross-reference Shopify Reports → Ensure AI output matches Admin analytics.  
+
+- **Write Operations**  
+  - Inventory updates (e.g., *"Increase all hoodie quantities by 10"*) → Confirm no SKU desync.  
+  - Metafield edits (e.g., *"Add ‘eco-friendly’ tag to all organic products"*) → Check batch processing success.  
+
+#### **3. Visual Output & UI Integration**  
+- **Dynamic Formatting**  
+  - Product grids: Test image lazy-loading + responsive breakpoints (mobile/desktop).  
+  - Data tables: Verify CSV export retains AI-applied filters (e.g., *"Export low-stock items I just asked about"*).  
+
+- **Error States**  
+  - No-results queries (e.g., *"Show vegan leather sofas"* in a tech store) → Display helpful alternatives.  
+  - Permission errors (e.g., *"Apply 50% discount"* without `write_discounts` scope) → Explain missing access clearly.  
+
+#### **4. Edge Cases & Stress Tests**  
+- **Concurrency**  
+  - 10+ merchants querying same product simultaneously → Confirm no duplicate writes.  
+  - AI mid-process during product deletion → Validate transaction rollback.  
+
+- **Adversarial Inputs**  
+  - Gibberish (e.g., *"asdf123!@#”*) → Return "I didn’t understand" vs. crashing.  
+  - Overload with 1,000+ product requests → Test timeout fallback ("Processing…").  
+
+#### **5. Compliance & Logging**  
+- **Audit Trails**  
+  - Log all AI actions (e.g., *"12:05 PM: Updated 3 products via merchant command ‘restock’"*).  
+  - Mask sensitive data in logs (e.g., *"Applied discount to [REDACTED_EMAIL]"*).  
+
+- **GDPR/CCPA**  
+  - Test *"Delete my last 3 search queries"* → Verify erasure within 24h.  
+
+**Output Format**:  
+```language=markdown  
+[QUERY]: *"Add 10% markup to all watches"*  
+[ACTION]: Writes new prices to 50+ products  
+[RESULT]: ✅ Updated 52/52 products | ❌ Failed on 0 (Permission denied)  
+[VISUAL]: Green success toast + undo button  
+[LOG]: "2024-03-15 14:22: Price update by Merchant ID#4421"  
+```
+
+
+**Pass Criteria**:  
+- 95%+ intent accuracy (measured via merchant test panel).  
+- All write operations require explicit merchant confirmation (no silent overrides).  
+- UI renders correctly in Shopify Mobile App + desktop.  
+
+*Test with real merchant transcripts, not synthetic data.*
+
+---
+
+### **Shopify App Template & Code Quality Audit Protocol**  
+
+#### **1. Template & Frontend Optimization**  
+- **Unused Variables & Imports**  
+  - Run `eslint --no-unused-vars` and `tsc --noUnusedLocals` to detect dead code.  
+  - Check for orphaned React hooks (e.g., `useState` vars never read).  
+  - **Fix**:  
+    ```typescript
+    // BEFORE: Unused imports/vars
+    import { unusedHelper } from '~/utils';  
+    const [unusedState, setUnusedState] = useState(null);  
+
+    // AFTER: Cleaned
+    import { usedHelper } from '~/utils';  
+    const [cartCount, setCartCount] = useState(0);  
+    ```  
+
+- **Remix Compatibility**  
+  - Verify all browser APIs (`window`, `document`) are guarded:  
+    ```typescript
+    // BEFORE: Direct `window` access
+    const userAgent = window.navigator.userAgent;  
+
+    // AFTER: Remix-safe
+    const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : 'server';  
+    ```  
+
+#### **2. TypeScript & Data Flow**  
+- **Strict Typing Gaps**  
+  - Identify `any` types in API responses.  
+  - **Fix**:  
+    ```typescript
+    // BEFORE: Loose typing
+    const product = await fetchProduct(); // Type: any  
+
+    // AFTER: Explicit interface
+    interface Product {
+      id: string;
+      title: string;
+    }
+    const product: Product = await fetchProduct();  
+    ```  
+
+- **API Client Conflicts**  
+  - Check for duplicate `@shopify/shopify-api` instances in `node_modules`.  
+  - **Fix**:  
+    ```bash
+    # Force-resolve to single version
+    npm list @shopify/shopify-api  
+    npm dedupe  
+    ```  
+
+#### **3. Performance & Security**  
+- **Lazy Loading**  
+  - Audit `react.lazy()` for unoptimized chunks.  
+  - **Fix**:  
+    ```typescript
+    // BEFORE: Eager-loaded component
+    import HeavyComponent from '~/components/HeavyComponent';  
+
+    // AFTER: Lazy-loaded
+    const HeavyComponent = lazy(() => import('~/components/HeavyComponent'));  
+    ```  
+
+- **XSS in Liquid Templates**  
+  - Sanitize dynamic `{{ content }}` with `| escape`.  
+  - **Fix**:  
+    ```liquid
+    <!-- BEFORE: Unsafe -->
+    <div>{{ user_input }}</div>  
+
+    <!-- AFTER: Escaped -->
+    <div>{{ user_input | escape }}</div>  
+    ```  
+
+#### **4. Edge Cases**  
+- **Remix Loader Race Conditions**  
+  - Test parallel route transitions with `Promise.all()`.  
+  - **Fix**:  
+    ```typescript
+    // BEFORE: Uncontrolled parallel fetches
+    export const loader = async () => {
+      const [products, orders] = await Promise.all([fetchProducts(), fetchOrders()]);  
+      return json({ products, orders });
+    };  
+
+    // AFTER: Race-condition proof
+    export const loader = async ({ request }) => {
+      const products = await fetchProducts(request.signal); // Abortable  
+      const orders = await fetchOrders(request.signal);  
+      return json({ products, orders });
+    };  
+    ```  
+
+#### **5. Output & Validation**  
+**Audit Report Format**:  
+```language=markdown
+[ISSUE]: Unused CSS class `.old-theme`  
+[FILE]: `app/styles.css`  
+[FIX]: Remove or tree-shake  
+---  
+[ISSUE]: Missing `null` check in Remix loader  
+[FILE]: `app/routes/products.tsx`  
+[FIX]:  
+```
+
+const data = useLoaderData<typeof loader>();  
+if (!data) throw new Response('Not found', { status: 404 });  
+
+**Automated Checks**:  
+```language=bash
+# Run these in CI:  
+eslint --ext .ts,.tsx --fix .  
+tsc --noEmit --strictNullChecks  
+npm run test:integration  
+```
+
+
+**Exit Criteria**:  
+- Zero `any` types in `*.tsx` files.  
+- All Remix loaders handle `AbortSignal`.  
+- ESLint passes with `--max-warnings=0`.  
+
+*No UI changes—purely under-the-hood robustness.*
+
+---
+
+### **Vercel + Neon (Prisma) Serverless Stress Test Protocol**  
+
+#### **1. Database Connection Pool Optimization**  
+**Problem**: Neon’s 10-connection limit can throttle high-traffic apps.  
+**Test & Fix**:  
+
+- **Connection Leak Detection**  
+  ```typescript
+  // BEFORE: Unmanaged Prisma client
+  import { PrismaClient } from '@prisma/client';
+  const prisma = new PrismaClient();
+
+  // AFTER: Singleton + connection cleanup
+  import { PrismaClient } from '@prisma/client';
+
+  const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+  const prisma = globalForPrisma.prisma || new PrismaClient();
+
+  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+  export default prisma;
+  ```
+
+- **Queue Overflow Workaround**  
+  Use `p-queue` for write operations:  
+  ```typescript
+  import PQueue from 'p-queue';
+  const dbQueue = new PQueue({ concurrency: 8 }); // Leave 2 connections for reads
+
+  await dbQueue.add(async () => {
+    await prisma.product.update({ where: { id }, data: { stock: newStock } });
+  });
+  ```
+
+#### **2. Serverless Cold Start & Build Validation**  
+**Test**: Deploy to Vercel + simulate 100 concurrent merchant signups.  
+**Fix**:  
+- **Reduce Lambda Size**:  
+  ```bash
+  # NEXT.JS CONFIG (next.config.js)
+  experimental: {
+    outputFileTracingIgnores: ['**/*.md', '**/tests/**'],
+    serverComponentsExternalPackages: ['@prisma/client'],
+  }
+  ```
+- **Warm Neon Connections**:  
+  ```typescript
+  // Add to _app.tsx
+  useEffect(() => {
+    fetch('/api/warmup'); // Dummy endpoint that calls `prisma.$queryRaw`SELECT 1``
+  }, []);
+  ```
+
+#### **3. Real-World Merchant Scenario Tests**  
+| **Test Case**               | **Expected**                          | **Fix if Fails**                          |
+|-----------------------------|---------------------------------------|------------------------------------------|
+| 50 merchants bulk-editing products | Queue processes sequentially | Implement `bull` or `p-queue` with Redis |
+| Checkout surge during flash sale | DB errors <1% of requests | Auto-scale Neon via webhook + Vercel ISR |
+| App uninstall during sync    | Orphaned data cleanup completes       | Add `prisma.$on('beforeExit')` handler  |
+
+#### **4. Dependency Audit**  
+**Run**:  
+```language=bash
+npx depcheck --ignores="@types/*,eslint*"  
+npx vercel --prod --confirm  # Force fresh build
+```
+
+**Critical Checks**:  
+- No `sharp` in serverless (replace with `squoosh`).  
+- All `@shopify/*` packages use same major version.  
+
+#### **5. Connection Pool Telemetry**  
+```language=typescript
+// Add to Prisma client initialization
+prisma.$use(async (params, next) => {
+  const start = Date.now();
+  const result = await next(params);
+  console.log(`Query ${params.model}.${params.action} took ${Date.now() - start}ms`);
+  return result;
+});
+```
+
+**Monitor**: Vercel logs for `Query took >2000ms`.  
+
+#### **Output Format**  
+```language=markdown
+[TEST]: 100-merchant bulk inventory update  
+[CONNECTIONS]: Peak 8/10 (Neon)  
+[LATENCY]: 92% <1s  
+[FIXES]:  
+- Added Redis queue for writes  
+- Prisma client singleton  
+```
+
+
+**Final Sign-off**:  
+- [ ] All `prisma.*` calls wrapped in queue.  
+- [ ] `depcheck` reports zero unused dependencies.  
+- [ ] Vercel build passes with `maxDuration: 30` (Pro plan).  
+
+*Test with actual Neon production credentials—mocking won’t catch pool limits.*
+
+---
+
+### **Final Production Readiness Checklist**  
+
+#### **1. Styling & CSS Audit**  
+**Objective**: Ensure all styles load correctly with zero unused code.  
+
+**Checks & Fixes**:  
+- **Unused CSS Detection**  
+  ```bash
+  npx purgecss --css ./styles/**/*.css --content ./pages/**/*.tsx ./components/**/*.tsx --output ./optimized-styles
+  ```
+  - **Fix**: Move unused styles to a `_deprecated.css` file or delete.  
+
+- **CSS Imports Validation**  
+  - Verify all imports resolve (no 404s):  
+  ```typescript
+  // BEFORE: Relative path hell
+  import '../../../styles/button.css';
+
+  // AFTER: Aliased path
+  import '@styles/button.css';
+  ```
+  - **Next.js Fix**: Update `tsconfig.json` for path aliases:  
+  ```json
+  {
+    "compilerOptions": {
+      "paths": {
+        "@styles/*": ["./styles/*"]
+      }
+    }
+  }
+  ```
+
+- **Lint CSS**  
+  ```bash
+  npx stylelint "**/*.css" --fix
+  ```
+  - **Critical Rules**:  
+    - No `!important` flags.  
+    - Zero specificity wars (e.g., `.button.button.button`).  
+
+---
+
+#### **2. Dependency Finalization**  
+**Objective**: Lock down versions and remove bloat.  
+
+**Checks**:  
+```language=bash
+npm outdated # Verify no stale dependencies  
+npx depcheck # Confirm no unused packages  
+```
+
+**Fixes**:  
+- **Lockfile Cleanup**:  
+  ```bash
+  rm -rf node_modules package-lock.json  
+  npm install --production  
+  ```
+- **Peer Dependencies**:  
+  ```json
+  // package.json
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "next": "14.x"
+  }
+  ```
+
+---
+
+#### **3. Serverless & Database Final Checks**  
+**Objective**: Guarantee 100% uptime under load.  
+
+**Tests**:  
+| **Scenario**               | **Pass Criteria**                     |
+|----------------------------|---------------------------------------|
+| Vercel cold start          | <1500ms (Pro plan)                    |
+| Neon 10-connection limit   | Queue system prevents saturation      |
+| CSS/JS bundle size         | <300kb (gzipped)                      |
+
+**Workarounds**:  
+- **DB Pool Exhaustion**:  
+  ```typescript
+  // Fallback to SQLite for reads if Neon fails
+  if (process.env.DB_FAILOVER === 'true') {
+    prisma = new PrismaClient({ datasourceUrl: 'file:./local.db' });
+  }
+  ```
+
+---
+
+#### **4. Final Bug Sweep**  
+**Automated**:  
+```language=bash
+npx playwright test --config=playwright.prod.config.ts # End-to-end tests  
+npx lighthouse https://your-app.vercel.app --view # Audit performance/accessibility  
+```
+
+**Manual**:  
+- [ ] Test in Safari (font rendering quirks).  
+- [ ] Disable JavaScript → Verify core functionality (progressive enhancement).  
+
+---
+
+#### **5. Production Lockdown**  
+**Security**:  
+```language=bash
+npm audit fix --force  
+```
+
+**Env Vars**:  
+- Encrypt secrets with Vercel’s built-in encryption.  
+- Confirm `NODE_ENV=production` is enforced.  
+
+**Output**:  
+```language=markdown
+[STATUS]: PRODUCTION READY  
+[VERSION]: 1.0.0  
+[CHECKS PASSED]:  
+✅ Zero ESLint/TypeScript errors (npx tsc --noEmit)  
+✅ All CSS purged + optimized (PurgeCSS report)  
+✅ DB connection peak: 8/10 (Neon logs)  
+✅ Lighthouse score: >95 (Performance, Accessibility)  
+```
+
+
+**Final Sign-off**:  
+```language=bash
+echo "SHIP IT 🚀" && git tag v1.0.0-prod  
+```
+
+
+*No stone unturned—this app is bulletproof.*
