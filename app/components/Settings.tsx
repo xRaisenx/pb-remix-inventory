@@ -126,7 +126,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
   // Debounced input change handler to prevent race conditions
   const debouncedInputChange = useMemo(
     () => debounce((channel: keyof NotificationSettingsType, field: string, value: any) => {
-      setNotificationSettings((prev) => {
+      setNotificationSettings((prev: NotificationSettingsType) => {
         const prevChannelSettings = prev[channel];
         if (typeof prevChannelSettings === 'object' && prevChannelSettings !== null && 'enabled' in prevChannelSettings) {
           return {
@@ -139,7 +139,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
       
       // Clear validation error when user starts typing
       if (validationErrors[channel]) {
-        setValidationErrors(prev => ({ ...prev, [channel]: '' }));
+        setValidationErrors((prev: ValidationErrors) => ({ ...prev, [channel]: '' }));
       }
     }, 300),
     [validationErrors]
@@ -150,14 +150,14 @@ export default function Settings({ notificationSettings, setNotificationSettings
   }, [debouncedInputChange]);
 
   const handleThresholdChange = useCallback((field: keyof NotificationSettingsType, value: string | number | boolean) => {
-    setNotificationSettings((prev) => ({
+    setNotificationSettings((prev: NotificationSettingsType) => ({
       ...prev,
       [field]: value,
     }));
     
     // Clear validation error
     if (validationErrors[field as string]) {
-      setValidationErrors(prev => ({ ...prev, [field as string]: '' }));
+      setValidationErrors((prev: ValidationErrors) => ({ ...prev, [field as string]: '' }));
     }
   }, [validationErrors]);
 

@@ -1,4 +1,7 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore Node built-in buffer module types
+import { Buffer } from "buffer";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -178,7 +181,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
        const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx) => {
+       await prisma.$transaction(async (tx: typeof prisma) => {
          // Update shop-level settings
          await tx.shop.update({
            where: { id: shopRecord.id },
