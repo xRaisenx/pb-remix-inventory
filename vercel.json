@@ -5,10 +5,19 @@
       "schedule": "0 0 * * *"
     }
   ],
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "build/client",
   "framework": "remix",
   "installCommand": "npm install --legacy-peer-deps",
-  "devCommand": "npm run dev"
+  "devCommand": "npm run dev",
+  "functions": {
+    "build/server/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "DIRECT_URL": "@direct_url"
+  }
 }
 
