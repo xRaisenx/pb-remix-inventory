@@ -20,7 +20,7 @@ database.sqlite
 
 
 
-/extensions/*/dist
+/extensions
 
 # Ignore shopify files created during app dev
 .shopify/*
