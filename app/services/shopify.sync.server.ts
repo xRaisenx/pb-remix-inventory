@@ -172,7 +172,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
 
         for (const variantEdge of sp.variants.edges) {
           const v = variantEdge.node;
-          const variantRecord = await prisma.variant.upsert({
+          await prisma.variant.upsert({
             where: { shopifyId: v.id }, // Assumes shopifyId is unique on Variant model
             update: { title: v.title, sku: v.sku, price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id },
             create: {

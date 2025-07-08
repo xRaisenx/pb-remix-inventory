@@ -18,10 +18,6 @@ console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, 
 
 // Enhanced session storage with error handling
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage {
-  constructor(prisma: any) {
-    super(prisma);
-  }
-
   async storeSession(session: any): Promise<boolean> {
     try {
       return await super.storeSession(session);

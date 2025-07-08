@@ -1,6 +1,5 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Buffer } from "node:buffer";
-import type { ReactNode } from "react";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -12,11 +11,6 @@ import { INTENT } from "~/utils/intents";
 // TypeScript Interfaces for the route
 interface LoaderData {
   settings: NotificationSettingsType;
-  success?: string;
-}
-
-interface ActionData {
-  errors?: Partial<Record<string, string>>;
   success?: string;
 }
 
@@ -80,8 +74,8 @@ function validateSettings(settings: NotificationSettingsType): Record<string, st
 async function logSettingsChange(
   userId: string | null, 
   shopId: string, 
-  oldSettings: Partial<NotificationSettingsType>, 
-  newSettings: NotificationSettingsType
+  oldValues: Record<string, any>, 
+  newValues: Record<string, any>
 ) {
   try {
     await prisma.notificationLog.create({
@@ -94,10 +88,10 @@ async function logSettingsChange(
         status: 'Sent',
         metadata: {
           action: 'SETTINGS_MODIFIED',
-          oldValues: oldSettings,
-          newValues: newSettings,
-          userId: userId
-        }
+          oldValues,
+          newValues,
+          userId
+        } as any
       }
     });
   } catch (error) {
@@ -132,7 +126,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     mobilePush: {
       enabled: notificationSettings?.mobilePush ?? false,
-      service: notificationSettings?.mobilePushService ?? ''
+      service: '' // Not stored in database
     },
     salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
     stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
@@ -171,26 +165,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ errors: validationErrors }, { status: 400 });
       }
 
-             // Get current settings for audit logging
-       const currentSettings = await prisma.notificationSetting.findUnique({
-         where: { shopId: shopRecord.id },
-       });
+      // Get current settings for audit logging
+      const currentSettings = await prisma.notificationSetting.findUnique({
+        where: { shopId: shopRecord.id },
+      });
 
-       // Encrypt sensitive fields
-       const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
-       const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
+      // Encrypt sensitive fields
+      const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
+      const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx: typeof prisma) => {
-         // Update shop-level settings
-         await tx.shop.update({
-           where: { id: shopRecord.id },
-           data: { 
-             lowStockThreshold: settingsData.stockoutThreshold,
-           }
-         });
+      await prisma.$transaction(async (tx) => {
+        // Update shop-level settings
+        await tx.shop.update({
+          where: { id: shopRecord.id },
+          data: { 
+            lowStockThreshold: settingsData.stockoutThreshold,
+          }
+        });
 
-         // Upsert NotificationSettings with encrypted sensitive data
-         await tx.notificationSetting.upsert({
+        // Upsert NotificationSettings with encrypted sensitive data
+        await tx.notificationSetting.upsert({
           where: { shopId: shopRecord.id },
           create: {
             shopId: shopRecord.id,
@@ -202,7 +196,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             telegramBotToken: encryptedBotToken,
             telegramChatId: settingsData.telegram.chatId,
             mobilePush: settingsData.mobilePush.enabled,
-            mobilePushService: settingsData.mobilePush.service,
             salesVelocityThreshold: settingsData.salesThreshold,
             criticalStockoutDays: settingsData.stockoutThreshold,
             frequency: settingsData.notificationFrequency,
@@ -219,7 +212,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             telegramBotToken: encryptedBotToken,
             telegramChatId: settingsData.telegram.chatId,
             mobilePush: settingsData.mobilePush.enabled,
-            mobilePushService: settingsData.mobilePush.service,
             salesVelocityThreshold: settingsData.salesThreshold,
             criticalStockoutDays: settingsData.stockoutThreshold,
             frequency: settingsData.notificationFrequency,
@@ -227,31 +219,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             lowStockThreshold: settingsData.stockoutThreshold,
           },
         });
-
-                 // Log the settings change for audit trail
-         await logSettingsChange(
-           session.userId?.toString() || null,
-           shopRecord.id,
-           currentSettings || {},
-           settingsData
-         );
       });
 
+      // Log the settings change for audit trail
+      await logSettingsChange(
+        session.userId?.toString() || null,
+        shopRecord.id,
+        currentSettings ? {
+          email: currentSettings.email,
+          slack: currentSettings.slack,
+          telegram: currentSettings.telegram,
+          mobilePush: currentSettings.mobilePush,
+          salesThreshold: currentSettings.salesVelocityThreshold,
+          stockoutThreshold: currentSettings.criticalStockoutDays,
+          frequency: currentSettings.frequency,
+          syncEnabled: currentSettings.syncEnabled
+        } : {},
+        {
+          email: settingsData.email.enabled,
+          slack: settingsData.slack.enabled,
+          telegram: settingsData.telegram.enabled,
+          mobilePush: settingsData.mobilePush.enabled,
+          salesThreshold: settingsData.salesThreshold,
+          stockoutThreshold: settingsData.stockoutThreshold,
+          frequency: settingsData.notificationFrequency,
+          syncEnabled: settingsData.syncEnabled
+        }
+      );
+
       return redirect('/app/settings?success=Settings saved successfully!');
-         } catch (error) {
-       console.error('Error saving settings:', error);
-       
-       // Check for specific error types
-       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-       if (errorMessage.includes('validation')) {
-         return json({ errors: { general: "Validation failed. Please check your inputs." } }, { status: 400 });
-       }
-       if (errorMessage.includes('permission')) {
-         return json({ errors: { general: "Insufficient permissions to save settings." } }, { status: 403 });
-       }
-       
-       return json({ errors: { general: "Failed to save settings. Please try again." } }, { status: 500 });
-     }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      
+      // Check for specific error types
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('validation')) {
+        return json({ errors: { general: "Validation failed. Please check your inputs." } }, { status: 400 });
+      }
+      if (errorMessage.includes('permission')) {
+        return json({ errors: { general: "Insufficient permissions to save settings." } }, { status: 403 });
+      }
+      
+      return json({ errors: { general: "Failed to save settings. Please try again." } }, { status: 500 });
+    }
   }
 
   return json({ errors: { general: "Invalid request" } }, { status: 400 });

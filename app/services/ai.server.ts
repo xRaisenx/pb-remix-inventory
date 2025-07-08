@@ -1,6 +1,5 @@
 // app/services/ai.server.ts
 import prisma from "~/db.server";
-import { ProductStatus } from "@prisma/client";
 
 // Enhanced AI service with improved intent parsing and error handling
 export interface AIQuery {
@@ -19,19 +18,6 @@ export interface AIResponse {
   error?: string;
   confidence?: number;
   processingTime?: number;
-}
-
-// Type for products with variants for consistency
-interface ProductWithVariants {
-  id: string;
-  title: string;
-  status: string | null;
-  quantity: number;
-  variants: { inventoryQuantity: number | null; sku?: string | null; price?: any }[];
-  vendor?: string | null;
-  tags?: string[];
-  salesVelocityFloat?: number | null;
-  trending?: boolean | null;
 }
 
 // Intent categories and patterns

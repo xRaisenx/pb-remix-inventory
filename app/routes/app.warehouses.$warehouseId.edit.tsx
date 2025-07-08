@@ -78,7 +78,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs): Promise<R
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shopDomain = session.shop;
   const warehouseId = params.warehouseId;
   const formData = await request.formData();
