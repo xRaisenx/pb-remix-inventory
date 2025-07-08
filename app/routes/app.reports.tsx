@@ -2,23 +2,25 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
-import { Page, Card, Text, Button, BlockStack, Banner } from "@shopify/polaris"; // Replaced AlphaCard with Card, Added Banner
-import type { Prisma } from "@prisma/client"; // Correct Prisma import for types
+import type { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { stringify } from "csv-stringify/sync"; // For CSV generation
+import { PlanetBeautyLayout } from "~/components/layout/PlanetBeautyLayout";
+import { stringify } from "csv-stringify/sync";
+import { useState } from "react";
+import React from "react"; // Added missing import for React
 
 // TypeScript Interfaces
 interface ReportProductSummary {
   id: string;
   title: string;
   status: string | null;
-  category: string | null; // Assuming category is on Product model
+  category: string | null;
   trending: boolean | null;
   stockoutDays: number | null;
-  salesVelocityFloat: number | null; // Ensure this field exists on Product model
+  salesVelocityFloat: number | null;
   variants: Array<{
-    price: Prisma.Decimal | null; // Prisma Decimal type
+    price: Prisma.Decimal | null;
     inventoryQuantity: number | null;
   }>;
 }
@@ -43,7 +45,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) {
-    // It's better to throw a Response for Remix to handle standard error boundaries
     throw new Response("Shop not found", { status: 404 });
   }
   const shopId = shopRecord.id;
@@ -55,10 +56,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         id: true,
         title: true,
         status: true,
-        category: true, // Make sure 'category' is a field on your Product model
+        category: true,
         trending: true,
         stockoutDays: true,
-        salesVelocityFloat: true, // Make sure 'salesVelocityFloat' is a field
+        salesVelocityFloat: true,
         variants: {
           select: {
             price: true,
@@ -77,10 +78,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let productsWithSalesVelocity = 0;
     const inventoryByCategoryMap = new Map<string, number>();
 
-    productsForSummary.forEach((p: ReportProductSummary) => { // Explicit type for p
-      p.variants.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => { // Explicit type for v
+    productsForSummary.forEach((p: ReportProductSummary) => {
+      p.variants.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => {
         if (v.price && v.inventoryQuantity) {
-          totalInventoryValue += Number(v.price) * v.inventoryQuantity; // Convert Decimal to Number
+          totalInventoryValue += Number(v.price) * v.inventoryQuantity;
         }
         const category = p.category || 'Uncategorized';
         const currentCategoryQty = inventoryByCategoryMap.get(category) || 0;
@@ -89,7 +90,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       if (p.status === 'Low') lowStockCount++;
       if (p.status === 'Critical') criticalStockCount++;
-      if (p.stockoutDays !== null && p.stockoutDays > 0 && isFinite(p.stockoutDays)) { // Check for finite numbers
+      if (p.stockoutDays !== null && p.stockoutDays > 0 && isFinite(p.stockoutDays)) {
         totalStockoutDays += p.stockoutDays;
         productsWithStockoutDays++;
       }
@@ -111,15 +112,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         .map(p => ({ title: p.title, salesVelocityFloat: p.salesVelocityFloat })),
       averageStockoutDays: productsWithStockoutDays > 0 ? parseFloat((totalStockoutDays / productsWithStockoutDays).toFixed(1)) : 0,
       inventoryByCategory: Array.from(inventoryByCategoryMap)
-        .map(([category, totalQuantity]: [string, number]) => ({ category, totalQuantity })) // Explicit types for map
-        .sort((a,b) => b.totalQuantity - a.totalQuantity),
+        .map(([category, totalQuantity]: [string, number]) => ({ category, totalQuantity }))
+        .sort((a, b) => b.totalQuantity - a.totalQuantity),
       averageSalesVelocity: productsWithSalesVelocity > 0 ? parseFloat((totalSalesVelocity / productsWithSalesVelocity).toFixed(1)) : 0,
     };
     return json({ visualSummary });
 
   } catch (error) {
     console.error("Error calculating visual summary:", error);
-    const defaultVisualSummary: VisualSummaryData = { // Fallback data
+    const defaultVisualSummary: VisualSummaryData = {
       totalInventoryValue: 0, percentageLowStock: 0, percentageCriticalStock: 0,
       topTrendingProducts: [], averageStockoutDays: 0, inventoryByCategory: [], averageSalesVelocity: 0,
     };
@@ -143,16 +144,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         title: true,
         vendor: true,
         status: true,
-        category: true, // Ensure category exists on Product model
+        category: true,
         trending: true,
         stockoutDays: true,
-        salesVelocityFloat: true, // Ensure salesVelocityFloat exists
-        lastRestockedDate: true, // Ensure lastRestockedDate exists
-        variants: { // Select necessary variant details
-          select: { sku: true, price: true, inventoryQuantity: true, /* title: true if needed */ }
+        salesVelocityFloat: true,
+        lastRestockedDate: true,
+        variants: {
+          select: { sku: true, price: true, inventoryQuantity: true }
         },
-        inventory: { // For warehouse locations
-          select: { warehouse: { select: { name: true, } }, quantity: true, }
+        inventory: {
+          select: { warehouse: { select: { name: true } }, quantity: true }
         }
       },
       orderBy: { title: 'asc' }
@@ -166,20 +167,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ];
 
     const csvRows = products.map(product => {
-      // Explicitly type product for clarity if complex
-      const totalInventory = product.variants.reduce((sum: number, v: {inventoryQuantity: number | null}) => sum + (v.inventoryQuantity || 0), 0);
+      const totalInventory = product.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
       const warehouseNames = [...new Set(product.inventory
         .filter(inv => inv.quantity > 0)
         .map(inv => inv.warehouse.name))]
         .join(', ') || 'N/A';
-      const firstVariant = product.variants?.[0]; // For SKU and Price
+      const firstVariant = product.variants?.[0];
 
       return [
         product.title,
         firstVariant?.sku ?? 'N/A',
         product.vendor ?? 'N/A',
         product.category ?? 'N/A',
-        firstVariant?.price?.toString() ?? '0.00', // Convert Decimal to string
+        firstVariant?.price?.toString() ?? '0.00',
         totalInventory,
         product.salesVelocityFloat?.toString() ?? '0',
         product.stockoutDays?.toString() ?? '0',
@@ -195,87 +195,246 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return new Response(output, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="inventory_report_${new Date().toISOString().split('T')[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="planet_beauty_inventory_report_${new Date().toISOString().split('T')[0]}.csv"`,
       },
     });
 
   } catch (error) {
     console.error("Error generating product inventory CSV:", error);
-    if (error instanceof Response) throw error; // Re-throw response errors
-    // For other errors, return a generic error response
+    if (error instanceof Response) throw error;
     throw new Response("Failed to generate CSV report due to a server error.", { status: 500 });
   }
 };
 
-
 export default function AppReportsPage() {
   const { visualSummary, error } = useLoaderData<LoaderData>();
   const navigation = useNavigation();
-  const isGeneratingCsv = navigation.state === "submitting" && navigation.formData?.get("_action") === "generate_csv"; // Check intent if multiple actions
+  const isGeneratingCsv = navigation.state === "submitting";
+  const [exportProgress, setExportProgress] = useState(0);
+
+  // Simulate export progress
+  React.useEffect(() => {
+    if (isGeneratingCsv) {
+      setExportProgress(0);
+      const interval = setInterval(() => {
+        setExportProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [isGeneratingCsv]);
 
   return (
-    <Page title="Inventory Reports & Summaries">
-      <BlockStack gap="600"> {/* Increased gap for better separation */}
-        <Card>
-          <BlockStack gap="400">
-            <Text as="h2" variant="headingLg">Visual Inventory Summaries</Text>
-            {error && (
-              // Use Banner for errors for consistency with Polaris
-              <Banner title="Error Loading Summary" tone="critical" onDismiss={() => { /* Can clear error state if managed locally */ }}>
-                <p>{error}</p>
-              </Banner>
-            )}
-            {!error && visualSummary && (
-              <BlockStack gap="300">
-                <Text as="p"><strong>Total Inventory Value:</strong> ${visualSummary.totalInventoryValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
-                <Text as="p">
-                  <strong>Stock Health:</strong> Low Stock: {visualSummary.percentageLowStock}% | Critical Stock: {visualSummary.percentageCriticalStock}%
-                </Text>
-                <Text as="p"><strong>Average Days Until Stockout:</strong> {visualSummary.averageStockoutDays} days</Text>
-                <Text as="p"><strong>Average Sales Velocity:</strong> {visualSummary.averageSalesVelocity} units/day</Text>
+    <PlanetBeautyLayout>
+      <div className="pb-space-y-6">
+        {/* Page Header */}
+        <div className="pb-flex pb-justify-between pb-items-center">
+          <h1 className="pb-text-2xl pb-font-bold">Inventory Reports & Analytics</h1>
+          <div className="pb-text-sm" style={{ color: '#718096' }}>
+            Real-time inventory insights and export capabilities
+          </div>
+        </div>
 
-                <div> {/* Using div for grouping; could be BlockStack */}
-                  <Text as="p" fontWeight="semibold">Top Trending Products (by Sales Velocity):</Text>
-                  {visualSummary.topTrendingProducts.length > 0 ? (
-                    <BlockStack gap="100">
-                      {visualSummary.topTrendingProducts.map(p => (
-                        <Text key={p.title} as="p">&nbsp;&nbsp;- {p.title} (Velocity: {p.salesVelocityFloat?.toFixed(1) ?? 'N/A'})</Text>
-                      ))}
-                    </BlockStack>
-                  ) : <Text as="p" tone="subdued">No trending products identified.</Text>}
+        {/* Error Banner */}
+        {error && (
+          <div className="pb-alert-critical">
+            <p>Error loading summary: {error}</p>
+          </div>
+        )}
+
+        {/* Key Metrics Cards */}
+        {!error && visualSummary && (
+          <div className="pb-grid pb-grid-cols-1 md:pb-grid-cols-2 lg:pb-grid-cols-4 pb-gap-4">
+            <div className="pb-metric-card">
+              <div className="pb-metric-icon" style={{ backgroundColor: '#10b981' }}>
+                <i className="fas fa-dollar-sign"></i>
+              </div>
+              <div>
+                <div className="pb-metric-value">${visualSummary.totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="pb-metric-label">Total Inventory Value</div>
+              </div>
+            </div>
+
+            <div className="pb-metric-card">
+              <div className="pb-metric-icon" style={{ backgroundColor: '#f59e0b' }}>
+                <i className="fas fa-exclamation-triangle"></i>
+              </div>
+              <div>
+                <div className="pb-metric-value">{visualSummary.percentageLowStock}%</div>
+                <div className="pb-metric-label">Low Stock Products</div>
+              </div>
+            </div>
+
+            <div className="pb-metric-card">
+              <div className="pb-metric-icon" style={{ backgroundColor: '#ef4444' }}>
+                <i className="fas fa-ban"></i>
+              </div>
+              <div>
+                <div className="pb-metric-value">{visualSummary.percentageCriticalStock}%</div>
+                <div className="pb-metric-label">Critical Stock</div>
+              </div>
+            </div>
+
+            <div className="pb-metric-card">
+              <div className="pb-metric-icon" style={{ backgroundColor: '#8b5cf6' }}>
+                <i className="fas fa-chart-line"></i>
+              </div>
+              <div>
+                <div className="pb-metric-value">{visualSummary.averageSalesVelocity}</div>
+                <div className="pb-metric-label">Avg Sales Velocity/Day</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Visual Summary */}
+        {!error && visualSummary && (
+          <div className="pb-grid pb-grid-cols-1 lg:pb-grid-cols-2 pb-gap-6">
+            {/* Trending Products */}
+            <div className="pb-card">
+              <h2 className="pb-text-lg pb-font-medium pb-mb-4">Top Trending Products</h2>
+              {visualSummary.topTrendingProducts.length > 0 ? (
+                <div className="pb-space-y-3">
+                  {visualSummary.topTrendingProducts.map((product, index) => (
+                    <div key={product.title} className="pb-flex pb-justify-between pb-items-center pb-p-3 bg-gray-50 rounded-md">
+                      <div className="pb-flex pb-items-center">
+                        <div className="pb-w-8 pb-h-8 pb-flex pb-items-center pb-justify-center rounded-full" style={{ backgroundColor: '#d81b60', color: 'white' }}>
+                          {index + 1}
+                        </div>
+                        <span className="pb-ml-3 pb-font-medium">{product.title}</span>
+                      </div>
+                      <span className="pb-badge-success">
+                        {product.salesVelocityFloat?.toFixed(1) ?? 'N/A'} units/day
+                      </span>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p style={{ color: '#718096' }}>No trending products identified.</p>
+              )}
+            </div>
 
-                <div> {/* Using div for grouping */}
-                  <Text as="p" fontWeight="semibold">Inventory Distribution by Category:</Text>
-                  {visualSummary.inventoryByCategory.length > 0 ? (
-                    <BlockStack gap="100">
-                      {visualSummary.inventoryByCategory.map(cat => (
-                        <Text key={cat.category} as="p">&nbsp;&nbsp;- {cat.category}: {cat.totalQuantity.toLocaleString()} units</Text>
-                      ))}
-                    </BlockStack>
-                  ) : <Text as="p" tone="subdued">No category data available.</Text>}
+            {/* Category Distribution */}
+            <div className="pb-card">
+              <h2 className="pb-text-lg pb-font-medium pb-mb-4">Inventory by Category</h2>
+              {visualSummary.inventoryByCategory.length > 0 ? (
+                <div className="pb-space-y-3">
+                  {visualSummary.inventoryByCategory.slice(0, 5).map((category) => (
+                    <div key={category.category} className="pb-flex pb-justify-between pb-items-center">
+                      <span className="pb-font-medium">{category.category}</span>
+                      <span className="pb-badge-info">
+                        {category.totalQuantity.toLocaleString()} units
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </BlockStack>
-            )}
-          </BlockStack>
-        </Card>
+              ) : (
+                <p style={{ color: '#718096' }}>No category data available.</p>
+              )}
+            </div>
+          </div>
+        )}
 
-        <Card>
-          <BlockStack gap="400">
-            <Text as="h2" variant="headingLg">Download Full Report</Text>
-            <Text as="p" variant="bodyMd"> {/* Added as="p" for Text component */}
-              Generate and download a full inventory report in CSV format.
-            </Text>
-            <Form method="post">
-              {/* If you have multiple actions, you might need a hidden input for intent */}
-              {/* <input type="hidden" name="_action" value="generate_csv" /> */}
-              <Button submit disabled={isGeneratingCsv} variant="primary" fullWidth>
-                {isGeneratingCsv ? "Generating..." : "Generate CSV Report"}
-              </Button>
-            </Form>
-          </BlockStack>
-        </Card>
-      </BlockStack>
-    </Page>
+        {/* Additional Insights */}
+        {!error && visualSummary && (
+          <div className="pb-card">
+            <h2 className="pb-text-lg pb-font-medium pb-mb-4">Key Insights</h2>
+            <div className="pb-grid pb-grid-cols-1 md:pb-grid-cols-2 pb-gap-6">
+              <div>
+                <h3 className="pb-font-medium pb-mb-2">Stock Health</h3>
+                <p className="pb-text-sm pb-mb-2">
+                  <strong>Average Stockout Risk:</strong> {visualSummary.averageStockoutDays} days
+                </p>
+                <p className="pb-text-sm">
+                  {visualSummary.percentageCriticalStock > 10 
+                    ? '⚠️ High percentage of critical stock items. Immediate restocking recommended.'
+                    : visualSummary.percentageLowStock > 20
+                    ? '⚡ Significant low stock items detected. Consider bulk ordering.'
+                    : '✅ Stock levels are healthy across most products.'
+                  }
+                </p>
+              </div>
+              <div>
+                <h3 className="pb-font-medium pb-mb-2">Sales Performance</h3>
+                <p className="pb-text-sm pb-mb-2">
+                  <strong>Average Sales Velocity:</strong> {visualSummary.averageSalesVelocity} units/day
+                </p>
+                <p className="pb-text-sm">
+                  {visualSummary.topTrendingProducts.length > 0
+                    ? `🔥 ${visualSummary.topTrendingProducts.length} trending products driving high sales.`
+                    : '📈 Monitor sales patterns for emerging trends.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Section */}
+        <div className="pb-card">
+          <h2 className="pb-text-lg pb-font-medium pb-mb-4">Export Reports</h2>
+          <div className="pb-grid pb-grid-cols-1 md:pb-grid-cols-2 pb-gap-4">
+            <div>
+              <h3 className="pb-font-medium pb-mb-2">Full Inventory Report</h3>
+              <p className="pb-text-sm pb-mb-4" style={{ color: '#718096' }}>
+                Download a comprehensive CSV report with all inventory data, sales metrics, and warehouse information.
+              </p>
+              
+              {isGeneratingCsv && (
+                <div className="pb-mb-4">
+                  <div className="pb-flex pb-justify-between pb-text-sm pb-mb-2">
+                    <span>Generating report...</span>
+                    <span>{exportProgress}%</span>
+                  </div>
+                  <div className="pb-w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-pink-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${exportProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
+              <Form method="post">
+                <button
+                  type="submit"
+                  className={`pb-btn-primary pb-w-full ${isGeneratingCsv ? 'pb-btn-disabled' : ''}`}
+                  disabled={isGeneratingCsv}
+                >
+                  {isGeneratingCsv ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-download mr-2"></i>
+                      Generate CSV Report
+                    </>
+                  )}
+                </button>
+              </Form>
+            </div>
+
+            <div>
+              <h3 className="pb-font-medium pb-mb-2">Report Preview</h3>
+              <div className="pb-text-sm pb-space-y-1" style={{ color: '#718096' }}>
+                <p>📊 Product details and inventory levels</p>
+                <p>💰 Sales velocity and revenue data</p>
+                <p>📍 Warehouse location information</p>
+                <p>⚡ Stock status and trending indicators</p>
+                <p>📅 Last restocked dates</p>
+                <p>🏷️ Category and vendor information</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </PlanetBeautyLayout>
   );
 }
