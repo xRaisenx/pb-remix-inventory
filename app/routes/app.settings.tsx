@@ -18,13 +18,94 @@ interface ActionData {
   success?: string;
 }
 
+// Simple encryption for sensitive data (in production, use proper encryption)
+function encryptSensitiveField(value: string): string {
+  if (!value) return '';
+  // In production, use proper encryption like crypto.scrypt with salt
+  return Buffer.from(value).toString('base64');
+}
+
+function decryptSensitiveField(value: string): string {
+  if (!value) return '';
+  try {
+    return Buffer.from(value, 'base64').toString('utf-8');
+  } catch {
+    return value; // Return as-is if not encrypted
+  }
+}
+
+// Validation functions
+function validateSettings(settings: NotificationSettingsType): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  // Email validation
+  if (settings.email.enabled && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email.address)) {
+    errors.email = "Please enter a valid email address";
+  }
+
+  // Slack validation
+  if (settings.slack.enabled && !settings.slack.webhook.startsWith('https://hooks.slack.com/')) {
+    errors.slack = "Please enter a valid Slack webhook URL";
+  }
+
+  // Telegram validation
+  if (settings.telegram.enabled) {
+    if (!/^\d+:[A-Za-z0-9_-]{35}$/.test(settings.telegram.botToken)) {
+      errors.telegram = "Invalid Telegram bot token format";
+    }
+    if (!settings.telegram.chatId.trim()) {
+      errors.telegram = "Chat ID is required for Telegram notifications";
+    }
+  }
+
+  // Numeric validation
+  if (settings.salesThreshold < 0 || settings.salesThreshold > 10000) {
+    errors.salesThreshold = "Sales threshold must be between 0 and 10,000";
+  }
+  if (settings.stockoutThreshold < 1 || settings.stockoutThreshold > 365) {
+    errors.stockoutThreshold = "Stockout threshold must be between 1 and 365 days";
+  }
+
+  return errors;
+}
+
+// Audit logging function using NotificationLog model
+async function logSettingsChange(
+  userId: string | null, 
+  shopId: string, 
+  oldSettings: Partial<NotificationSettingsType>, 
+  newSettings: NotificationSettingsType
+) {
+  try {
+    await prisma.notificationLog.create({
+      data: {
+        shopId,
+        channel: 'System',
+        recipient: userId || 'system',
+        message: `Settings modified by user ${userId || 'unknown'}`,
+        subject: 'Settings Change',
+        status: 'Sent',
+        metadata: {
+          action: 'SETTINGS_MODIFIED',
+          oldValues: oldSettings,
+          newValues: newSettings,
+          userId: userId
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to log settings change:', error);
+    // Don't fail the main operation if logging fails
+  }
+}
+
 // Loader Function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
-  const notificationSettings = await prisma.NotificationSetting.findUnique({
+  const notificationSettings = await prisma.notificationSetting.findUnique({
     where: { shopId: shopRecord.id },
   });
 
@@ -35,11 +116,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     slack: {
       enabled: notificationSettings?.slack ?? false,
-      webhook: notificationSettings?.slackWebhookUrl ?? ''
+      webhook: decryptSensitiveField(notificationSettings?.slackWebhookUrl ?? '')
     },
     telegram: {
       enabled: notificationSettings?.telegram ?? false,
-      botToken: notificationSettings?.telegramBotToken ?? '',
+      botToken: decryptSensitiveField(notificationSettings?.telegramBotToken ?? ''),
       chatId: notificationSettings?.telegramChatId ?? ''
     },
     mobilePush: {
@@ -68,84 +149,101 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get('intent') as string;
 
   if (intent === INTENT.SAVE_SETTINGS) {
-    // Parse the settings from form data
-    const settingsData = JSON.parse(formData.get('settings') as string) as NotificationSettingsType;
-    
-    // Basic validation
-    const errors: ActionData['errors'] = {};
-    
-    if (settingsData.email.enabled && !settingsData.email.address.includes('@')) {
-      errors.email = "A valid email address is required for email notifications.";
-    }
-    
-    if (settingsData.slack.enabled && !settingsData.slack.webhook.startsWith('https://')) {
-      errors.slack = "A valid Slack webhook URL is required for Slack notifications.";
-    }
-    
-    if (settingsData.telegram.enabled && (!settingsData.telegram.botToken || !settingsData.telegram.chatId)) {
-      errors.telegram = "Bot token and chat ID are required for Telegram notifications.";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return json({ errors }, { status: 400 });
-    }
-
     try {
-      // Update shop-level settings
-      await prisma.shop.update({
-        where: { id: shopRecord.id },
-        data: { 
-          lowStockThreshold: settingsData.stockoutThreshold,
-        }
-      });
+      // Parse the settings from form data
+      const settingsData = JSON.parse(formData.get('settings') as string) as NotificationSettingsType;
+      
+      // Comprehensive validation
+      const validationErrors = validateSettings(settingsData);
+      
+      if (Object.keys(validationErrors).length > 0) {
+        return json({ errors: validationErrors }, { status: 400 });
+      }
 
-      // Upsert NotificationSettings
-      await prisma.NotificationSetting.upsert({
-        where: { shopId: shopRecord.id },
-        create: {
-          shopId: shopRecord.id,
-          email: settingsData.email.enabled,
-          emailAddress: settingsData.email.address,
-          slack: settingsData.slack.enabled,
-          slackWebhookUrl: settingsData.slack.webhook,
-          telegram: settingsData.telegram.enabled,
-          telegramBotToken: settingsData.telegram.botToken,
-          telegramChatId: settingsData.telegram.chatId,
-          mobilePush: settingsData.mobilePush.enabled,
-          mobilePushService: settingsData.mobilePush.service,
-          salesVelocityThreshold: settingsData.salesThreshold,
-          criticalStockoutDays: settingsData.stockoutThreshold,
-          frequency: settingsData.notificationFrequency,
-          syncEnabled: settingsData.syncEnabled,
-          lowStockThreshold: settingsData.stockoutThreshold,
-          criticalStockThresholdUnits: 5 // Default value
-        },
-        update: {
-          email: settingsData.email.enabled,
-          emailAddress: settingsData.email.address,
-          slack: settingsData.slack.enabled,
-          slackWebhookUrl: settingsData.slack.webhook,
-          telegram: settingsData.telegram.enabled,
-          telegramBotToken: settingsData.telegram.botToken,
-          telegramChatId: settingsData.telegram.chatId,
-          mobilePush: settingsData.mobilePush.enabled,
-          mobilePushService: settingsData.mobilePush.service,
-          salesVelocityThreshold: settingsData.salesThreshold,
-          criticalStockoutDays: settingsData.stockoutThreshold,
-          frequency: settingsData.notificationFrequency,
-          syncEnabled: settingsData.syncEnabled,
-          lowStockThreshold: settingsData.stockoutThreshold,
-        },
+             // Get current settings for audit logging
+       const currentSettings = await prisma.notificationSetting.findUnique({
+         where: { shopId: shopRecord.id },
+       });
+
+       // Encrypt sensitive fields
+       const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
+       const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
+
+       await prisma.$transaction(async (tx) => {
+         // Update shop-level settings
+         await tx.shop.update({
+           where: { id: shopRecord.id },
+           data: { 
+             lowStockThreshold: settingsData.stockoutThreshold,
+           }
+         });
+
+         // Upsert NotificationSettings with encrypted sensitive data
+         await tx.notificationSetting.upsert({
+          where: { shopId: shopRecord.id },
+          create: {
+            shopId: shopRecord.id,
+            email: settingsData.email.enabled,
+            emailAddress: settingsData.email.address,
+            slack: settingsData.slack.enabled,
+            slackWebhookUrl: encryptedWebhook,
+            telegram: settingsData.telegram.enabled,
+            telegramBotToken: encryptedBotToken,
+            telegramChatId: settingsData.telegram.chatId,
+            mobilePush: settingsData.mobilePush.enabled,
+            mobilePushService: settingsData.mobilePush.service,
+            salesVelocityThreshold: settingsData.salesThreshold,
+            criticalStockoutDays: settingsData.stockoutThreshold,
+            frequency: settingsData.notificationFrequency,
+            syncEnabled: settingsData.syncEnabled,
+            lowStockThreshold: settingsData.stockoutThreshold,
+            criticalStockThresholdUnits: 5 // Default value
+          },
+          update: {
+            email: settingsData.email.enabled,
+            emailAddress: settingsData.email.address,
+            slack: settingsData.slack.enabled,
+            slackWebhookUrl: encryptedWebhook,
+            telegram: settingsData.telegram.enabled,
+            telegramBotToken: encryptedBotToken,
+            telegramChatId: settingsData.telegram.chatId,
+            mobilePush: settingsData.mobilePush.enabled,
+            mobilePushService: settingsData.mobilePush.service,
+            salesVelocityThreshold: settingsData.salesThreshold,
+            criticalStockoutDays: settingsData.stockoutThreshold,
+            frequency: settingsData.notificationFrequency,
+            syncEnabled: settingsData.syncEnabled,
+            lowStockThreshold: settingsData.stockoutThreshold,
+          },
+        });
+
+                 // Log the settings change for audit trail
+         await logSettingsChange(
+           session.userId?.toString() || null,
+           shopRecord.id,
+           currentSettings || {},
+           settingsData
+         );
       });
 
       return redirect('/app/settings?success=Settings saved successfully!');
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      return json({ errors: { general: "Failed to save settings. Please try again." } }, { status: 500 });
-    }
+         } catch (error) {
+       console.error('Error saving settings:', error);
+       
+       // Check for specific error types
+       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+       if (errorMessage.includes('validation')) {
+         return json({ errors: { general: "Validation failed. Please check your inputs." } }, { status: 400 });
+       }
+       if (errorMessage.includes('permission')) {
+         return json({ errors: { general: "Insufficient permissions to save settings." } }, { status: 403 });
+       }
+       
+       return json({ errors: { general: "Failed to save settings. Please try again." } }, { status: 500 });
+     }
   }
 
-  return json({ errors: { general: "Invalid intent" } }, { status: 400 });
+  return json({ errors: { general: "Invalid request" } }, { status: 400 });
 };
 
 // Page Component
@@ -173,7 +271,10 @@ export default function SettingsPage() {
         return { success: true, message: 'Settings saved successfully!' };
       } else {
         const errorData = await response.json();
-        return { success: false, error: errorData.errors?.general || 'Failed to save settings' };
+        const errorMessage = errorData.errors?.general || 
+                           Object.values(errorData.errors || {}).join(', ') || 
+                           'Failed to save settings';
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       return { success: false, error: 'Network error. Please try again.' };

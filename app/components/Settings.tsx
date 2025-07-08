@@ -1,4 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
+
+// Simple debounce implementation
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  options: { leading?: boolean; trailing?: boolean } = {}
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  let lastCallTime: number;
+  
+  return function executedFunction(...args: Parameters<T>) {
+    const now = Date.now();
+    const { leading = false, trailing = true } = options;
+    
+    const later = () => {
+      timeout = null as any;
+      if (trailing && lastCallTime !== now) {
+        func(...args);
+      }
+    };
+    
+    const callNow = leading && !timeout;
+    
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    lastCallTime = now;
+    
+    if (callNow) {
+      func(...args);
+    }
+  };
+}
 
 export interface NotificationSettingsType {
   email: { enabled: boolean; address: string };
@@ -24,31 +56,104 @@ interface NotificationHistoryItem {
   channel: string;
 }
 
+interface ValidationErrors {
+  [key: string]: string;
+}
+
 export default function Settings({ notificationSettings, setNotificationSettings, onSubmit }: SettingsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notificationHistory, setNotificationHistory] = useState<NotificationHistoryItem[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
-  const handleInputChange = (channel: keyof NotificationSettingsType, field: string, value: any) => {
-    setNotificationSettings((prev) => {
-      const prevChannelSettings = prev[channel];
-      if (typeof prevChannelSettings === 'object' && prevChannelSettings !== null && 'enabled' in prevChannelSettings) {
-        return {
-          ...prev,
-          [channel]: { ...prevChannelSettings, [field]: value },
-        };
-      }
-      return prev;
-    });
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const handleThresholdChange = (field: keyof NotificationSettingsType, value: string | number | boolean) => {
+  const validateSlackWebhook = (webhook: string): boolean => {
+    return webhook.startsWith('https://hooks.slack.com/');
+  };
+
+  const validateTelegramBotToken = (token: string): boolean => {
+    return /^\d+:[A-Za-z0-9_-]{35}$/.test(token);
+  };
+
+  const validateSettings = (settings: NotificationSettingsType): ValidationErrors => {
+    const errors: ValidationErrors = {};
+
+    // Email validation
+    if (settings.email.enabled && !validateEmail(settings.email.address)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    // Slack validation
+    if (settings.slack.enabled && !validateSlackWebhook(settings.slack.webhook)) {
+      errors.slack = "Please enter a valid Slack webhook URL (https://hooks.slack.com/...)";
+    }
+
+    // Telegram validation
+    if (settings.telegram.enabled) {
+      if (!validateTelegramBotToken(settings.telegram.botToken)) {
+        errors.telegramToken = "Invalid bot token format (should be numbers:letters)";
+      }
+      if (!settings.telegram.chatId.trim()) {
+        errors.telegramChat = "Chat ID is required for Telegram notifications";
+      }
+    }
+
+    // Numeric validation
+    if (settings.salesThreshold < 0) {
+      errors.salesThreshold = "Sales threshold must be positive";
+    }
+    if (settings.salesThreshold > 10000) {
+      errors.salesThreshold = "Sales threshold too large (max: 10,000)";
+    }
+    if (settings.stockoutThreshold < 1 || settings.stockoutThreshold > 365) {
+      errors.stockoutThreshold = "Stockout threshold must be between 1-365 days";
+    }
+
+    return errors;
+  };
+
+  // Debounced input change handler to prevent race conditions
+  const debouncedInputChange = useMemo(
+    () => debounce((channel: keyof NotificationSettingsType, field: string, value: any) => {
+      setNotificationSettings((prev) => {
+        const prevChannelSettings = prev[channel];
+        if (typeof prevChannelSettings === 'object' && prevChannelSettings !== null && 'enabled' in prevChannelSettings) {
+          return {
+            ...prev,
+            [channel]: { ...prevChannelSettings, [field]: value },
+          };
+        }
+        return prev;
+      });
+      
+      // Clear validation error when user starts typing
+      if (validationErrors[channel]) {
+        setValidationErrors(prev => ({ ...prev, [channel]: '' }));
+      }
+    }, 300),
+    [validationErrors]
+  );
+
+  const handleInputChange = useCallback((channel: keyof NotificationSettingsType, field: string, value: any) => {
+    debouncedInputChange(channel, field, value);
+  }, [debouncedInputChange]);
+
+  const handleThresholdChange = useCallback((field: keyof NotificationSettingsType, value: string | number | boolean) => {
     setNotificationSettings((prev) => ({
       ...prev,
       [field]: value,
     }));
-  };
+    
+    // Clear validation error
+    if (validationErrors[field as string]) {
+      setValidationErrors(prev => ({ ...prev, [field as string]: '' }));
+    }
+  }, [validationErrors]);
 
   const testNotification = (channel: string) => {
     const message = `Test notification sent via ${channel}`;
@@ -66,9 +171,18 @@ export default function Settings({ notificationSettings, setNotificationSettings
   };
 
   const handleSubmit = async () => {
+    // Validate before submitting
+    const errors = validateSettings(notificationSettings);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setErrorMessage("Please fix the validation errors before saving.");
+      return;
+    }
+
     setIsSaving(true);
     setSuccessMessage(null);
     setErrorMessage(null);
+    setValidationErrors({});
     
     try {
       const result = await onSubmit(notificationSettings);
@@ -83,6 +197,12 @@ export default function Settings({ notificationSettings, setNotificationSettings
     
     setIsSaving(false);
   };
+
+  // Debounced submit to prevent double-clicking
+  const debouncedSubmit = useMemo(
+    () => debounce(handleSubmit, 500, { leading: true, trailing: false }),
+    [handleSubmit]
+  );
 
   return (
     <div className="pb-space-y-6">
@@ -117,16 +237,21 @@ export default function Settings({ notificationSettings, setNotificationSettings
             </label>
             <input
               type="email"
-              className="pb-input pb-mb-2"
+              className={`pb-input pb-mb-2 ${validationErrors.email ? 'border-red-500' : ''}`}
               placeholder="Email address"
               value={notificationSettings.email.address}
               onChange={(e) => handleInputChange('email', 'address', e.target.value)}
               disabled={!notificationSettings.email.enabled}
+              min={0}
+              max={10000}
             />
+            {validationErrors.email && (
+              <p className="text-red-500 text-sm mb-2">{validationErrors.email}</p>
+            )}
             <button
               className="pb-btn-secondary"
               onClick={() => testNotification('email')}
-              disabled={!notificationSettings.email.enabled || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationSettings.email.address)}
+              disabled={!notificationSettings.email.enabled || !validateEmail(notificationSettings.email.address)}
             >
               Test Email
             </button>
@@ -145,16 +270,19 @@ export default function Settings({ notificationSettings, setNotificationSettings
             </label>
             <input
               type="text"
-              className="pb-input pb-mb-2"
-              placeholder="Slack Webhook URL"
+              className={`pb-input pb-mb-2 ${validationErrors.slack ? 'border-red-500' : ''}`}
+              placeholder="Slack Webhook URL (https://hooks.slack.com/...)"
               value={notificationSettings.slack.webhook}
               onChange={(e) => handleInputChange('slack', 'webhook', e.target.value)}
               disabled={!notificationSettings.slack.enabled}
             />
+            {validationErrors.slack && (
+              <p className="text-red-500 text-sm mb-2">{validationErrors.slack}</p>
+            )}
             <button
               className="pb-btn-secondary"
               onClick={() => testNotification('slack')}
-              disabled={!notificationSettings.slack.enabled || !notificationSettings.slack.webhook.startsWith("https://")}
+              disabled={!notificationSettings.slack.enabled || !validateSlackWebhook(notificationSettings.slack.webhook)}
             >
               Test Slack
             </button>
@@ -173,24 +301,30 @@ export default function Settings({ notificationSettings, setNotificationSettings
             </label>
             <input
               type="text"
-              className="pb-input pb-mb-2"
-              placeholder="Telegram Bot Token"
+              className={`pb-input pb-mb-2 ${validationErrors.telegramToken ? 'border-red-500' : ''}`}
+              placeholder="Telegram Bot Token (123456:ABC-DEF1234...)"
               value={notificationSettings.telegram.botToken}
               onChange={(e) => handleInputChange('telegram', 'botToken', e.target.value)}
               disabled={!notificationSettings.telegram.enabled}
             />
+            {validationErrors.telegramToken && (
+              <p className="text-red-500 text-sm mb-2">{validationErrors.telegramToken}</p>
+            )}
             <input
               type="text"
-              className="pb-input pb-mb-2"
+              className={`pb-input pb-mb-2 ${validationErrors.telegramChat ? 'border-red-500' : ''}`}
               placeholder="Telegram Chat ID"
               value={notificationSettings.telegram.chatId}
               onChange={(e) => handleInputChange('telegram', 'chatId', e.target.value)}
               disabled={!notificationSettings.telegram.enabled}
             />
+            {validationErrors.telegramChat && (
+              <p className="text-red-500 text-sm mb-2">{validationErrors.telegramChat}</p>
+            )}
             <button
               className="pb-btn-secondary"
               onClick={() => testNotification('telegram')}
-              disabled={!notificationSettings.telegram.enabled || !notificationSettings.telegram.botToken || !notificationSettings.telegram.chatId}
+              disabled={!notificationSettings.telegram.enabled || !validateTelegramBotToken(notificationSettings.telegram.botToken) || !notificationSettings.telegram.chatId}
             >
               Test Telegram
             </button>
@@ -236,11 +370,16 @@ export default function Settings({ notificationSettings, setNotificationSettings
             </label>
             <input
               type="number"
-              className="pb-input"
-              style={{ width: '120px' }}
+              className={`pb-input ${validationErrors.salesThreshold ? 'border-red-500' : ''}`}
+              style={{ width: '180px' }}
               value={notificationSettings.salesThreshold}
               onChange={(e) => handleThresholdChange('salesThreshold', parseFloat(e.target.value) || 0)}
+              min={0}
+              max={10000}
             />
+            {validationErrors.salesThreshold && (
+              <p className="text-red-500 text-sm mt-1">{validationErrors.salesThreshold}</p>
+            )}
           </div>
           
           <div>
@@ -249,11 +388,16 @@ export default function Settings({ notificationSettings, setNotificationSettings
             </label>
             <input
               type="number"
-              className="pb-input"
-              style={{ width: '120px' }}
+              className={`pb-input ${validationErrors.stockoutThreshold ? 'border-red-500' : ''}`}
+              style={{ width: '180px' }}
               value={notificationSettings.stockoutThreshold}
               onChange={(e) => handleThresholdChange('stockoutThreshold', parseInt(e.target.value, 10) || 0)}
+              min={1}
+              max={365}
             />
+            {validationErrors.stockoutThreshold && (
+              <p className="text-red-500 text-sm mt-1">{validationErrors.stockoutThreshold}</p>
+            )}
           </div>
           
           <div>
@@ -307,7 +451,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
       <div className="pb-flex pb-justify-end">
         <button 
           className="pb-btn-primary"
-          onClick={handleSubmit}
+          onClick={debouncedSubmit}
           disabled={isSaving}
         >
           {isSaving ? 'Saving...' : 'Save Settings'}
