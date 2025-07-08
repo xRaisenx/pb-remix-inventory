@@ -8,7 +8,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build/client",
   "framework": "remix",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "devCommand": "npm run dev"
 }
 
