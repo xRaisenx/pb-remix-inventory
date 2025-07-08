@@ -1,6 +1,5 @@
 // app/services/ai.server.ts
 import prisma from "~/db.server";
-import { ProductStatus } from "@prisma/client";
 
 // Enhanced AI service with improved intent parsing and error handling
 export interface AIQuery {
@@ -19,19 +18,6 @@ export interface AIResponse {
   error?: string;
   confidence?: number;
   processingTime?: number;
-}
-
-// Type for products with variants for consistency
-interface ProductWithVariants {
-  id: string;
-  title: string;
-  status: string | null;
-  quantity: number;
-  variants: { inventoryQuantity: number | null; sku?: string | null; price?: any }[];
-  vendor?: string | null;
-  tags?: string[];
-  salesVelocityFloat?: number | null;
-  trending?: boolean | null;
 }
 
 // Intent categories and patterns
@@ -256,9 +242,10 @@ function validateAIQuery(query: AIQuery): { isValid: boolean; errors: string[] }
 // Enhanced query handlers
 async function handleStockCheck(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
+    // Optimized query with selective fields and proper indexing
     const products = await prisma.product.findMany({
       where: {
-        shopId,
+        shopId, // Uses @@index([shopId])
         ...(entities.productNames.length > 0 && {
           title: {
             in: entities.productNames.map((name: string) => 
@@ -273,7 +260,11 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
           }
         })
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        quantity: true,
         variants: {
           select: {
             inventoryQuantity: true,
@@ -298,29 +289,29 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
       };
     }
 
-         const stockInfo = products.map((product: any) => ({
-       title: product.title,
-       quantity: product.variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
-       status: product.status,
-       sku: product.variants[0]?.sku || 'N/A'
-     }));
+    const stockInfo = products.map((product: any) => ({
+      title: product.title,
+      quantity: product.variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+      status: product.status,
+      sku: product.variants[0]?.sku || 'N/A'
+    }));
 
-         const totalProducts = stockInfo.length;
-     const lowStockCount = stockInfo.filter((p: any) => p.status === 'Low' || p.status === 'Critical').length;
+    const totalProducts = stockInfo.length;
+    const lowStockCount = stockInfo.filter((p: any) => p.status === 'Low' || p.status === 'Critical').length;
 
     let message = `Found ${totalProducts} product${totalProducts !== 1 ? 's' : ''}:\n\n`;
     
-         stockInfo.forEach((product: { title: string; quantity: number; status: string | null; sku: string }) => {
-       const statusEmoji = {
-         'OK': '✅',
-         'Low': '⚠️',
-         'Critical': '🔴',
-         'OutOfStock': '❌',
-         'Unknown': '❓'
-       }[product.status as string] || '❓';
-       
-       message += `${statusEmoji} **${product.title}**: ${product.quantity} units (${product.status})\n`;
-     });
+    stockInfo.forEach((product: { title: string; quantity: number; status: string | null; sku: string }) => {
+      const statusEmoji = {
+        'OK': '✅',
+        'Low': '⚠️',
+        'Critical': '🔴',
+        'OutOfStock': '❌',
+        'Unknown': '❓'
+      }[product.status as string] || '❓';
+      
+      message += `${statusEmoji} **${product.title}**: ${product.quantity} units (${product.status})\n`;
+    });
 
     if (lowStockCount > 0) {
       message += `\n🚨 **Alert**: ${lowStockCount} product${lowStockCount !== 1 ? 's' : ''} need${lowStockCount === 1 ? 's' : ''} attention!`;
@@ -347,23 +338,22 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
 
 async function handleLowStockQuery(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
+    // Optimized query with status index and selective fields
     const lowStockProducts = await prisma.product.findMany({
       where: {
-        shopId,
-        status: {
+        shopId, // Uses @@index([shopId])
+        status: { // Uses @@index([status])
           in: ['Low', 'Critical', 'OutOfStock']
         }
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        status: true,
         variants: {
           select: {
             inventoryQuantity: true,
             sku: true
-          }
-        },
-        shop: {
-          include: {
-            NotificationSettings: true
           }
         }
       },

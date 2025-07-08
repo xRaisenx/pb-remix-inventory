@@ -60,8 +60,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const notificationSettings = NotificationSettings?.[0];
 
   const currentLowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-  const criticalStockThresholdUnits = notificationSettings?.criticalStockThresholdUnits ?? 5;
-  const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
   const highSalesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 30;
 
   const allAlertItems: AlertItem[] = [];

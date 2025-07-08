@@ -1,6 +1,5 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Buffer } from "node:buffer";
-import type { ReactNode } from "react";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -12,11 +11,6 @@ import { INTENT } from "~/utils/intents";
 // TypeScript Interfaces for the route
 interface LoaderData {
   settings: NotificationSettingsType;
-  success?: string;
-}
-
-interface ActionData {
-  errors?: Partial<Record<string, string>>;
   success?: string;
 }
 
@@ -374,9 +368,9 @@ export default function SettingsPage() {
               <p className="pb-text-sm" style={{ color: '#6b7280' }}>
                 Complete setup guides and troubleshooting
               </p>
-              <a href="#" className="pb-btn-secondary pb-text-sm pb-mt-2">
+              <button type="button" className="pb-btn-secondary pb-text-sm pb-mt-2">
                 View Docs
-              </a>
+              </button>
             </div>
             
             <div className="pb-text-center">
@@ -387,9 +381,9 @@ export default function SettingsPage() {
               <p className="pb-text-sm" style={{ color: '#6b7280' }}>
                 Get instant help from our support team
               </p>
-              <a href="#" className="pb-btn-secondary pb-text-sm pb-mt-2">
+              <button type="button" className="pb-btn-secondary pb-text-sm pb-mt-2">
                 Start Chat
-              </a>
+              </button>
             </div>
             
             <div className="pb-text-center">

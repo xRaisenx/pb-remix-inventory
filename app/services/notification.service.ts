@@ -1,5 +1,5 @@
 import prisma from "~/db.server";
-import { NotificationChannel, NotificationStatus, type PrismaClient } from "@prisma/client";
+import { NotificationChannel, NotificationStatus } from "@prisma/client";
 
 // Comprehensive notification service with real implementations
 export interface NotificationConfig {

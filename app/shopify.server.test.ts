@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getProductById } from './shopify.server'; // Adjust path as necessary
+import { getProductById, authenticate } from './shopify.server'; // Consolidated imports
 import prisma from './db.server';
-import { authenticate } from './shopify.server'; // Actual authenticate may need mocking
 
 // Mock Prisma
 vi.mock('./db.server', () => ({

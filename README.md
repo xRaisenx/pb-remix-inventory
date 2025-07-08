@@ -224,6 +224,8 @@ Transform your Shopify beauty store with advanced AI-driven inventory management
    ```
 
 ### **Environment Variables**
+
+**For Local Development & Testing:**
 ```env
 # Database
 DATABASE_URL="postgresql://..."
@@ -233,12 +235,46 @@ SHOPIFY_API_KEY="your-api-key"
 SHOPIFY_API_SECRET="your-api-secret"
 
 # AI Configuration
-GOOGLE_AI_API_KEY="your-google-ai-key"
+GEMINI_API_KEY="your-gemini-api-key"
 
-# Notifications
-SENDGRID_API_KEY="your-sendgrid-key"
-SLACK_WEBHOOK_URL="your-slack-webhook"
+# Notification Services (Demo values - configure your own in production)
+SENDGRID_API_KEY="SG.demo_key_configure_in_vercel_environment"
+TWILIO_ACCOUNT_SID="AC_demo_configure_in_vercel_environment"
+TWILIO_AUTH_TOKEN="demo_token_configure_in_vercel_environment"
 ```
+
+**For Production Deployment on Vercel:**
+
+Merchants should configure their own notification service credentials in the Vercel environment:
+
+1. **Email Notifications (SendGrid)**:
+   ```bash
+   # In Vercel Environment Variables
+   SENDGRID_API_KEY=SG.your_actual_sendgrid_api_key
+   FROM_EMAIL=notifications@yourstore.com
+   ```
+
+2. **SMS Notifications (Twilio)**:
+   ```bash
+   # In Vercel Environment Variables  
+   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TWILIO_AUTH_TOKEN=your_actual_twilio_auth_token
+   TWILIO_PHONE_NUMBER=+1234567890
+   ```
+
+3. **Custom AI API Key (Optional)**:
+   ```bash
+   # If merchants want to use their own Gemini API key
+   GEMINI_API_KEY=your_actual_gemini_api_key
+   ```
+
+**Setting Environment Variables in Vercel:**
+1. Go to your Vercel project dashboard
+2. Navigate to Settings → Environment Variables
+3. Add the variables listed above with your actual values
+4. Redeploy your application
+
+> **Note**: The .env file contains demo/placeholder values for testing purposes only. For production use, configure your actual service credentials in the Vercel environment.
 
 ---
 

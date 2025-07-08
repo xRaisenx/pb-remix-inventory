@@ -315,7 +315,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 5: Update local database
-        const updatedVariant = await tx.variant.update({
+        await tx.variant.update({
           where: { id: variantId },
           data: {
             inventoryQuantity: newQuantity,
