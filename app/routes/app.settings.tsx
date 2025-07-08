@@ -1,4 +1,6 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { Buffer } from "node:buffer";
+import type { ReactNode } from "react";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -66,6 +68,11 @@ function validateSettings(settings: NotificationSettingsType): Record<string, st
     errors.stockoutThreshold = "Stockout threshold must be between 1 and 365 days";
   }
 
+  // AI key validation
+  if (settings.ai?.enabled && !settings.ai.apiKey.trim()) {
+    errors.ai = "API key required when custom Gemini key is enabled";
+  }
+
   return errors;
 }
 
@@ -130,7 +137,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
     stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
     notificationFrequency: (notificationSettings?.frequency as 'immediate' | 'hourly' | 'daily') ?? 'daily',
-    syncEnabled: notificationSettings?.syncEnabled ?? false
+    syncEnabled: notificationSettings?.syncEnabled ?? false,
+    ai: {
+      enabled: false,
+      apiKey: ''
+    }
   };
 
   const url = new URL(request.url);
@@ -169,7 +180,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
        const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx) => {
+       await prisma.$transaction(async (tx: typeof prisma) => {
          // Update shop-level settings
          await tx.shop.update({
            where: { id: shopRecord.id },

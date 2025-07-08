@@ -41,6 +41,7 @@ export interface NotificationSettingsType {
   stockoutThreshold: number;
   notificationFrequency: 'immediate' | 'hourly' | 'daily';
   syncEnabled: boolean;
+  ai: { enabled: boolean; apiKey: string };
 }
 
 interface SettingsProps {
@@ -103,6 +104,11 @@ export default function Settings({ notificationSettings, setNotificationSettings
       }
     }
 
+    // AI API Key validation
+    if (settings.ai.enabled && !settings.ai.apiKey.trim()) {
+      errors.ai = "API key is required when custom Gemini key is enabled";
+    }
+
     // Numeric validation
     if (settings.salesThreshold < 0) {
       errors.salesThreshold = "Sales threshold must be positive";
@@ -120,7 +126,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
   // Debounced input change handler to prevent race conditions
   const debouncedInputChange = useMemo(
     () => debounce((channel: keyof NotificationSettingsType, field: string, value: any) => {
-      setNotificationSettings((prev) => {
+      setNotificationSettings((prev: NotificationSettingsType) => {
         const prevChannelSettings = prev[channel];
         if (typeof prevChannelSettings === 'object' && prevChannelSettings !== null && 'enabled' in prevChannelSettings) {
           return {
@@ -133,7 +139,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
       
       // Clear validation error when user starts typing
       if (validationErrors[channel]) {
-        setValidationErrors(prev => ({ ...prev, [channel]: '' }));
+        setValidationErrors((prev: ValidationErrors) => ({ ...prev, [channel]: '' }));
       }
     }, 300),
     [validationErrors]
@@ -144,14 +150,14 @@ export default function Settings({ notificationSettings, setNotificationSettings
   }, [debouncedInputChange]);
 
   const handleThresholdChange = useCallback((field: keyof NotificationSettingsType, value: string | number | boolean) => {
-    setNotificationSettings((prev) => ({
+    setNotificationSettings((prev: NotificationSettingsType) => ({
       ...prev,
       [field]: value,
     }));
     
     // Clear validation error
     if (validationErrors[field as string]) {
-      setValidationErrors(prev => ({ ...prev, [field as string]: '' }));
+      setValidationErrors((prev: ValidationErrors) => ({ ...prev, [field as string]: '' }));
     }
   }, [validationErrors]);
 
@@ -429,6 +435,36 @@ export default function Settings({ notificationSettings, setNotificationSettings
           />
           <span className="pb-font-medium">Enable Real-Time Shopify Inventory Sync</span>
         </label>
+      </div>
+
+      {/* AI Settings */}
+      <div className="pb-card">
+        <h3 className="pb-text-lg pb-font-medium pb-mb-4" style={{ color: '#374151' }}>AI Settings (Gemini 2.0 Flash)</h3>
+        <div className="pb-space-y-4">
+          <label className="pb-flex pb-items-center pb-mb-3">
+            <input
+              type="checkbox"
+              checked={notificationSettings.ai.enabled}
+              onChange={(e) => handleInputChange('ai', 'enabled', e.target.checked)}
+              className="mr-2"
+            />
+            <span className="pb-font-medium">Use custom Gemini API key</span>
+          </label>
+          <input
+            type="text"
+            className={`pb-input pb-w-full ${validationErrors.ai ? 'border-red-500' : ''}`}
+            placeholder="Your Gemini 2.0 Flash API Key"
+            value={notificationSettings.ai.apiKey}
+            onChange={(e) => handleInputChange('ai', 'apiKey', e.target.value)}
+            disabled={!notificationSettings.ai.enabled}
+          />
+          {validationErrors.ai && (
+            <p className="text-red-500 text-sm mt-1">{validationErrors.ai}</p>
+          )}
+          <p className="pb-text-xs" style={{ color: '#6b7280' }}>
+            Leave unchecked to use the app's default Gemini 2.0 Flash credentials.
+          </p>
+        </div>
       </div>
 
       {/* Notification History */}
