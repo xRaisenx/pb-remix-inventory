@@ -1,10 +1,5 @@
 // app/components/Metrics.tsx
 
-import { CustomCard } from '~/components/common/Card';
-// Box removed, BlockStack is already imported and will be used as replacement
-import { Icon, Grid, Text, BlockStack } from '@shopify/polaris';
-// Import specific icons from polaris-icons with corrected names
-import { ProductIcon, NotificationIcon, ChartVerticalIcon as AnalyticsIcon } from '@shopify/polaris-icons'; // Renamed ProductsIcon to ProductIcon, AnalyticsIcon to ChartVerticalIcon, AlertMinor to NotificationIcon for testing
 import React from 'react';
 
 interface MetricsProps {
@@ -15,75 +10,45 @@ interface MetricsProps {
 
 export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCount, totalInventoryUnits }) => {
   return (
-    <Grid>
+    <div className="pb-grid pb-grid-cols-1 pb-grid-md-cols-3 pb-gap-4 pb-mb-6">
       {/* Total Products Metric */}
-      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
-        <CustomCard>
-          <BlockStack gap="200">
-            <Text as="p" variant="bodySm" tone="subdued">Total Products</Text>
-            {/* Replaced Box with BlockStack for icon background.
-                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
-            <BlockStack
-              background="bg-surface-success"
-              padding="100"
-              borderRadius="full"
-              width="32px"
-              minHeight="32px"
-              inlineAlign="center" // For horizontal centering of content
-              blockAlign="center" // For vertical centering of content
-            >
-              <Icon source={ProductsIcon} tone="success" />
-            </BlockStack>
-            <Text as="h2" variant="headingLg">{totalProducts}</Text>
-          </BlockStack>
-        </CustomCard>
-      </Grid.Cell>
+      <div className="pb-card">
+        <div className="pb-flex pb-justify-between pb-items-center">
+          <div>
+            <div className="pb-text-sm pb-text-light pb-mb-1">Total Products</div>
+            <div className="pb-text-2xl pb-font-bold">{totalProducts}</div>
+          </div>
+          <div className="pb-metric-icon pb-metric-products">
+            <i className="fas fa-cube"></i>
+          </div>
+        </div>
+      </div>
 
       {/* Low Stock Items Metric */}
-      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
-        <CustomCard>
-          <BlockStack gap="200">
-            <Text as="p" variant="bodySm" tone="subdued">Low Stock Items</Text>
-            {/* Replaced Box with BlockStack for icon background.
-                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
-            <BlockStack
-              background="bg-surface-critical"
-              padding="100"
-              borderRadius="full"
-              width="32px"
-              minHeight="32px"
-              inlineAlign="center"
-              blockAlign="center"
-            >
-              <Icon source={NotificationIcon} tone="critical" />
-            </BlockStack>
-            <Text as="h2" variant="headingLg">{lowStockItemsCount}</Text>
-          </BlockStack>
-        </CustomCard>
-      </Grid.Cell>
+      <div className="pb-card">
+        <div className="pb-flex pb-justify-between pb-items-center">
+          <div>
+            <div className="pb-text-sm pb-text-light pb-mb-1">Low Stock Items</div>
+            <div className="pb-text-2xl pb-font-bold text-red-500">{lowStockItemsCount}</div>
+          </div>
+          <div className="pb-metric-icon pb-metric-stock">
+            <i className="fas fa-exclamation-triangle"></i>
+          </div>
+        </div>
+      </div>
 
       {/* Total Inventory Units Metric */}
-      <Grid.Cell columnSpan={{ xs: 6, sm: 2, md: 2, lg: 4, xl: 4 }}>
-        <CustomCard>
-          <BlockStack gap="200">
-            <Text as="p" variant="bodySm" tone="subdued">Total Inventory Units</Text>
-            {/* Replaced Box with BlockStack for icon background.
-                TODO: Manual review recommended for layout/appearance changes due to Box replacement. */}
-            <BlockStack
-              background="bg-surface-info"
-              padding="100"
-              borderRadius="full"
-              width="32px"
-              minHeight="32px"
-              inlineAlign="center"
-              blockAlign="center"
-            >
-              <Icon source={AnalyticsIcon} tone="info" />
-            </BlockStack>
-            <Text as="h2" variant="headingLg">{totalInventoryUnits}</Text>
-          </BlockStack>
-        </CustomCard>
-      </Grid.Cell>
-    </Grid>
+      <div className="pb-card">
+        <div className="pb-flex pb-justify-between pb-items-center">
+          <div>
+            <div className="pb-text-sm pb-text-light pb-mb-1">Total Inventory</div>
+            <div className="pb-text-2xl pb-font-bold">{totalInventoryUnits}</div>
+          </div>
+          <div className="pb-metric-icon pb-metric-inventory">
+            <i className="fas fa-chart-line"></i>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };

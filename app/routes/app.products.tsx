@@ -1,52 +1,47 @@
 // app/routes/app.products.tsx
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react"; // Removed useFetcher as it's not used in the final component code provided by user
-import { Page, BlockStack, Card, Text, TextField, Icon, Banner, IndexTable, type IndexTableProps, Pagination } from "@shopify/polaris";
-import { SearchIcon } from '@shopify/polaris-icons'; // Corrected icon import
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { useState, useMemo, useCallback } from "react";
 import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
 import { ProductModal } from "~/components/ProductModal";
-import { CustomBadge, type CustomStatus } from "~/components/common/Badge"; // CustomStatus is now exported
+import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { calculateProductMetrics } from "~/services/product.service";
 import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service";
 import { INTENT } from "~/utils/intents";
 
 // --- TYPE DEFINITIONS ---
-// This variant type is specific for the modal's needs.
 interface ProductVariantForModal {
-  id: string; // Prisma Variant ID
-  shopifyVariantId: string; // Shopify Variant GID
-  title: string; // Variant title (e.g., "Small", "Red") or product title if no specific variant title
+  id: string;
+  shopifyVariantId: string;
+  title: string;
   sku?: string | null;
-  price?: string | null; // Should be string for display, Prisma Decimal needs conversion
-  inventoryQuantity?: number | null; // Total inventory for this variant across all locations
-  inventoryItemId?: string | null; // Shopify InventoryItem GID
+  price?: string | null;
+  inventoryQuantity?: number | null;
+  inventoryItemId?: string | null;
 }
 
-// This is the main type for products displayed in the table and passed to the modal
 export interface ProductForTable {
-  id: string; // Prisma Product ID
-  shopifyId: string; // Shopify Product GID
+  id: string;
+  shopifyId: string;
   title: string;
   vendor: string;
-  price: string; // Typically price of the first/primary variant, as string
-  sku: string;   // Typically SKU of the first/primary variant
-  inventory: number; // Total inventory for the product across all variants/locations shown in this row
+  price: string;
+  sku: string;
+  inventory: number;
   salesVelocity: number | null;
   stockoutDays: number | null;
-  status: string | null; // From Prisma: 'Healthy', 'Low', 'Critical', 'Unknown'
-  variantsForModal: ProductVariantForModal[]; // All variants of this product for the modal
-  // Inventory by specific warehouse location (Prisma warehouse ID -> quantity and Shopify Location GID)
+  status: string | null;
+  variantsForModal: ProductVariantForModal[];
   inventoryByLocation: Record<string, { quantity: number; shopifyLocationGid: string | null }>;
 }
 
 interface LoaderData {
   products: ProductForTable[];
-  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>; // For ProductModal
+  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>;
   error?: string;
-  shopDomain: string; // For constructing Shopify admin links if needed
+  shopDomain: string;
   pageInfo: {
     currentPage: number;
     totalPages: number;
@@ -58,14 +53,31 @@ interface LoaderData {
 
 const PRODUCTS_PER_PAGE = 25;
 
-// Helper to map Prisma product status to a badge status
-const mapProductStatusToBadgeCustomStatus = (prismaStatus: string | null): CustomStatus => {
-  if (!prismaStatus) return "default";
-  switch (prismaStatus.toLowerCase()) {
-    case "healthy": return "positive";
-    case "low": return "warning";
-    case "critical": return "critical";
-    default: return "default"; // Or 'info' or some other default
+// Map product names to CSS classes for styling (matching example)
+const getProductClassName = (title: string): string => {
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes('anastasia') && titleLower.includes('brow')) return 'anastasia-brow-gel';
+  if (titleLower.includes('elta') && titleLower.includes('md')) return 'elta-md-sunscreen';
+  if (titleLower.includes('borghese') && titleLower.includes('serum')) return 'borghese-serum';
+  if (titleLower.includes('kerastase') && titleLower.includes('shampoo')) return 'kerastase-shampoo';
+  if (titleLower.includes('mario') && titleLower.includes('badescu')) return 'mario-badescu-spray';
+  if (titleLower.includes('t3') && titleLower.includes('hair')) return 't3-hair-dryer';
+  return 'default-product';
+};
+
+// Map status to badge styling
+const getStatusBadge = (status: string | null) => {
+  if (!status) return { className: 'pb-badge-default', text: 'Unknown' };
+  
+  switch (status.toLowerCase()) {
+    case 'healthy':
+      return { className: 'pb-badge-success', text: 'Healthy' };
+    case 'low':
+      return { className: 'pb-badge-warning', text: 'Low Stock' };
+    case 'critical':
+      return { className: 'pb-badge-critical', text: 'Critical' };
+    default:
+      return { className: 'pb-badge-default', text: status };
   }
 };
 
@@ -85,16 +97,15 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         where: { shopId: shopRecord.id },
         orderBy: { title: 'asc' },
         include: {
-          variants: { // Fetch all variants for the modal and for inventory calculation
-            orderBy: { createdAt: 'asc' }, // Consistent ordering
+          variants: {
+            orderBy: { createdAt: 'asc' },
             select: {
               id: true, shopifyId: true, title: true, sku: true, price: true, inventoryQuantity: true, inventoryItemId: true,
             }
           },
-          inventory: { // For inventoryByLocation
+          inventory: {
             select: { quantity: true, warehouseId: true, warehouse: { select: { shopifyLocationGid: true } } }
           },
-          // shop: { include: { NotificationSettings: true } }, // Not strictly needed for display but for metrics if calculated here
         },
         take: PRODUCTS_PER_PAGE,
         skip: skip,
@@ -106,12 +117,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       }),
     ]);
 
-    const productsForTable = productsFromDB.map((p): ProductForTable => { // Explicit return type
-      // Calculate total inventory for the product (sum of all its variants' quantities or sum of inventory records)
-      // The example uses p.inventory which is Inventory[] related to Product.
-      // This assumes Inventory model has a direct relation to Product and holds location-specific stock.
+    const productsForTable = productsFromDB.map((p): ProductForTable => {
       const totalInventory = p.inventory.reduce((sum: number, inv: { quantity: number }) => sum + inv.quantity, 0);
-      const firstVariant = p.variants?.[0]; // For primary display fields like SKU/Price
+      const firstVariant = p.variants?.[0];
 
       const inventoryByLocation = p.inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv) => {
         acc[inv.warehouseId] = { quantity: inv.quantity, shopifyLocationGid: inv.warehouse.shopifyLocationGid };
@@ -123,16 +131,16 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         shopifyId: p.shopifyId,
         title: p.title,
         vendor: p.vendor,
-        price: firstVariant?.price?.toString() ?? '0.00', // Ensure price is string
+        price: firstVariant?.price?.toString() ?? '0.00',
         sku: firstVariant?.sku ?? 'N/A',
-        inventory: totalInventory, // This is the sum from p.inventory records
-        salesVelocity: p.salesVelocityFloat, // Assuming salesVelocityFloat is on Product model
-        stockoutDays: p.stockoutDays,     // Assuming stockoutDays is on Product model
-        status: p.status,                 // Assuming status is on Product model
-        variantsForModal: p.variants.map(v => ({ // Map Prisma variants to modal structure
+        inventory: totalInventory,
+        salesVelocity: p.salesVelocityFloat,
+        stockoutDays: p.stockoutDays,
+        status: p.status,
+        variantsForModal: p.variants.map(v => ({
           id: v.id,
-          shopifyVariantId: v.shopifyId ?? '', // Ensure not null
-          title: v.title ?? v.sku ?? 'Variant', // Fallback for variant title
+          shopifyVariantId: v.shopifyId ?? '',
+          title: v.title ?? v.sku ?? 'Variant',
           sku: v.sku,
           price: v.price?.toString(),
           inventoryQuantity: v.inventoryQuantity,
@@ -167,9 +175,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent");
 
   if (intent === INTENT.UPDATE_INVENTORY) {
-    const variantId = formData.get("variantId") as string; // This is Prisma Variant ID
+    const variantId = formData.get("variantId") as string;
     const newQuantityStr = formData.get("newQuantity") as string;
-    const shopifyLocationGid = formData.get("shopifyLocationGid") as string; // Shopify Location GID
+    const shopifyLocationGid = formData.get("shopifyLocationGid") as string;
 
     const newQuantity = parseInt(newQuantityStr, 10);
     if (!variantId || !shopifyLocationGid || isNaN(newQuantity) || newQuantity < 0) {
@@ -177,16 +185,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      // Service function expects Prisma Variant ID
       const updateResult = await updateInventoryQuantityInShopifyAndDB(session.shop, variantId, newQuantity, shopifyLocationGid);
 
       if (!updateResult.success) {
         return json({ error: updateResult.error, userErrors: updateResult.userErrors }, { status: 400 });
       }
 
-      // After successful Shopify update, find the parent product and recalculate its metrics
       const updatedVariant = await prisma.variant.findUnique({
-        where: { id: variantId }, // Prisma Variant ID
+        where: { id: variantId },
         select: { productId: true }
       });
 
@@ -194,8 +200,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const productToUpdate = await prisma.product.findUnique({
           where: { id: updatedVariant.productId },
           include: {
-            variants: { select: { inventoryQuantity: true } }, // For recalculating total inventory
-            shop: { include: { NotificationSettings: true } } // For thresholds
+            variants: { select: { inventoryQuantity: true } },
+            shop: { include: { NotificationSettings: true } }
           }
         });
 
@@ -204,10 +210,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
           const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
           const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
-          const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50; // Example
+          const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
 
           const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
-          // Prepare product data for calculateProductMetrics
           const productWithVariantsForCalc = {
             ...productToUpdate,
             variants: productToUpdate.variants.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
@@ -226,7 +231,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
         }
       }
-      return json({ success: true, message: updateResult.message }); // Return success from action
+      return json({ success: true, message: updateResult.message });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to update inventory or recalculate metrics.";
       console.error(message, e);
@@ -237,115 +242,223 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return json({ error: "Invalid intent" }, { status: 400 });
 };
 
-
 // --- COMPONENT ---
 export default function AppProductsPage() {
   const { products, warehouses, error, pageInfo } = useLoaderData<LoaderData>();
   const [selectedProduct, setSelectedProduct] = useState<ProductForTable | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortColumn, setSortColumn] = useState<keyof ProductForTable | null>('title'); // Default sort
-  const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('ascending');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortColumn, setSortColumn] = useState<keyof ProductForTable>('title');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const navigate = useNavigate();
 
-  const handleSearchChange = useCallback((value: string) => setSearchTerm(value), []);
-
-  const filteredAndSortedProducts = useMemo(() => {
-    let result = products.filter(p =>
-      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    if (sortColumn) {
-      result.sort((a, b) => {
-        const aValue = a[sortColumn];
-        const bValue = b[sortColumn];
-        let comparison = 0;
-
-        // Handle null or undefined values by pushing them to the end or beginning
-        if (aValue === null || aValue === undefined) comparison = 1; // a is greater (comes after)
-        else if (bValue === null || bValue === undefined) comparison = -1; // b is greater
-        else if (typeof aValue === 'number' && typeof bValue === 'number') {
-          comparison = aValue - bValue;
-        } else {
-          comparison = String(aValue).localeCompare(String(bValue));
-        }
-        return sortDirection === 'ascending' ? comparison : -comparison;
-      });
-    }
-    return result;
-  }, [products, searchTerm, sortColumn, sortDirection]);
-
-  const handleSort = useCallback((index: number, direction: 'ascending' | 'descending') => {
-    // Ensure this mapping is correct and matches your headings
-    const columns: (keyof ProductForTable)[] = ['title', 'vendor', 'sku', 'price', 'inventory', 'salesVelocity', 'stockoutDays', 'status'];
-    setSortColumn(columns[index]);
-    setSortDirection(direction);
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   }, []);
 
-  // Removed 'numeric' prop from headings as it's not a valid IndexTable.Heading property
-  const headings: IndexTableProps['headings'] = [
-    { title: 'Product', id: 'title' }, { title: 'Vendor', id: 'vendor' }, { title: 'SKU', id: 'sku' },
-    { title: 'Price', id: 'price' }, { title: 'Inventory', id: 'inventory' },
-    { title: 'Sales Velocity (day)', id: 'salesVelocity' }, { title: 'Stockout (days)', id: 'stockoutDays' },
-    { title: 'Status', id: 'status' },
-  ];
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = products.filter(p => {
+      const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          p.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || 
+                          (p.status && p.status.toLowerCase() === statusFilter);
+      
+      return matchesSearch && matchesStatus;
+    });
 
-  const rowMarkup = filteredAndSortedProducts.map((product: ProductForTable, index: number) => ( // Added explicit type for product
-    <IndexTable.Row id={product.id} key={product.id} position={index} onNavigation={() => setSelectedProduct(product)}>
-      <IndexTable.Cell><Text variant="bodyMd" fontWeight="bold" as="span">{product.title}</Text></IndexTable.Cell>
-      <IndexTable.Cell>{product.vendor}</IndexTable.Cell>
-      <IndexTable.Cell>{product.sku}</IndexTable.Cell>
-      <IndexTable.Cell><Text as="span" numeric>${product.price}</Text></IndexTable.Cell>
-      <IndexTable.Cell><Text as="span" numeric>{product.inventory}</Text></IndexTable.Cell>
-      <IndexTable.Cell><Text as="span" numeric>{product.salesVelocity?.toFixed(2) ?? 'N/A'}</Text></IndexTable.Cell>
-      <IndexTable.Cell><Text as="span" numeric>{product.stockoutDays?.toFixed(0) ?? 'N/A'}</Text></IndexTable.Cell>
-      <IndexTable.Cell><CustomBadge customStatus={mapProductStatusToBadgeCustomStatus(product.status)}>{product.status || 'N/A'}</CustomBadge></IndexTable.Cell>
-    </IndexTable.Row>
-  ));
+    result.sort((a, b) => {
+      const aValue = a[sortColumn];
+      const bValue = b[sortColumn];
+      let comparison = 0;
+
+      if (aValue === null || aValue === undefined) comparison = 1;
+      else if (bValue === null || bValue === undefined) comparison = -1;
+      else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        comparison = aValue - bValue;
+      } else {
+        comparison = String(aValue).localeCompare(String(bValue));
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [products, searchTerm, statusFilter, sortColumn, sortDirection]);
+
+  const handleSort = (column: keyof ProductForTable) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
   if (error) {
-    return <Page title="Products"><Banner title="Error" tone="critical"><p>{error}</p></Banner></Page>;
+    return (
+      <PlanetBeautyLayout>
+        <div className="pb-alert-critical">
+          <p>Error: {error}</p>
+        </div>
+      </PlanetBeautyLayout>
+    );
   }
 
   return (
-    <Page title="Products" fullWidth>
-      <BlockStack gap="400">
-        <TextField label="Filter products" labelHidden value={searchTerm} onChange={handleSearchChange} prefix={<Icon source={SearchIcon} />} placeholder="Search by product title, vendor, or SKU" autoComplete="off" />
-        <Card>
-          <IndexTable
-            resourceName={{ singular: 'product', plural: 'products' }}
-            itemCount={filteredAndSortedProducts.length}
-            headings={headings}
-            selectable={false} // As per user's code
-            sortable={[true, true, true, true, true, true, true, true]} // Matches number of headings
-            onSort={handleSort as IndexTableProps['onSort']} // Cast to satisfy Polaris type, ensure handleSort matches expected signature
-            sortColumnIndex={sortColumn ? headings.findIndex(h => h.id === sortColumn) : undefined}
-            sortDirection={sortDirection}
-          >
-            {rowMarkup}
-          </IndexTable>
-          {filteredAndSortedProducts.length === 0 && (<div style={{ padding: 'var(--p-space-400)', textAlign: 'center' }}><Text as="p" tone="subdued">No products found.</Text></div>)}
-          {pageInfo.totalPages > 1 && (
-            <div style={{ padding: 'var(--p-space-400)', display: 'flex', justifyContent: 'center' }}>
-              <Pagination
-                hasPrevious={!!pageInfo.prevPageUrl}
-                onPrevious={() => navigate(pageInfo.prevPageUrl!)} // Ensure URL is not undefined
-                hasNext={!!pageInfo.nextPageUrl}
-                onNext={() => navigate(pageInfo.nextPageUrl!)}     // Ensure URL is not undefined
-                label={`Page ${pageInfo.currentPage} of ${pageInfo.totalPages}`}
+    <PlanetBeautyLayout>
+      <div className="pb-space-y-6">
+        {/* Page Header */}
+        <div className="pb-flex pb-justify-between pb-items-center">
+          <h1 className="pb-text-2xl pb-font-bold">Products</h1>
+          <div className="pb-text-sm" style={{ color: '#718096' }}>
+            {pageInfo.totalResults} total products
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="pb-card">
+          <div className="pb-flex pb-flex-wrap pb-gap-4 pb-items-center">
+            <div className="pb-flex-1 pb-min-w-64">
+              <input
+                type="text"
+                className="pb-input"
+                placeholder="Search products, vendors, or SKUs..."
+                value={searchTerm}
+                onChange={handleSearchChange}
               />
             </div>
+            <div>
+              <select
+                className="pb-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="healthy">Healthy</option>
+                <option value="low">Low Stock</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div className="pb-text-sm" style={{ color: '#718096' }}>
+              {filteredAndSortedProducts.length} results
+            </div>
+          </div>
+        </div>
+
+        {/* Products Table */}
+        <div className="pb-card pb-overflow-x-auto">
+          <table className="pb-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('title')} className="cursor-pointer">
+                  Product {sortColumn === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('vendor')} className="cursor-pointer">
+                  Vendor {sortColumn === 'vendor' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('sku')} className="cursor-pointer">
+                  SKU {sortColumn === 'sku' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('price')} className="cursor-pointer">
+                  Price {sortColumn === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('inventory')} className="cursor-pointer">
+                  Inventory {sortColumn === 'inventory' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('salesVelocity')} className="cursor-pointer">
+                  Sales/Day {sortColumn === 'salesVelocity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('stockoutDays')} className="cursor-pointer">
+                  Stockout (Days) {sortColumn === 'stockoutDays' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('status')} className="cursor-pointer">
+                  Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAndSortedProducts.map((product) => {
+                const statusBadge = getStatusBadge(product.status);
+                return (
+                  <tr 
+                    key={product.id} 
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => setSelectedProduct(product)}
+                  >
+                    <td>
+                      <div className="pb-flex pb-items-center">
+                        <div className={`pb-product-icon ${getProductClassName(product.title)} mr-3`}></div>
+                        <div>
+                          <div className="pb-font-medium">{product.title}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{product.vendor}</td>
+                    <td className="pb-font-mono pb-text-sm">{product.sku}</td>
+                    <td>${product.price}</td>
+                    <td>
+                      <span className={product.inventory < 10 ? 'text-red-600 pb-font-bold' : ''}>
+                        {product.inventory}
+                      </span>
+                    </td>
+                    <td>{product.salesVelocity?.toFixed(1) ?? 'N/A'}</td>
+                    <td>
+                      <span className={(product.stockoutDays ?? 0) < 3 ? 'text-red-600 pb-font-bold' : ''}>
+                        {product.stockoutDays?.toFixed(1) ?? 'N/A'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={statusBadge.className}>
+                        {statusBadge.text}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {filteredAndSortedProducts.length === 0 && (
+            <div className="pb-text-center pb-p-8" style={{ color: '#718096' }}>
+              No products found matching your search criteria.
+            </div>
           )}
-        </Card>
-      </BlockStack>
+        </div>
+
+        {/* Pagination */}
+        {pageInfo.totalPages > 1 && (
+          <div className="pb-flex pb-justify-center pb-items-center pb-space-x-4">
+            <button
+              className="pb-btn-secondary"
+              onClick={() => navigate(pageInfo.prevPageUrl!)}
+              disabled={!pageInfo.prevPageUrl}
+            >
+              Previous
+            </button>
+            <span className="pb-text-sm">
+              Page {pageInfo.currentPage} of {pageInfo.totalPages}
+            </span>
+            <button
+              className="pb-btn-secondary"
+              onClick={() => navigate(pageInfo.nextPageUrl!)}
+              disabled={!pageInfo.nextPageUrl}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Product Modal */}
       {selectedProduct && (
         <ProductModal
           open={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           product={selectedProduct}
-          warehouses={warehouses} // Pass warehouses to the modal
+          warehouses={warehouses}
         />
       )}
-    </Page>
+    </PlanetBeautyLayout>
   );
 }

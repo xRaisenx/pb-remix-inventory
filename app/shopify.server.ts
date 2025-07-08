@@ -2,7 +2,7 @@ import "@shopify/shopify-app-remix/adapters/node";
 
 // --- BEGIN DIAGNOSTIC LOGGING ---
 console.log("[DIAGNOSTIC] SHOPIFY_API_KEY:", process.env.SHOPIFY_API_KEY, "| TYPE:", typeof process.env.SHOPIFY_API_KEY);
-console.log("[DIAGNOSTIC] SHOPIFY_API_SECRET:", process.env.SHOPIFY_API_SECRET ? "SET" : "NOT SET", "| TYPE:", typeof process.env.SHOPIFY_API_SECRET); // Avoid logging secret directly
+console.log("[DIAGNOSTIC] SHOPIFY_API_SECRET:", process.env.SHOPIFY_API_SECRET ? "SET" : "NOT SET", "| TYPE:", typeof process.env.SHOPIFY_API_SECRET);
 console.log("[DIAGNOSTIC] SCOPES:", process.env.SCOPES, "| TYPE:", typeof process.env.SCOPES);
 console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYPE:", typeof process.env.SHOPIFY_APP_URL);
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
@@ -12,19 +12,52 @@ import {
   AppDistribution,
   DeliveryMethod,
   shopifyApp,
-  // LATEST_API_VERSION, // Comment out or remove
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "~/db.server";
 
+// Enhanced session storage with error handling
+class EnhancedPrismaSessionStorage extends PrismaSessionStorage {
+  constructor(prisma: any) {
+    super(prisma);
+  }
+
+  async storeSession(session: any): Promise<boolean> {
+    try {
+      return await super.storeSession(session);
+    } catch (error) {
+      console.error("Session storage error:", error);
+      throw new Error("Failed to store session. Please ensure database is properly configured.");
+    }
+  }
+
+  async loadSession(id: string): Promise<any> {
+    try {
+      return await super.loadSession(id);
+    } catch (error) {
+      console.error("Session loading error:", error);
+      return undefined; // Return undefined instead of throwing to allow for retry
+    }
+  }
+
+  async deleteSession(id: string): Promise<boolean> {
+    try {
+      return await super.deleteSession(id);
+    } catch (error) {
+      console.error("Session deletion error:", error);
+      return false;
+    }
+  }
+}
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: "2024-07", // Pinned API version
+  apiVersion: "2024-07",
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: new EnhancedPrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   webhooks: {
     APP_UNINSTALLED: {
@@ -38,14 +71,26 @@ const shopify = shopifyApp({
   },
   hooks: {
     afterAuth: async ({ session }) => {
-      shopify.registerWebhooks({ session });
-      // The accessToken is managed by the Session model.
-      // This hook should only ensure the Shop record exists.
-      await prisma.shop.upsert({
-        where: { shop: session.shop },
-        update: {}, // Nothing to update here
-        create: { shop: session.shop },
-      });
+      try {
+        console.log("Registering webhooks for shop:", session.shop);
+        await shopify.registerWebhooks({ session });
+        
+        console.log("Upserting shop record for:", session.shop);
+        await prisma.shop.upsert({
+          where: { shop: session.shop },
+          update: { updatedAt: new Date() },
+          create: { 
+            shop: session.shop,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+        });
+        
+        console.log("Shop setup completed for:", session.shop);
+      } catch (error) {
+        console.error("Error in afterAuth hook:", error);
+        // Don't throw to prevent auth loop, but log the error
+      }
     },
   },
   future: {
@@ -58,7 +103,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = "2024-07"; // Pinned API version
+export const apiVersion = "2024-07";
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

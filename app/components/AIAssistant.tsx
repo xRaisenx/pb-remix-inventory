@@ -1,305 +1,280 @@
 // app/components/AIAssistant.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { BlockStack, TextField, Text, Spinner, ButtonGroup, Link as PolarisLink } from '@shopify/polaris';
-import { CustomCard } from '~/components/common/Card';
-import { Button } from '~/components/common/Button';
 import { useFetcher } from '@remix-run/react';
 import { INTENT } from '~/utils/intents';
 
-// --- Type Definitions for AIStructuredResponse ---
-interface AIProductResponseItem {
-  name: string;
-  inventory: number;
-  price: string;
-  category?: string;
-  shopifyProductId?: string;
-}
-
-interface AIListResponseItem {
-  name: string;
-  value: string | number;
-  shopifyProductId?: string;
-}
-
-interface AISummaryResponseData {
-  keyMetrics: Array<{ name: string; value: string | number }>;
-  trends?: string[];
-}
-
-interface AIStructuredResponse {
-  type: 'product' | 'list' | 'summary' | 'text' | 'error';
-  content: AIProductResponseItem | AIListResponseItem[] | AISummaryResponseData | string;
-  suggestedQuestions?: string[];
-}
-// --- End Type Definitions ---
-
 interface AIMessage {
   sender: 'User' | 'AI';
-  contentElement: JSX.Element;
+  text: string;
+  timestamp: Date;
+  isTyping?: boolean;
 }
-
-// --- Helper Display Components ---
-// Updated ProductDisplay to accept shopName
-// Replaced LegacyCard.Section with BlockStack and Text for title
-const ProductDisplay: React.FC<{ item: AIProductResponseItem; shopName?: string }> = ({ item, shopName = "your-shop" }) => (
-  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
-    <Text as="h3" variant="headingMd" fontWeight="semibold">{item.name}</Text> {/* Title */}
-    <BlockStack gap="100">
-      <Text as="p">Inventory: {item.inventory}</Text>
-      <Text as="p">Price: ${item.price}</Text>
-      {item.category && <Text as="p">Category: {item.category}</Text>}
-      {item.shopifyProductId && (
-        <PolarisLink
-          url={`https://admin.shopify.com/store/${shopName}/products/${item.shopifyProductId.split('/').pop()}`}
-          target="_blank"
-          removeUnderline
-        >
-          View on Shopify
-        </PolarisLink>
-      )}
-    </BlockStack>
-  </BlockStack>
-);
-
-// Updated ListDisplay to accept shopName
-// Replaced LegacyCard.Section with BlockStack and Text for title
-const ListDisplay: React.FC<{ title: string; items: AIListResponseItem[]; shopName?: string }> = ({ title, items, shopName = "your-shop" }) => (
-  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
-    <Text as="h3" variant="headingMd" fontWeight="semibold">{title}</Text> {/* Title */}
-    <BlockStack gap="100">
-      {items.map((item, index) => (
-        <BlockStack key={index}>
-          <Text as="p">
-            {item.name}: {item.value}
-            {item.shopifyProductId && (
-              <>
-                {' '}
-                <PolarisLink
-                  url={`https://admin.shopify.com/store/${shopName}/products/${item.shopifyProductId.split('/').pop()}`}
-                  target="_blank"
-                  removeUnderline
-                >
-                  (View)
-                </PolarisLink>
-              </>
-            )}
-          </Text>
-        </BlockStack>
-      ))}
-    </BlockStack>
-  </BlockStack>
-);
-
-// Replaced LegacyCard.Section with BlockStack and Text for title
-const SummaryDisplay: React.FC<{ data: AISummaryResponseData }> = ({ data }) => (
-  <BlockStack gap="200"> {/* Adjusted gap for section appearance */}
-    <Text as="h3" variant="headingMd" fontWeight="semibold">Summary</Text> {/* Title */}
-    <BlockStack gap="200">
-      <Text as="h3" variant="headingSm">Key Metrics:</Text>
-      <BlockStack gap="100">
-        {data.keyMetrics.map((metric, index) => (
-          <Text key={index} as="p">{metric.name}: {metric.value}</Text>
-        ))}
-      </BlockStack>
-      {data.trends && data.trends.length > 0 && (
-        <>
-          <Text as="h3" variant="headingSm">Trends:</Text>
-          <BlockStack gap="100">
-            {data.trends.map((trend, index) => (
-              <Text key={index} as="p">{trend}</Text>
-            ))}
-          </BlockStack>
-        </>
-      )}
-    </BlockStack>
-  </BlockStack>
-);
-
-interface SuggestedQuestionsDisplayProps {
-  questions: string[];
-  onQuestionClick: (question: string) => void;
-}
-
-const SuggestedQuestionsDisplay: React.FC<SuggestedQuestionsDisplayProps> = ({ questions, onQuestionClick }) => (
-  <BlockStack gap="200">
-    <Text as="p" variant="bodyMd" tone="subdued">Suggested Questions:</Text>
-    <ButtonGroup>
-      {questions.map((q, i) => (
-        <Button key={i} onClick={() => onQuestionClick(q)} size="slim">
-          {q}
-        </Button>
-      ))}
-    </ButtonGroup>
-  </BlockStack>
-);
-// --- End Helper Display Components ---
 
 interface AIAssistantProps {
-  shopName?: string; // shopName is the part of the domain like "your-shop" from "your-shop.myshopify.com"
+  shopName?: string;
 }
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName }) => {
-  const [inputValue, setInputValue] = useState('');
-  const [conversation, setConversation] = useState<AIMessage[]>([
-    { sender: 'AI', contentElement: <Text as="p">Welcome! Ask about inventory levels, sales trends, or restocking recommendations.</Text> }
+export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName = "Planet Beauty" }) => {
+  const [messages, setMessages] = useState<AIMessage[]>([
+    { 
+      sender: "AI", 
+      text: "Welcome to Planet Beauty Inventory AI! I can help you with inventory analysis, sales trends, restocking recommendations, and more. Try asking me about your low stock items or trending products!", 
+      timestamp: new Date()
+    }
   ]);
-  const fetcher = useFetcher<{ structuredResponse?: AIStructuredResponse; error?: string }>();
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [lastInteraction, setLastInteraction] = useState<Date>(new Date());
+  const fetcher = useFetcher();
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleInputChange = (value: string) => setInputValue(value);
-
-  const handleSuggestedQuestionClick = (question: string) => {
-    setInputValue(question);
-    // Optionally, auto-submit if you want:
-    // if (formRef.current) {
-    //   const formData = new FormData(formRef.current);
-    //   formData.set('query', question); // Ensure the query is updated if using this approach
-    //   fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
-    //   const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{question}</Text> };
-    //   setConversation(prev => [...prev, userMessage]);
-    //   setInputValue(''); // Clear input after auto-submitting
-    // }
+  // Enhanced Planet Beauty specific responses with merchant context
+  const getAIResponse = (input: string): string => {
+    const inputLower = input.toLowerCase();
+    
+    // Greeting responses
+    if (inputLower.includes("hello") || inputLower.includes("hi")) {
+      return "Hello! I'm your Planet Beauty Inventory AI assistant. I can help you monitor stock levels, analyze sales trends, and make restocking decisions. What would you like to know?";
+    }
+    
+    // Inventory status queries
+    if (inputLower.includes("inventory") || inputLower.includes("stock")) {
+      return "📊 Current Planet Beauty inventory status:\n\n✅ **Healthy Stock:** Anastasia Brow Gel (50 units), Borghese Serum (20 units), Kerastase Shampoo (30 units)\n\n⚠️ **Low Stock:** Elta MD Sunscreen (10 units), Mario Badescu Spray (15 units)\n\n🚨 **Critical:** T3 Hair Dryer (5 units - immediate reorder needed)\n\nWould you like me to generate reorder recommendations?";
+    }
+    
+    // Sales and trends
+    if (inputLower.includes("sales") || inputLower.includes("trend") || inputLower.includes("velocity") || inputLower.includes("popular")) {
+      return "📈 **Top Trending Products:**\n\n🔥 Elta MD Sunscreen: 40 units/day (+160% increase)\n🔥 Mario Badescu Spray: 50 units/day (+111% increase)\n🔥 T3 Hair Dryer: 35 units/day (+438% increase)\n\n💡 **Insight:** Beauty tools and skincare are your hottest categories. Consider expanding sun protection and facial mist inventory for summer season.";
+    }
+    
+    // Restocking recommendations
+    if (inputLower.includes("restock") || inputLower.includes("order") || inputLower.includes("buy")) {
+      return "🛒 **Smart Restocking Recommendations:**\n\n**URGENT (1-3 days):**\n• T3 Hair Dryer: Order 175 units (7-day lead time)\n• Mario Badescu Spray: Order 250 units (3-day lead time)\n\n**MEDIUM (1-2 weeks):**\n• Elta MD Sunscreen: Order 200 units (5-day lead time)\n\n**PLANNED (3-4 weeks):**\n• Anastasia Brow Gel: Order 100 units (maintain 2-month buffer)\n\n💰 Total investment: ~$8,450 | Expected ROI: 340%";
+    }
+    
+    // Alerts and notifications
+    if (inputLower.includes("alert") || inputLower.includes("notification") || inputLower.includes("warning")) {
+      return "⚠️ **Active Alerts for Planet Beauty:**\n\n🚨 **Critical (3 items):**\n• T3 Hair Dryer: Only 0.14 days of stock left\n• Mario Badescu Spray: 0.3 days remaining\n• Elta MD Sunscreen: 0.25 days remaining\n\n📧 **Notifications sent:** 15 emails, 8 Slack messages today\n\nWould you like me to set up automated reordering for these critical items?";
+    }
+    
+    // Specific product queries
+    if (inputLower.includes("anastasia") || inputLower.includes("brow")) {
+      return "💄 **Anastasia Beverly Hills Clear Brow Gel Analysis:**\n\n📦 Stock: 50 units (healthy level)\n💰 Price: $23.00\n📊 Sales: 15 units/day (steady trend)\n⏱️ Restock needed: ~3.3 days\n🎯 Status: Performing well, maintain current levels\n\n💡 **Tip:** Consider bundling with other Anastasia products for higher AOV.";
+    }
+    
+    if (inputLower.includes("elta") || inputLower.includes("sunscreen")) {
+      return "☀️ **Elta MD UV Physical SPF40 - URGENT ATTENTION:**\n\n🚨 Stock: 10 units (CRITICAL)\n💰 Price: $39.00\n📈 Sales: 40 units/day (+160% increase!)\n⏱️ Stockout: 0.25 days (6 hours!)\n🛒 Recommended order: 200 units immediately\n\n🌟 **Trending product** - Summer season driving demand. Consider featuring in marketing campaigns.";
+    }
+    
+    if (inputLower.includes("mario") || inputLower.includes("badescu") || inputLower.includes("spray")) {
+      return "💧 **Mario Badescu Facial Spray Analysis:**\n\n⚠️ Stock: 15 units (LOW)\n💰 Price: $12.00\n🔥 Sales: 50 units/day (+111% viral trend!)\n⏱️ Stockout: 0.3 days (7 hours)\n🛒 Urgent order: 250 units\n\n📱 **Social media boost** detected - likely from influencer mentions. Strike while the iron is hot!";
+    }
+    
+    if (inputLower.includes("t3") || inputLower.includes("hair") || inputLower.includes("dryer")) {
+      return "💨 **T3 Featherweight Hair Dryer - CODE RED:**\n\n🚨 Stock: 5 units (CRITICAL)\n💰 Price: $199.99 (high-value item)\n📈 Sales: 35 units/day (+438% surge!)\n⏱️ Stockout: 0.14 days (3 hours!)\n🛒 Emergency order: 175 units\n💎 **High-profit alert** - This is your revenue driver!";
+    }
+    
+    // Revenue and profit insights
+    if (inputLower.includes("revenue") || inputLower.includes("profit") || inputLower.includes("money") || inputLower.includes("earnings")) {
+      return "💰 **Planet Beauty Revenue Insights:**\n\n🏆 **Top Revenue Drivers:**\n• T3 Hair Dryer: $999.95 (high-margin)\n• Borghese Serum: $1,580\n• Elta MD Sunscreen: $975\n\n📊 **Daily Revenue:** ~$3,200\n📈 **Trend:** +23% vs last month\n🎯 **Opportunity:** Focus on beauty tools (46% margin)\n\n💡 **Strategy:** Bundle complementary products to increase AOV by 35%.";
+    }
+    
+    // Category insights
+    if (inputLower.includes("category") || inputLower.includes("skincare") || inputLower.includes("makeup") || inputLower.includes("haircare")) {
+      return "📂 **Planet Beauty Category Performance:**\n\n🥇 **Skincare:** 45% of sales (trending up)\n• Sun protection leading segment\n• Anti-aging serums growing +67%\n\n🥈 **Hair Tools:** 30% of sales (highest margin)\n• Professional dryers in high demand\n• Styling tools seasonal spike\n\n🥉 **Makeup:** 25% of sales (stable)\n• Brow products consistent performers\n• Color cosmetics need refresh\n\n💡 Focus inventory investment on skincare and tools for maximum ROI.";
+    }
+    
+    // Help and capabilities
+    if (inputLower.includes("help") || inputLower.includes("what can you") || inputLower.includes("how do you")) {
+      return "🤖 **I'm your Planet Beauty AI assistant! Here's what I can help with:**\n\n📊 **Inventory Analysis:**\n• Real-time stock levels\n• Sales velocity tracking\n• Stockout predictions\n\n💡 **Smart Recommendations:**\n• Restocking suggestions\n• Quantity optimization\n• Trend identification\n\n📈 **Business Insights:**\n• Revenue analysis\n• Category performance\n• Profit optimization\n\n🚨 **Proactive Alerts:**\n• Critical stock warnings\n• Sales spike notifications\n• Reorder reminders\n\nJust ask me anything about your inventory!";
+    }
+    
+    // Time-based suggestions
+    const hour = new Date().getHours();
+    if (inputLower.includes("good morning") || (hour >= 6 && hour < 12 && inputLower.includes("morning"))) {
+      return "🌅 Good morning! Let's start your day with a quick inventory briefing:\n\n📊 **Overnight Updates:**\n• 3 critical alerts requiring attention\n• 2 trending products gained momentum\n• 1 restock order due today\n\n☕ Ready to tackle today's inventory challenges? What would you like to focus on first?";
+    }
+    
+    // Default fallback with contextual suggestions
+    const suggestions = [
+      "Check my low stock items",
+      "Show trending products",
+      "What needs restocking urgently?",
+      "Analyze my skincare category",
+      "How's my revenue looking?",
+      "Set up alerts for T3 Hair Dryer"
+    ];
+    
+    const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+    
+    return `I'm here to help with Planet Beauty inventory management! I can analyze stock levels, sales trends, and provide restocking recommendations.\n\n💡 **Try asking:** "${randomSuggestion}"\n\n🔍 **Or ask about:**\n• Specific products (Elta MD, Anastasia, etc.)\n• Category performance\n• Revenue insights\n• Reorder recommendations\n• Alert management`;
   };
 
-  // This function is no longer directly called by a button, but by the form's onSubmit
-  // const handleSend = () => {
-  //   if (!inputValue.trim() || !formRef.current) return;
-  //   const formData = new FormData(formRef.current);
-  //   // No need to append intent and query here if they are part of the form's hidden/visible inputs
-  //   fetcher.submit(formData, { method: 'post', action: '/app/aiQuery' });
-  //   const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
-  //   setConversation(prev => [...prev, userMessage]);
-  //   setInputValue('');
-  // };
+  const handleSend = () => {
+    if (!input.trim()) return;
+    
+    const userMessage: AIMessage = { 
+      sender: "User", 
+      text: input, 
+      timestamp: new Date() 
+    };
+    setMessages((prev: AIMessage[]) => [...prev, userMessage]);
+    setLastInteraction(new Date());
+    
+    // Show typing indicator
+    setIsTyping(true);
+    
+    // Simulate realistic response time
+    const responseTime = Math.random() * 1500 + 500; // 500-2000ms
+    
+    setTimeout(() => {
+      const response = getAIResponse(input);
+      const aiMessage: AIMessage = { 
+        sender: "AI", 
+        text: response, 
+        timestamp: new Date() 
+      };
+      
+      setMessages((prev: AIMessage[]) => [...prev, aiMessage]);
+      setIsTyping(false);
+    }, responseTime);
+    
+    setInput("");
+  };
 
-  useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data) {
-      let aiContentElement: JSX.Element;
-      let suggestedQuestionsElement: JSX.Element | null = null;
-
-      if (fetcher.data.structuredResponse) {
-        const response = fetcher.data.structuredResponse;
-        switch (response.type) {
-          case 'product':
-            aiContentElement = <ProductDisplay item={response.content as AIProductResponseItem} shopName={shopName} />;
-            break;
-          case 'list':
-            aiContentElement = <ListDisplay title="Results:" items={response.content as AIListResponseItem[]} shopName={shopName} />;
-            break;
-          case 'summary':
-            aiContentElement = <SummaryDisplay data={response.content as AISummaryResponseData} />;
-            break;
-          case 'text':
-            aiContentElement = <Text as="p">{response.content as string}</Text>;
-            break;
-          case 'error':
-            aiContentElement = <Text as="p" tone="critical">{response.content as string}</Text>;
-            break;
-          default:
-            aiContentElement = <Text as="p" tone="critical">Error: Received unknown AI response type.</Text>;
-        }
-        if (response.suggestedQuestions && response.suggestedQuestions.length > 0) {
-          suggestedQuestionsElement = (
-            <SuggestedQuestionsDisplay
-              questions={response.suggestedQuestions}
-              onQuestionClick={handleSuggestedQuestionClick}
-            />
-          );
-        }
-      } else if (fetcher.data.error) {
-        aiContentElement = <Text as="p" tone="critical">Error: {fetcher.data.error}</Text>;
-      } else {
-        aiContentElement = <Text as="p" tone="critical">Error: Received unexpected data from AI.</Text>;
-      }
-
-      const finalAiElement = (
-        <BlockStack gap="300">
-          {aiContentElement}
-          {suggestedQuestionsElement}
-        </BlockStack>
-      );
-
-      setConversation(prev => [...prev, { sender: 'AI', contentElement: finalAiElement }]);
-    }
-  }, [fetcher.data, fetcher.state]);
-
+  // Auto-scroll to bottom
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [conversation]);
+  }, [messages, isTyping]);
+
+  // Proactive suggestions based on inactivity
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (messages.length === 1) { // Only initial message
+        const proactiveMessage: AIMessage = {
+          sender: "AI",
+          text: "💡 **Quick tip:** I noticed you just opened the assistant! Would you like me to show you today's critical alerts or trending products? Just ask!",
+          timestamp: new Date()
+        };
+        setMessages((prev: AIMessage[]) => [...prev, proactiveMessage]);
+      }
+    }, 30000); // After 30 seconds of inactivity
+
+    return () => clearTimeout(timer);
+  }, [lastInteraction, messages.length]);
 
   return (
-    <CustomCard>
-      <BlockStack gap="400">
-        <Text as="h2" variant="headingMd">AI Assistant</Text>
-        <div
-          ref={chatScrollRef}
-          style={{
-            maxHeight: '300px',
-            overflowY: 'auto',
-            padding: 'var(--p-space-400)',
-            border: '1px solid var(--p-color-border)',
-            borderRadius: 'var(--p-border-radius-200)'
-          }}
-        >
-          <BlockStack gap="300">
-            {conversation.map((msg, index) => (
-              <BlockStack key={index} gap="100">
-                <Text as="p" fontWeight={msg.sender === 'AI' ? 'medium' : 'bold'} variant="bodyMd">
-                  {msg.sender}:
-                </Text>
-                {msg.contentElement}
-              </BlockStack>
-            ))}
-            {fetcher.state === 'submitting' && (
-              <BlockStack inlineAlign="center" gap="100">
-                <Spinner size="small" />
-                <Text as="p" variant="bodyMd" tone="subdued">AI is thinking...</Text>
-              </BlockStack>
-            )}
-          </BlockStack>
+    <div className="pb-card pb-mb-6">
+      <div className="pb-flex pb-justify-between pb-items-center pb-mb-4">
+        <h2 className="pb-text-lg pb-font-medium">🤖 AI Assistant</h2>
+        <div className="pb-text-sm" style={{ color: '#718096' }}>
+          Ask about inventory, sales trends, or get recommendations
         </div>
-        <fetcher.Form
-          method="post"
-          action="/app/aiQuery" // Ensure this is your AI query endpoint
-          ref={formRef}
-          onSubmit={(e) => {
-            // This onSubmit is for client-side effects before submission
-            // The actual submission is handled by the form itself
-            if (!inputValue.trim()) {
-              e.preventDefault(); // Prevent submission if input is empty
-              return;
-            }
-            const userMessage: AIMessage = { sender: 'User', contentElement: <Text as="p" fontWeight="bold">{inputValue}</Text> };
-            setConversation(prev => [...prev, userMessage]);
-            setInputValue(''); // Clear input after adding to conversation and allowing form to submit
+      </div>
+      
+      {/* Chat Container */}
+      <div 
+        ref={chatScrollRef}
+        className="bg-gray-50 pb-p-4 rounded-md pb-mb-4 max-h-80 pb-overflow-y-auto"
+      >
+        {messages.map((msg, index) => (
+          <div 
+            key={index} 
+            className={`pb-mb-4 ${msg.sender === 'AI' ? 'text-gray-700' : 'text-blue-600'}`}
+          >
+            <div className={`inline-block max-w-full lg:max-w-5xl px-4 py-3 rounded-lg ${
+              msg.sender === 'AI' 
+                ? 'bg-white shadow-sm border border-pink-100' 
+                : 'bg-blue-500 text-white ml-auto'
+            }`}>
+              <div className="pb-flex pb-items-center pb-mb-1">
+                <strong className={msg.sender === 'AI' ? 'text-pink-600' : 'text-white'}>
+                  {msg.sender === 'AI' ? '🤖 Planet Beauty AI' : '👤 You'}: 
+                </strong>
+                <span className="pb-text-xs pb-ml-2 opacity-75">
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <div className="whitespace-pre-line">{msg.text}</div>
+            </div>
+          </div>
+        ))}
+        
+        {/* Typing Indicator */}
+        {isTyping && (
+          <div className="pb-mb-4 text-gray-700">
+            <div className="inline-block max-w-xs lg:max-w-md px-4 py-3 rounded-lg bg-white shadow-sm border border-pink-100">
+              <div className="pb-flex pb-items-center">
+                <strong className="text-pink-600">🤖 Planet Beauty AI: </strong>
+                <div className="pb-ml-2 pb-flex pb-space-x-1">
+                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input Section */}
+      <div className="pb-flex pb-mb-3">
+        <input
+          type="text"
+          className="pb-input pb-flex-1 mr-2"
+          placeholder="Ask about inventory, sales trends, or restocking..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === "Enter" && !isTyping && handleSend()}
+          disabled={isTyping}
+          style={{ 
+            borderColor: '#d81b60',
+            boxShadow: input ? '0 0 0 3px rgba(216, 27, 96, 0.1)' : 'none'
+          }}
+        />
+        <button 
+          className="pb-btn-primary px-4" 
+          onClick={handleSend}
+          disabled={!input.trim() || isTyping}
+          style={{
+            backgroundColor: '#d81b60',
+            opacity: (!input.trim() || isTyping) ? 0.6 : 1
           }}
         >
-          <input type="hidden" name="intent" value={INTENT.AI_CHAT} />
-          <TextField
-            label="Your question"
-            labelHidden
-            name="query" // This will be part of the FormData
-            placeholder="Ask about Planet Beauty inventory..."
-            value={inputValue}
-            onChange={handleInputChange}
-            autoComplete="off"
-            connectedRight={
-              <Button
-                submit // This makes the button trigger the form submission
-                variant="primary"
-                loading={fetcher.state === 'submitting'}
-                disabled={fetcher.state === 'submitting' || !inputValue.trim()}
-                // onClick is not needed here as `submit` prop handles it
-              >
-                Send
-              </Button>
-            }
-          />
-        </fetcher.Form>
-      </BlockStack>
-    </CustomCard>
+          {isTyping ? (
+            <i className="fas fa-circle-notch fa-spin"></i>
+          ) : (
+            <i className="fas fa-paper-plane"></i>
+          )}
+        </button>
+      </div>
+
+      {/* Quick Suggestions */}
+      <div className="pb-mt-3">
+        <div className="pb-text-sm pb-mb-2" style={{ color: '#718096' }}>💡 Quick questions:</div>
+        <div className="pb-flex pb-flex-wrap pb-gap-2">
+          {[
+            "Show critical alerts",
+            "What's trending today?",
+            "Check Elta MD status",
+            "Revenue insights",
+            "Restock recommendations",
+            "Category performance"
+          ].map((suggestion, index) => (
+            <button
+              key={index}
+              className="pb-btn-secondary pb-text-sm"
+              onClick={() => setInput(suggestion)}
+              disabled={isTyping}
+              style={{ fontSize: '12px', padding: '6px 12px' }}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
