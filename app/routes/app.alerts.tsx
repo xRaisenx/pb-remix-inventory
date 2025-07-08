@@ -3,7 +3,7 @@ import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { ProductStatus } from "@prisma/client";
-import { PlanetBeautyLayout } from "~/components/layout/PlanetBeautyLayout";
+import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { useState, useMemo } from "react";
 import type { NotificationLog as PrismaNotificationLog } from "@prisma/client";
 

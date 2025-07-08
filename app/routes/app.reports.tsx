@@ -5,7 +5,7 @@ import { Form, useLoaderData, useNavigation } from "@remix-run/react";
 import type { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { PlanetBeautyLayout } from "~/components/layout/PlanetBeautyLayout";
+import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { stringify } from "csv-stringify/sync";
 import { useState } from "react";
 import React from "react"; // Added missing import for React

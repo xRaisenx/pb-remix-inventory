@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback } from "react";
 import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
 import { ProductModal } from "~/components/ProductModal";
-import { PlanetBeautyLayout } from "~/components/layout/PlanetBeautyLayout";
+import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { calculateProductMetrics } from "~/services/product.service";
 import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service";
 import { INTENT } from "~/utils/intents";
