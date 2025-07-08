@@ -1,5 +1,4 @@
-import type { LoaderFunctionArgs, LinksFunction } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
+import { json, type LinksFunction, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { Text } from "@shopify/polaris";
 
@@ -10,11 +9,9 @@ import { login } from "~/shopify.server"; // Make sure login is imported
 // e.g., app/routes/styles.module.css or app/routes/_index/styles.module.css
 // If it's app/styles/index.module.css, then use:
 // import styles from "~/styles/index.module.css";
-import stylesUrl from "./styles.module.css"; // Standard way to import CSS module URLs in Remix
+import stylesUrl from "./styles.module.css?url";
 
-export const links: LinksFunction = () => {
-  return [{ rel: "stylesheet", href: stylesUrl }];
-};
+export const links: LinksFunction = () => [{ rel: "stylesheet", href: stylesUrl as string }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -26,11 +23,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   // If no 'shop' param, show the manual login form.
-  return { showForm: Boolean(login) };
+  return json({ showForm: true });
 };
 
-export default function IndexPage() { // Renamed component for clarity
-  const { showForm } = useLoaderData<typeof loader>();
+export default function IndexPage() {
+  const { showForm } = useLoaderData<{ showForm: boolean }>();
 
   return (
     <div className="index"> {/* Fixed class name to match styles.module.css */}

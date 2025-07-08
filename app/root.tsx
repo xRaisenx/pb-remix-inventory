@@ -8,6 +8,7 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import { useEffect } from "react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
@@ -24,6 +25,13 @@ export const links: LinksFunction = () => [
 ];
 
 export default function App() {
+  // Warmup Neon connection on client-side mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      fetch("/api/warmup").catch(() => {});
+    }
+  }, []);
+
   return (
     <HtmlDocument>
       <PolarisAppProvider i18n={enTranslations}>

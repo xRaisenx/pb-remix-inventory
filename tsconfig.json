@@ -16,12 +16,16 @@
     "jsxImportSource": "react",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "moduleDetection": "auto",
+    "allowImportingTsExtensions": true,
     "target": "ES2022",
     "baseUrl": ".",
    "paths": {
-      "~/*": [
-        "./app/*"
-      ]
+      "~/*": ["./app/*"],
+      "@/*": ["./app/*"],
+      "@components/*": ["./app/components/*"],
+      "@routes/*": ["./app/routes/*"],
+      "@services/*": ["./app/services/*"]
     },
     "types": ["node", "react", "react-dom"]
   }
