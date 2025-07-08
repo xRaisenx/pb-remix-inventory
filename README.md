@@ -233,7 +233,7 @@ SHOPIFY_API_KEY="your-api-key"
 SHOPIFY_API_SECRET="your-api-secret"
 
 # AI Configuration
-GOOGLE_AI_API_KEY="your-google-ai-key"
+GEMINI_API_KEY="your-gemini-api-key"
 
 # Notifications
 SENDGRID_API_KEY="your-sendgrid-key"

@@ -2,8 +2,8 @@ import { json, type LinksFunction, type LoaderFunctionArgs } from "@remix-run/no
 import { Form, useLoaderData } from "@remix-run/react";
 import { Text } from "@shopify/polaris";
 
-// Assuming login is exported from your shopify.server.ts
-import { login } from "~/shopify.server"; // Make sure login is imported
+// Import login from shopify.server.ts
+import { login } from "~/shopify.server";
 
 // Import CSS modules properly without ?url
 import styles from "./styles.module.css";
@@ -27,51 +27,50 @@ export default function IndexPage() {
   const { showForm } = useLoaderData<{ showForm: boolean }>();
 
   return (
-    <div className="index"> {/* Fixed class name to match styles.module.css */}
-      <div className="content">
-        <h1 className="heading">Welcome to [Your App Name]</h1>
-        <p className="text">
-          Streamline your Shopify store with [Your App Name] – your solution for [key value proposition].
+    <div className={styles.index}>
+      <div className={styles.content}>
+        <h1 className={styles.heading}>Welcome to Planet Beauty Inventory AI</h1>
+        <p className={styles.text}>
+          Streamline your Shopify store with Planet Beauty Inventory AI – your solution for intelligent inventory management.
         </p>
 
         {showForm && (
-          <div className="form-container">
+          <div className={styles.formContainer}>
             <Text variant="bodyMd" as="span" alignment="center">
               Already have the app installed or want to install it? Enter your shop domain to get started.
             </Text>
-            <Form className="form" method="post" action="/auth/login">
-              <label className="label">
+            <Form className={styles.form} method="post" action="/auth/login">
+              <label className={styles.label}>
                 <span>Shop domain</span>
                 <input
-                  className="input"
+                  className={styles.input}
                   type="text"
                   name="shop"
                   placeholder="your-store-name.myshopify.com"
                   aria-label="Shop domain"
                 />
               </label>
-              <button className="button" type="submit">
+              <button className={styles.button} type="submit">
                 Log In / Install
               </button>
             </Form>
           </div>
         )}
 
-        <div className="features-list-container">
-          <h2 className="subheading">Why Choose [Your App Name]?</h2>
-          <ul className="list">
+        <div className={styles.featuresListContainer}>
+          <h2 className={styles.subheading}>Why Choose Planet Beauty Inventory AI?</h2>
+          <ul className={styles.list}>
             <li>
-              <strong>Powerful Feature One</strong>: Briefly explain how this feature benefits the merchant.
+              <strong>AI-Powered Forecasting</strong>: Predict demand with Gemini 2.0 Flash intelligence.
             </li>
             <li>
-              <strong>Efficient Feature Two</strong>: Highlight another key benefit or problem solved.
+              <strong>Smart Alerts</strong>: Never run out of stock with proactive notifications.
             </li>
             <li>
-              <strong>Seamless Integration</strong>: Mention ease of use or integration with Shopify.
+              <strong>Seamless Integration</strong>: Native Shopify integration for beauty retailers.
             </li>
           </ul>
         </div>
-        {/* You can add more sections like testimonials, pricing overview (if applicable), etc. */}
       </div>
     </div>
   );
