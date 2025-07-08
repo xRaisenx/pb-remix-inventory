@@ -1,6 +1,6 @@
 import prisma from "./db.server";
 import shopify from "./shopify.server";
-import { Session } from '@shopify/shopify-api';
+import type { Session } from '@shopify/shopify-api';
 
 export async function syncShopifyProductsForShop(shopDomain: string, session: Session) {
   // Corrected GraphQL client initialization

@@ -1,4 +1,5 @@
-import { Modal as PolarisModal, ModalProps } from '@shopify/polaris';
+import type { ModalProps } from '@shopify/polaris';
+import { Modal as PolarisModal } from '@shopify/polaris';
 import React from 'react';
 
 interface CustomModalProps extends Omit<ModalProps, 'open' | 'onClose' | 'title' | 'children'> {

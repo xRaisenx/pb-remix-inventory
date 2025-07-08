@@ -1,4 +1,5 @@
-import { Button as PolarisButton, ButtonProps } from '@shopify/polaris';
+import type { ButtonProps } from '@shopify/polaris';
+import { Button as PolarisButton } from '@shopify/polaris';
 import React from 'react';
 
 export type CommonButtonProps = ButtonProps;

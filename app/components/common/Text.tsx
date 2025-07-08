@@ -1,4 +1,5 @@
-import { Text as PolarisText, TextProps } from '@shopify/polaris';
+import type { TextProps } from '@shopify/polaris';
+import { Text as PolarisText } from '@shopify/polaris';
 import React from 'react';
 
 // Re-exporting Polaris TextProps for convenience if needed elsewhere
