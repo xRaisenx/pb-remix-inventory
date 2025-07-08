@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import type { ProductForTable } from "~/routes/app.products";
@@ -30,7 +30,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   warehouses,
 }) => {
   const fetcher = useFetcher<any>();
-  const app = useAppBridge();
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
