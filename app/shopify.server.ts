@@ -16,31 +16,161 @@ console.log("[DIAGNOSTIC] SCOPES:", process.env.SCOPES, "| TYPE:", typeof proces
 console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYPE:", typeof process.env.SHOPIFY_APP_URL);
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
 
-// Enhanced session storage with error handling
+// Enhanced session storage with error handling and monitoring
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage {
+  private prismaClient: any;
+  private sessionMetrics: {
+    storageAttempts: number;
+    storageErrors: number;
+    loadAttempts: number;
+    loadErrors: number;
+    deletionAttempts: number;
+    deletionErrors: number;
+  };
+
+  constructor(prisma: any) {
+    // Validate prisma client
+    if (!prisma) {
+      throw new Error("Prisma client is required for session storage");
+    }
+
+    // Validate that the required session table exists
+    if (!prisma.session) {
+      console.warn("Session model not found in Prisma client. Session storage may not work correctly.");
+    }
+
+    super(prisma);
+    
+    this.prismaClient = prisma;
+    this.sessionMetrics = {
+      storageAttempts: 0,
+      storageErrors: 0,
+      loadAttempts: 0,
+      loadErrors: 0,
+      deletionAttempts: 0,
+      deletionErrors: 0,
+    };
+
+    console.log("[SessionStorage] Enhanced Prisma Session Storage initialized successfully");
+  }
+
+  // Get session storage metrics for monitoring
+  getMetrics() {
+    return {
+      ...this.sessionMetrics,
+      errorRates: {
+        storage: this.sessionMetrics.storageAttempts > 0 ? 
+          (this.sessionMetrics.storageErrors / this.sessionMetrics.storageAttempts) * 100 : 0,
+        load: this.sessionMetrics.loadAttempts > 0 ? 
+          (this.sessionMetrics.loadErrors / this.sessionMetrics.loadAttempts) * 100 : 0,
+        deletion: this.sessionMetrics.deletionAttempts > 0 ? 
+          (this.sessionMetrics.deletionErrors / this.sessionMetrics.deletionAttempts) * 100 : 0,
+      }
+    };
+  }
+
   async storeSession(session: any): Promise<boolean> {
+    this.sessionMetrics.storageAttempts++;
+    
     try {
-      return await super.storeSession(session);
+      if (!session || !session.id) {
+        throw new Error("Invalid session: missing session ID");
+      }
+
+      console.log(`[SessionStorage] Storing session for shop: ${session.shop}`);
+      const result = await super.storeSession(session);
+      
+      if (result) {
+        console.log(`[SessionStorage] Successfully stored session ${session.id}`);
+      }
+      
+      return result;
     } catch (error) {
-      console.error("Session storage error:", error);
+      this.sessionMetrics.storageErrors++;
+      console.error("[SessionStorage] Session storage error:", {
+        sessionId: session?.id,
+        shop: session?.shop,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Check if it's a database connectivity issue
+      if (error instanceof Error && (
+        error.message.includes('connection') || 
+        error.message.includes('timeout') ||
+        error.message.includes('ECONNREFUSED')
+      )) {
+        throw new Error("Database connection failed. Please check your database configuration.");
+      }
+      
       throw new Error("Failed to store session. Please ensure database is properly configured.");
     }
   }
 
   async loadSession(id: string): Promise<any> {
+    this.sessionMetrics.loadAttempts++;
+    
     try {
-      return await super.loadSession(id);
+      if (!id || typeof id !== 'string') {
+        throw new Error("Invalid session ID provided");
+      }
+
+      console.log(`[SessionStorage] Loading session: ${id}`);
+      const session = await super.loadSession(id);
+      
+      if (session) {
+        console.log(`[SessionStorage] Successfully loaded session for shop: ${session.shop}`);
+      } else {
+        console.log(`[SessionStorage] No session found for ID: ${id}`);
+      }
+      
+      return session;
     } catch (error) {
-      console.error("Session loading error:", error);
-      return undefined; // Return undefined instead of throwing to allow for retry
+      this.sessionMetrics.loadErrors++;
+      console.error("[SessionStorage] Session loading error:", {
+        sessionId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Return undefined instead of throwing to allow for retry and new auth flow
+      return undefined;
     }
   }
 
   async deleteSession(id: string): Promise<boolean> {
+    this.sessionMetrics.deletionAttempts++;
+    
     try {
-      return await super.deleteSession(id);
+      if (!id || typeof id !== 'string') {
+        throw new Error("Invalid session ID provided for deletion");
+      }
+
+      console.log(`[SessionStorage] Deleting session: ${id}`);
+      const result = await super.deleteSession(id);
+      
+      if (result) {
+        console.log(`[SessionStorage] Successfully deleted session: ${id}`);
+      }
+      
+      return result;
     } catch (error) {
-      console.error("Session deletion error:", error);
+      this.sessionMetrics.deletionErrors++;
+      console.error("[SessionStorage] Session deletion error:", {
+        sessionId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Return false instead of throwing to gracefully handle deletion failures
+      return false;
+    }
+  }
+
+  // Method to check database connectivity
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.prismaClient.$queryRaw`SELECT 1`;
+      return true;
+    } catch (error) {
+      console.error("[SessionStorage] Database health check failed:", error);
       return false;
     }
   }

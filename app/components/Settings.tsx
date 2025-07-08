@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+THIS SHOULD BE A LINTER ERRORimport React, { useState, useMemo, useCallback } from "react";
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(

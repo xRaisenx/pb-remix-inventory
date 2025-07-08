@@ -1,15 +1,17 @@
 import { Card, Grid, Text, BlockStack } from "@shopify/polaris";
 import React from "react";
 
-// Define props for the component, even if not used initially with placeholders
+// Define props for the component with actual data types
 interface DashboardVisualizationsProps {
-  // Example: salesData: any[];
-  // Example: inventoryData: any[];
+  salesData?: Array<{ date: string; sales: number; }>;
+  inventoryData?: Array<{ product: string; stock: number; }>;
+  isLoading?: boolean;
 }
 
 export function DashboardVisualizations({
-  // salesData,
-  // inventoryData,
+  salesData = [],
+  inventoryData = [],
+  isLoading = false,
 }: DashboardVisualizationsProps) {
   return (
     <BlockStack gap="400">
@@ -23,7 +25,15 @@ export function DashboardVisualizations({
               <Text variant="headingSm" as="h3">
                 Sales Trends
               </Text>
-              <Text as="p">Sales Trend Chart Placeholder</Text>
+              {isLoading ? (
+                <Text as="p">Loading sales data...</Text>
+              ) : salesData.length > 0 ? (
+                <Text as="p">
+                  Sales data available for {salesData.length} data points
+                </Text>
+              ) : (
+                <Text as="p">Sales Trend Chart Placeholder - No data available</Text>
+              )}
               {/* Placeholder for a chart component */}
             </BlockStack>
           </Card>
@@ -34,7 +44,15 @@ export function DashboardVisualizations({
               <Text variant="headingSm" as="h3">
                 Inventory Patterns
               </Text>
-              <Text as="p">Inventory Pattern Chart Placeholder</Text>
+              {isLoading ? (
+                <Text as="p">Loading inventory data...</Text>
+              ) : inventoryData.length > 0 ? (
+                <Text as="p">
+                  Inventory data available for {inventoryData.length} products
+                </Text>
+              ) : (
+                <Text as="p">Inventory Pattern Chart Placeholder - No data available</Text>
+              )}
               {/* Placeholder for a chart component */}
             </BlockStack>
           </Card>
