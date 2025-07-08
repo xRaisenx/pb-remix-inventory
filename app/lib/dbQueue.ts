@@ -1,5 +1,4 @@
 import PQueue from "p-queue";
-import prisma from "~/db.server";
 
 // Create a queue that allows up to 8 concurrent DB writes, leaving 2 connections for reads
 const writeQueue = new PQueue({ concurrency: 8 });
