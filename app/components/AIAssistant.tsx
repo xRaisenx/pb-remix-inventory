@@ -118,7 +118,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName = "Planet Bea
       text: input, 
       timestamp: new Date() 
     };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev: AIMessage[]) => [...prev, userMessage]);
     setLastInteraction(new Date());
     
     // Show typing indicator
@@ -135,7 +135,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName = "Planet Bea
         timestamp: new Date() 
       };
       
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages((prev: AIMessage[]) => [...prev, aiMessage]);
       setIsTyping(false);
     }, responseTime);
     
@@ -158,7 +158,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ shopName = "Planet Bea
           text: "💡 **Quick tip:** I noticed you just opened the assistant! Would you like me to show you today's critical alerts or trending products? Just ask!",
           timestamp: new Date()
         };
-        setMessages(prev => [...prev, proactiveMessage]);
+        setMessages((prev: AIMessage[]) => [...prev, proactiveMessage]);
       }
     }, 30000); // After 30 seconds of inactivity
 

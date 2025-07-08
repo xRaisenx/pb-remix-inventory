@@ -1,5 +1,5 @@
 import prisma from "~/db.server";
-import { ProductStatus } from "@prisma/client";
+import type { ProductStatus, PrismaClient } from "@prisma/client";
 
 // Enhanced inventory service with better merchant experience
 export interface InventoryUpdateResult {
@@ -27,6 +27,21 @@ export interface StockAnalysis {
   suggestedOrderQuantity: number;
   trend: 'increasing' | 'decreasing' | 'stable';
   velocity: number;
+}
+
+export interface AnalyticsDataRecord {
+  salesVelocity: number | null;
+  createdAt: Date;
+}
+
+export interface ProductWithAnalytics {
+  id: string;
+  title: string;
+  handle: string;
+  price: number;
+  quantity: number;
+  status: ProductStatus;
+  analyticsData: AnalyticsDataRecord[];
 }
 
 // Enhanced restock calculation with merchant insights
@@ -80,11 +95,9 @@ export async function updateInventoryQuantityInShopifyAndDB(
     automated?: boolean;
   } = {}
 ): Promise<InventoryUpdateResult> {
-  let transaction;
-  
   try {
     // Start database transaction for data consistency
-    transaction = await prisma.$transaction(async (tx) => {
+    const transaction = await prisma.$transaction(async (tx: PrismaClient) => {
       // Get current product data
       const product = await tx.product.findFirst({
         where: { 
@@ -110,7 +123,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
       // Calculate sales velocity and trend
       const analytics = product.analyticsData;
       const dailyVelocity = analytics.length > 0 
-        ? analytics.reduce((sum, data) => sum + (data.salesVelocity || 0), 0) / analytics.length
+        ? analytics.reduce((sum: number, data: any) => sum + (data.salesVelocity || 0), 0) / analytics.length
         : 0;
 
       // Update product quantity
@@ -146,10 +159,12 @@ export async function updateInventoryQuantityInShopifyAndDB(
       if (shouldGenerateAlert) {
         await tx.productAlert.create({
           data: {
+            shopId: product.shopId,
             productId: product.id,
             type: newQuantity <= 5 ? 'CRITICAL_STOCK' : 'LOW_STOCK',
+            severity: newQuantity <= 5 ? 'CRITICAL' : 'MEDIUM',
+            title: `${product.title} - Low Stock Alert`,
             message: `${product.title} stock level: ${newQuantity} units (${Math.round(newQuantity / Math.max(dailyVelocity, 1))} days remaining)`,
-            severity: newQuantity <= 5 ? 'HIGH' : 'MEDIUM',
             resolved: false,
             metadata: {
               previousQuantity,
@@ -167,7 +182,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
       const suggestedRestock = calculateRestock(
         newQuantity,
         dailyVelocity,
-        product.price
+        Number(product.price)
       );
 
       return {
@@ -178,7 +193,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         product: {
           id: product.id,
           title: product.title,
-          handle: product.handle
+          handle: product.handle || product.title.toLowerCase().replace(/\s+/g, '-')
         },
         alertGenerated,
         suggestedRestock
@@ -218,7 +233,7 @@ async function shouldCreateStockAlert(
   currentStatus: ProductStatus
 ): Promise<boolean> {
   // Don't create duplicate alerts for already critical items
-  if (currentStatus === 'CRITICAL' && currentStock <= 5) {
+  if (currentStatus === 'Critical' && currentStock <= 5) {
     return false;
   }
 
@@ -272,7 +287,7 @@ export async function bulkUpdateInventory(
       const batch = updates.slice(i, i + batchSize);
       
       const batchResults = await Promise.allSettled(
-        batch.map(update => 
+        batch.map((update) => 
           updateInventoryQuantityInShopifyAndDB(
             update.inventoryItemId,
             update.locationId,
@@ -302,7 +317,7 @@ export async function bulkUpdateInventory(
       success: true,
       results,
       summary: {
-        totalUpdated: results.filter(r => r.success).length,
+        totalUpdated: results.filter((r) => r.success).length,
         alertsGenerated,
         criticalItems
       }
@@ -343,11 +358,11 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
     const olderVelocity = analytics.slice(7, 14); // Previous 7 days
 
     const currentVelocity = recentVelocity.length > 0
-      ? recentVelocity.reduce((sum, data) => sum + (data.salesVelocity || 0), 0) / recentVelocity.length
+      ? recentVelocity.reduce((sum: number, data: any) => sum + (data.salesVelocity || 0), 0) / recentVelocity.length
       : 0;
 
     const previousVelocity = olderVelocity.length > 0
-      ? olderVelocity.reduce((sum, data) => sum + (data.salesVelocity || 0), 0) / olderVelocity.length
+      ? olderVelocity.reduce((sum: number, data: any) => sum + (data.salesVelocity || 0), 0) / olderVelocity.length
       : 0;
 
     // Determine trend
@@ -364,7 +379,7 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
 
     return {
       daysOfStock,
-      status: product.status,
+      status: product.status || 'Unknown',
       reorderPoint,
       suggestedOrderQuantity,
       trend,

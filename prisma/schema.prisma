@@ -1,7 +1,6 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -14,7 +13,7 @@ enum ProductStatus {
   OK
   Low
   Critical
-  // OutOfStock // Example if needed
+  OutOfStock
 }
 
 enum NotificationChannel {
@@ -23,6 +22,8 @@ enum NotificationChannel {
   Telegram
   MobilePush
   System
+  SMS
+  Webhook
 }
 
 enum NotificationStatus {
@@ -33,7 +34,33 @@ enum NotificationStatus {
   Simulated
   FailedConfiguration
   Pending
-  // Read // Example if needed
+  Read
+  Dismissed
+}
+
+enum AlertType {
+  LOW_STOCK
+  CRITICAL_STOCK
+  OUT_OF_STOCK
+  HIGH_DEMAND
+  SALES_SPIKE
+  INVENTORY_DISCREPANCY
+  RESTOCK_REMINDER
+  SYSTEM_ERROR
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TrendDirection {
+  INCREASING
+  DECREASING
+  STABLE
+  VOLATILE
 }
 
 model Session {
@@ -59,6 +86,8 @@ model Shop {
   telegramChatId              String?
   whatsAppApiCredentialsJson  String?
   lowStockThreshold           Int?                    @default(10)
+  criticalStockThreshold      Int?                    @default(5)
+  highDemandThreshold         Float?                  @default(50.0)
   initialSyncCompleted        Boolean                 @default(false)
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
@@ -68,52 +97,128 @@ model Shop {
   warehouses           Warehouse[]
   notificationLogs     NotificationLog[]
   sessions             Session[]
+  productAlerts        ProductAlert[]
 }
 
 model NotificationSetting {
   id                          String    @id @default(cuid())
   shopId                      String    @unique
   shop                        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  email                       Boolean   @default(false)
+  email                       Boolean   @default(true)
   slack                       Boolean   @default(false)
   telegram                    Boolean   @default(false)
   mobilePush                  Boolean   @default(false)
+  sms                         Boolean   @default(false)
+  webhook                     Boolean   @default(false)
   emailAddress                String?
   slackWebhookUrl             String?
   telegramBotToken            String?
   telegramChatId              String?
-  frequency                   String    @default("daily") // Could be an Enum too if values are fixed
-  lowStockThreshold           Int?
-  salesVelocityThreshold      Float?
-  criticalStockThresholdUnits Int?
-  criticalStockoutDays        Int?
-  syncEnabled                 Boolean   @default(false)
+  smsNumber                   String?
+  webhookUrl                  String?
+  frequency                   String    @default("realtime") // realtime, hourly, daily
+  lowStockThreshold           Int?      @default(10)
+  salesVelocityThreshold      Float?    @default(25.0)
+  criticalStockThresholdUnits Int?      @default(5)
+  criticalStockoutDays        Int?      @default(1)
+  syncEnabled                 Boolean   @default(true)
+  alertsEnabled               Boolean   @default(true)
+  businessHoursOnly           Boolean   @default(false)
+  timezone                    String?   @default("UTC")
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 }
 
 model Product {
-  id                 String           @id @default(cuid())
-  shopifyId          String           @unique
-  title              String
-  vendor             String
-  productType        String?
-  status             ProductStatus?   @default(Unknown) // Updated to Enum
-  trending           Boolean?         @default(false)
-  salesVelocityFloat Float?
-  stockoutDays       Float?
-  lastRestockedDate  DateTime?
-  category           String?
-  tags               String[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  shopId             String
-  shop               Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  variants           Variant[]
-  inventory          Inventory[]
-  DemandForecasts    DemandForecast[]
+  id                      String           @id @default(cuid())
+  shopifyId               String           @unique
+  shopifyInventoryItemId  String?          @unique
+  title                   String
+  handle                  String?
+  vendor                  String?
+  productType             String?
+  status                  ProductStatus?   @default(Unknown)
+  trending                Boolean?         @default(false)
+  salesVelocityFloat      Float?           @default(0)
+  stockoutDays            Float?
+  lastRestockedDate       DateTime?
+  category                String?
+  tags                    String[]
+  price                   Decimal          @default(0)
+  quantity                Int              @default(0)
+  sku                     String?
+  imageUrl                String?
+  description             String?
+  weight                  Float?
+  dimensions              String?
+  lastUpdated             DateTime         @default(now())
+  lastUpdatedBy           String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  shopId                  String
+  shop                    Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variants                Variant[]
+  inventory               Inventory[]
+  DemandForecasts         DemandForecast[]
+  productAlerts           ProductAlert[]
+  analyticsData           AnalyticsData[]
 
   @@index([shopId])
+  @@index([status])
+  @@index([trending])
+  @@index([salesVelocityFloat])
+}
+
+model ProductAlert {
+  id              String        @id @default(cuid())
+  shopId          String
+  shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type            AlertType
+  severity        AlertSeverity
+  title           String
+  message         String
+  resolved        Boolean       @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  metadata        Json?
+  notificationsSent Int         @default(0)
+  lastNotificationSent DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([shopId])
+  @@index([productId])
+  @@index([type])
+  @@index([severity])
+  @@index([resolved])
+  @@index([createdAt])
+}
+
+model AnalyticsData {
+  id                  String         @id @default(cuid())
+  productId           String
+  product             Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  salesVelocity       Float?         @default(0)
+  stockLevel          Int?           @default(0)
+  daysUntilStockout   Float?
+  reorderPoint        Int?
+  suggestedOrderQty   Int?
+  trend               TrendDirection @default(STABLE)
+  demandScore         Float?         @default(0)
+  profitMargin        Float?
+  revenue             Decimal?       @default(0)
+  unitsSold           Int?           @default(0)
+  conversionRate      Float?
+  seasonalityFactor   Float?         @default(1.0)
+  recordedAt          DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+
+  @@index([productId])
+  @@index([recordedAt])
+  @@index([trend])
+  @@index([salesVelocity])
 }
 
 model Variant {
@@ -121,9 +226,16 @@ model Variant {
   shopifyId           String    @unique
   title               String?
   sku                 String?
-  price               Decimal?
-  inventoryQuantity   Int?
-  inventoryItemId     String?   @unique // Was shopifyInventoryItemId in some queries
+  price               Decimal?  @default(0)
+  inventoryQuantity   Int?      @default(0)
+  inventoryItemId     String?   @unique
+  barcode             String?
+  weight              Float?
+  taxable             Boolean   @default(true)
+  requiresShipping    Boolean   @default(true)
+  fulfillmentService  String?   @default("manual")
+  inventoryManagement String?   @default("shopify")
+  inventoryPolicy     String?   @default("deny")
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   productId           String
@@ -131,26 +243,40 @@ model Variant {
 
   @@unique([productId, sku])
   @@index([productId])
+  @@index([sku])
 }
 
 model Inventory {
-  id          String    @id @default(cuid())
-  quantity    Int
-  warehouseId String
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  quantity        Int       @default(0)
+  reservedQuantity Int      @default(0)
+  availableQuantity Int     @default(0)
+  committedQuantity Int     @default(0)
+  warehouseId     String
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lastCountDate   DateTime?
+  lastMovementDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([productId, warehouseId])
+  @@index([productId])
+  @@index([warehouseId])
 }
 
 model Warehouse {
   id                 String      @id @default(cuid())
   name               String
   location           String
+  address            String?
+  city               String?
+  state              String?
+  country            String?
+  zipCode            String?
   shopifyLocationGid String?     @unique
+  active             Boolean     @default(true)
   shopId             String
   shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   inventories        Inventory[]
@@ -158,33 +284,55 @@ model Warehouse {
   updatedAt          DateTime    @updatedAt
 
   @@unique([shopId, name])
+  @@index([shopId])
+  @@index([active])
 }
 
 model DemandForecast {
-  id              String   @id @default(cuid())
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  predictedDemand Float
-  periodDays      Int
-  confidenceScore Float
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  predictedDemand     Float
+  periodDays          Int
+  confidenceScore     Float
+  methodology         String?  @default("linear_regression")
+  seasonalAdjustment  Float?   @default(1.0)
+  trendComponent      Float?
+  forecastHorizon     Int      @default(30)
+  accuracy            Float?
+  createdAt           DateTime @default(now())
 
   @@index([productId])
+  @@index([createdAt])
+  @@index([confidenceScore])
 }
 
 model NotificationLog {
-  id           String             @id @default(cuid())
-  shopId       String
-  shop         Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  channel      NotificationChannel // Updated to Enum
-  recipient    String?
-  message      String
-  status       NotificationStatus // Updated to Enum
-  productId    String?
-  productTitle String?
-  alertType    String?            // Kept as String? for flexibility
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  shopId          String
+  shop            Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  channel         NotificationChannel
+  recipient       String?
+  message         String
+  subject         String?
+  status          NotificationStatus
+  productId       String?
+  productTitle    String?
+  alertType       String?
+  alertId         String?
+  errorMessage    String?
+  retryCount      Int                @default(0)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@index([shopId])
+  @@index([channel])
+  @@index([status])
+  @@index([productId])
+  @@index([createdAt])
 }

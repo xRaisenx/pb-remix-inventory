@@ -1,112 +1,35 @@
-import React from 'react';
+import { isRouteErrorResponse, useRouteError, Link } from "@remix-run/react";
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+interface ErrorDisplayProps {
+  error: unknown;
   errorId: string;
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ComponentType<{ error: Error; errorId: string; retry: () => void }>;
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: ''
-    };
-  }
-
-  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    // Generate a unique error ID for tracking
-    const errorId = `PB_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, errorId }) => {
+  const getErrorMessage = (error: unknown): { title: string; message: string; suggestion: string; isDatabaseError: boolean } => {
+    let errorMessage = "An unexpected error occurred";
+    let isDatabaseError = false;
     
-    return {
-      hasError: true,
-      error,
-      errorId
-    };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({
-      error,
-      errorInfo
-    });
-
-    // Log error for monitoring (in production, send to error tracking service)
-    console.group('🚨 Planet Beauty Error Boundary');
-    console.error('Error:', error);
-    console.error('Error Info:', errorInfo);
-    console.error('Component Stack:', errorInfo.componentStack);
-    console.groupEnd();
-
-    // In production, you would send this to an error tracking service
-    // like Sentry, LogRocket, or Bugsnag
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-      // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
+    if (isRouteErrorResponse(error)) {
+      errorMessage = error.data?.message || error.statusText;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Check if it's a database-related error
+      isDatabaseError = 
+        error.message.includes('session') ||
+        error.message.includes('database') ||
+        error.message.includes('connection') ||
+        error.message.includes('Prisma') ||
+        error.message.includes('pool');
     }
-  }
-
-  handleRetry = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: ''
-    });
-  };
-
-  render() {
-    if (this.state.hasError) {
-      // Use custom fallback if provided
-      if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return (
-          <FallbackComponent 
-            error={this.state.error!} 
-            errorId={this.state.errorId}
-            retry={this.handleRetry}
-          />
-        );
-      }
-
-      // Default Planet Beauty error UI
-      return (
-        <PlanetBeautyErrorFallback 
-          error={this.state.error!}
-          errorId={this.state.errorId}
-          retry={this.handleRetry}
-        />
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-interface ErrorFallbackProps {
-  error: Error;
-  errorId: string;
-  retry: () => void;
-}
-
-const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorId, retry }) => {
-  const getErrorMessage = (error: Error): { title: string; message: string; suggestion: string } => {
-    const errorMessage = error.message.toLowerCase();
     
-    // Database connection errors
-    if (errorMessage.includes('connection') || errorMessage.includes('database') || errorMessage.includes('prisma')) {
+    if (isDatabaseError) {
       return {
         title: 'Database Connection Issue',
         message: 'We\'re having trouble connecting to your inventory database. This is usually temporary.',
-        suggestion: 'Please wait a moment and try refreshing the page. If the issue persists, contact our support team.'
+        suggestion: 'Please wait a moment and try refreshing the page. If the issue persists, run: npm run db:init',
+        isDatabaseError: true
       };
     }
     
@@ -115,7 +38,8 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
       return {
         title: 'Network Connection Problem',
         message: 'Unable to connect to Planet Beauty services. Please check your internet connection.',
-        suggestion: 'Try refreshing the page or check your network connection. The issue should resolve automatically.'
+        suggestion: 'Try refreshing the page or check your network connection. The issue should resolve automatically.',
+        isDatabaseError: false
       };
     }
     
@@ -124,7 +48,8 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
       return {
         title: 'Session Expired',
         message: 'Your session has expired for security reasons.',
-        suggestion: 'Please refresh the page to log back in. Your data is safe and will be available once you\'re reconnected.'
+        suggestion: 'Please refresh the page to log back in. Your data is safe and will be available once you\'re reconnected.',
+        isDatabaseError: false
       };
     }
     
@@ -133,7 +58,8 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
       return {
         title: 'Shopify Connection Issue',
         message: 'We\'re having trouble connecting to your Shopify store data.',
-        suggestion: 'This is usually temporary. Please try again in a few moments, or check your Shopify app permissions.'
+        suggestion: 'This is usually temporary. Please try again in a few moments, or check your Shopify app permissions.',
+        isDatabaseError: false
       };
     }
     
@@ -141,18 +67,23 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
     return {
       title: 'Something Went Wrong',
       message: 'We encountered an unexpected issue with your Planet Beauty inventory system.',
-      suggestion: 'Please try refreshing the page. If the problem continues, our support team can help resolve this quickly.'
+      suggestion: 'Please try refreshing the page. If the problem continues, our support team can help resolve this quickly.',
+      isDatabaseError: false
     };
   };
 
-  const { title, message, suggestion } = getErrorMessage(error);
+  const { title, message, suggestion, isDatabaseError } = getErrorMessage(error);
 
   const handleContactSupport = () => {
     const subject = encodeURIComponent(`Planet Beauty Error: ${title} (${errorId})`);
     const body = encodeURIComponent(
-      `Hi Planet Beauty Support,\n\nI encountered an error in my inventory system:\n\nError ID: ${errorId}\nError: ${error.message}\nTime: ${new Date().toISOString()}\n\nPlease help resolve this issue.\n\nThank you!`
+      `Hi Planet Beauty Support,\n\nI encountered an error in my inventory system:\n\nError ID: ${errorId}\nError: ${error instanceof Error ? error.message : 'Unknown error'}\nTime: ${new Date().toISOString()}\n\nPlease help resolve this issue.\n\nThank you!`
     );
     window.open(`mailto:support@planetbeauty.com?subject=${subject}&body=${body}`);
+  };
+
+  const handleRetry = () => {
+    window.location.reload();
   };
 
   return (
@@ -181,10 +112,22 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
             </p>
           </div>
 
+          {/* Database-specific help */}
+          {isDatabaseError && (
+            <div className="pb-p-4 pb-mb-6 rounded-md bg-yellow-50 border border-yellow-200">
+              <p className="pb-text-sm pb-font-medium pb-mb-2" style={{ color: '#92400e' }}>
+                🔧 For Developers:
+              </p>
+              <div className="pb-text-xs pb-font-mono bg-gray-100 pb-p-2 rounded" style={{ color: '#374151' }}>
+                npm run db:init
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="pb-space-y-3">
             <button
-              onClick={retry}
+              onClick={handleRetry}
               className="pb-btn-primary pb-w-full"
               style={{ backgroundColor: '#d81b60' }}
             >
@@ -208,13 +151,10 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
               Contact Support
             </button>
 
-            <button
-              onClick={() => window.location.href = '/app'}
-              className="pb-btn-secondary pb-w-full"
-            >
+            <Link to="/app" className="pb-btn-secondary pb-w-full pb-block pb-text-center">
               <i className="fas fa-home mr-2"></i>
               Return to Dashboard
-            </button>
+            </Link>
           </div>
 
           {/* Error Details (for development) */}
@@ -225,10 +165,10 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
               </summary>
               <div className="pb-p-3 rounded-md bg-red-50 pb-text-xs pb-font-mono pb-overflow-auto">
                 <p><strong>Error ID:</strong> {errorId}</p>
-                <p><strong>Error:</strong> {error.message}</p>
+                <p><strong>Error:</strong> {error instanceof Error ? error.message : String(error)}</p>
                 <p><strong>Stack:</strong></p>
                 <pre className="pb-whitespace-pre-wrap pb-text-xs pb-mt-1">
-                  {error.stack}
+                  {error instanceof Error ? error.stack : 'No stack trace available'}
                 </pre>
               </div>
             </details>
@@ -248,43 +188,34 @@ const PlanetBeautyErrorFallback: React.FC<ErrorFallbackProps> = ({ error, errorI
 
 // Hook for programmatic error handling
 export const useErrorHandler = () => {
-  const [error, setError] = React.useState<Error | null>(null);
-
-  const handleError = React.useCallback((error: Error | string) => {
+  const handleError = (error: Error | string) => {
     const errorObj = typeof error === 'string' ? new Error(error) : error;
-    setError(errorObj);
     
     // Log for monitoring
     console.error('🚨 Planet Beauty Error:', errorObj);
     
     // In production, send to error tracking
-    if (process.env.NODE_ENV === 'production') {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
       // Example: Sentry.captureException(errorObj);
     }
-  }, []);
+    
+    // Re-throw to be caught by error boundary
+    throw errorObj;
+  };
 
-  const clearError = React.useCallback(() => {
-    setError(null);
-  }, []);
-
-  // Throw error to be caught by error boundary
-  if (error) {
-    throw error;
-  }
-
-  return { handleError, clearError };
+  return { handleError };
 };
 
-// Higher-order component for wrapping components with error boundary
-export const withErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
-  fallback?: React.ComponentType<{ error: Error; errorId: string; retry: () => void }>
-) => {
-  return React.forwardRef<any, P>((props, ref) => (
-    <ErrorBoundary fallback={fallback}>
-      <Component {...props} ref={ref} />
-    </ErrorBoundary>
-  ));
-};
+// Main error boundary component (using route error boundary pattern)
+export function DatabaseErrorBoundary() {
+  const error = useRouteError();
+  const errorId = `PB_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  console.group('🚨 Planet Beauty Error Boundary');
+  console.error('Error:', error);
+  console.groupEnd();
 
-export default ErrorBoundary;
+  return <ErrorDisplay error={error} errorId={errorId} />;
+}
+
+export default DatabaseErrorBoundary;

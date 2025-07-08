@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface LoadingStateProps {
   message?: string;
   size?: 'small' | 'medium' | 'large';
@@ -5,24 +7,24 @@ interface LoadingStateProps {
   overlay?: boolean;
 }
 
-export const LoadingState = ({ 
+export const LoadingState: React.FC<LoadingStateProps> = ({ 
   message = "Loading your Planet Beauty data...", 
   size = 'medium',
   type = 'spinner',
   overlay = false 
-}: LoadingStateProps) => {
+}) => {
   const sizeClasses = {
     small: 'w-4 h-4',
     medium: 'w-8 h-8', 
     large: 'w-12 h-12'
   };
 
-  const SpinnerComponent = () => (
+  const SpinnerComponent: React.FC = () => (
     <div className="pb-flex pb-flex-col pb-items-center pb-justify-center pb-space-y-4">
       <div 
         className={`${sizeClasses[size]} pb-border-4 pb-border-pink-200 pb-border-t-pink-600 pb-rounded-full animate-spin`}
         style={{ borderTopColor: '#d81b60' }}
-      ></div>
+      />
       {message && (
         <p className="pb-text-sm pb-text-center" style={{ color: '#6b7280' }}>
           {message}
@@ -31,19 +33,19 @@ export const LoadingState = ({
     </div>
   );
 
-  const SkeletonComponent = () => (
+  const SkeletonComponent: React.FC = () => (
     <div className="pb-space-y-4">
-      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-3/4 animate-pulse"></div>
-      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/2 animate-pulse"></div>
-      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-2/3 animate-pulse"></div>
+      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-3/4 animate-pulse" />
+      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/2 animate-pulse" />
+      <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-2/3 animate-pulse" />
     </div>
   );
 
-  const PulseComponent = () => (
+  const PulseComponent: React.FC = () => (
     <div className="pb-flex pb-items-center pb-space-x-2">
-      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse"></div>
-      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse" />
+      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+      <div className="w-2 h-2 bg-pink-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
       {message && (
         <span className="pb-ml-2 pb-text-sm" style={{ color: '#6b7280' }}>
           {message}
@@ -73,11 +75,11 @@ export const LoadingState = ({
     );
   }
 
-  return renderContent();
+  return <>{renderContent()}</>;
 };
 
 // Specific loading states for different areas
-export const InventoryLoadingState = () => (
+export const InventoryLoadingState: React.FC = () => (
   <LoadingState 
     message="Loading your inventory data..." 
     size="medium"
@@ -85,7 +87,7 @@ export const InventoryLoadingState = () => (
   />
 );
 
-export const ProductsLoadingState = () => (
+export const ProductsLoadingState: React.FC = () => (
   <LoadingState 
     message="Fetching your products from Shopify..." 
     size="medium"
@@ -93,7 +95,7 @@ export const ProductsLoadingState = () => (
   />
 );
 
-export const AlertsLoadingState = () => (
+export const AlertsLoadingState: React.FC = () => (
   <LoadingState 
     message="Checking for critical alerts..." 
     size="medium"
@@ -101,7 +103,7 @@ export const AlertsLoadingState = () => (
   />
 );
 
-export const ReportsLoadingState = () => (
+export const ReportsLoadingState: React.FC = () => (
   <LoadingState 
     message="Generating your analytics report..." 
     size="medium"
@@ -110,29 +112,33 @@ export const ReportsLoadingState = () => (
 );
 
 // Table loading skeleton
-export const TableLoadingState = ({ rows = 5 }: { rows?: number }) => (
+interface TableLoadingStateProps {
+  rows?: number;
+}
+
+export const TableLoadingState: React.FC<TableLoadingStateProps> = ({ rows = 5 }) => (
   <div className="pb-space-y-3">
     {Array.from({ length: rows }).map((_, index) => (
       <div key={index} className="pb-flex pb-space-x-4 pb-items-center">
-        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-8 animate-pulse"></div>
-        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/4 animate-pulse"></div>
-        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/6 animate-pulse"></div>
-        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/8 animate-pulse"></div>
-        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/12 animate-pulse"></div>
+        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-8 animate-pulse" />
+        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/4 animate-pulse" />
+        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/6 animate-pulse" />
+        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/8 animate-pulse" />
+        <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-1/12 animate-pulse" />
       </div>
     ))}
   </div>
 );
 
 // Metrics card loading skeleton
-export const MetricsLoadingState = () => (
+export const MetricsLoadingState: React.FC = () => (
   <div className="pb-grid pb-grid-cols-1 md:pb-grid-cols-4 pb-gap-6 pb-mb-6">
     {Array.from({ length: 4 }).map((_, index) => (
       <div key={index} className="pb-card">
         <div className="pb-space-y-3">
-          <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-3/4 animate-pulse"></div>
-          <div className="pb-h-8 pb-bg-gray-200 pb-rounded pb-w-1/2 animate-pulse"></div>
-          <div className="pb-h-3 pb-bg-gray-200 pb-rounded pb-w-full animate-pulse"></div>
+          <div className="pb-h-4 pb-bg-gray-200 pb-rounded pb-w-3/4 animate-pulse" />
+          <div className="pb-h-8 pb-bg-gray-200 pb-rounded pb-w-1/2 animate-pulse" />
+          <div className="pb-h-3 pb-bg-gray-200 pb-rounded pb-w-full animate-pulse" />
         </div>
       </div>
     ))}
