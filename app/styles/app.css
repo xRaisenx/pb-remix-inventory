@@ -1,6 +1,6 @@
-/* Custom Styles for Shopify Polaris App */
+/* Planet Beauty Inventory AI Custom Styles */
 
-/* Ensure the app takes up the full height if needed */
+/* Reset and Base Styles */
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -8,124 +8,341 @@ html, body, #root {
 }
 
 body {
-  background-color: var(--p-color-bg-app-subdued, #f9fafb); /* Fallback color */
-  color: var(--p-color-text, #202223); /* Fallback color */
-  font-family: var(--p-font-family, -apple-system, BlinkMacSystemFont, "San Francisco", "Segoe UI", Roboto, "Helvetica Neue", sans-serif);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f5f7fa;
+  color: #4a5568;
 }
 
-/* TopBar Customization */
-/* Use Polaris variables for background and border of the TopBar */
-.Polaris-TopBar {
-  background-color: var(--p-color-bg-surface, #ffffff) !important;
-  border-bottom: var(--p-border-width-1) solid var(--p-color-border, #c9cccf) !important;
-}
-
-/* Navigation Customization */
-/* Use Polaris variables for the navigation background and item states */
-.Polaris-Navigation {
-  background-color: var(--p-color-bg-surface-secondary, #f1f2f3) !important;
-}
-
-.Polaris-Navigation__Item {
-  color: var(--p-color-text-subdued, #6d7175) !important;
-}
-
-.Polaris-Navigation__Item--selected,
-.Polaris-Navigation__Item:hover {
-  background-color: var(--p-color-bg-surface-selected, #e5e7e9) !important;
-  color: var(--p-color-text, #202223) !important;
-}
-
-/* Link styles to match Polaris link appearance */
-a {
-  color: var(--p-color-text-interactive, #2c6ecb);
-  text-decoration: none;
-}
-
-a:hover {
-  color: var(--p-color-text-interactive-hover, #1e4f8a);
-  text-decoration: underline;
-}
-
-/* Example of a custom component styling using Polaris variables */
-.MyCustomComponent {
-  padding: var(--p-space-400, 1rem);
-  background-color: var(--p-color-bg-surface-info, #e0f5ff);
-  border: 1px solid var(--p-color-border-info-subdued, #78c6f3);
-  border-radius: var(--p-border-radius-200, 4px);
-}
-
-/* Ensure Polaris custom properties are available */
+/* Planet Beauty Brand Colors */
 :root {
-  --p-color-bg-app-subdued: #f9fafb; /* Example, ensure these are loaded via Polaris */
-  --p-color-text: #202223;
-  /* Add other variables you intend to use if they are not automatically available */
+  --pb-primary: #c94f6d;
+  --pb-primary-hover: #b91c4f;
+  --pb-primary-light: #fff1f2;
+  --pb-secondary: #d81b60;
+  --pb-background: #f5f7fa;
+  --pb-surface: #ffffff;
+  --pb-text: #4a5568;
+  --pb-text-dark: #2d3748;
+  --pb-text-light: #718096;
+  --pb-border: #e2e8f0;
+  --pb-success: #c6f6d5;
+  --pb-success-text: #22543d;
+  --pb-warning: #fefcbf;
+  --pb-warning-text: #744210;
+  --pb-critical: #fed7d7;
+  --pb-critical-text: #822727;
+  --pb-info: #ebf8ff;
+  --pb-info-text: #234e52;
 }
 
-/* Specific overrides for input fields if necessary, prefer Polaris components */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="search"],
-input[type="number"],
-textarea,
-select {
-  /* Example of applying Polaris-like styling to raw inputs */
-  border: var(--p-border-width-1) solid var(--p-color-border, #c9cccf);
-  border-radius: var(--p-border-radius-100, 3px);
-  padding: var(--p-space-200) var(--p-space-300);
-  line-height: var(--p-line-height-2, 1.3333);
-  box-shadow: var(--p-shadow-inset);
+/* Layout Components */
+.pb-navbar {
+  background-color: var(--pb-primary);
+  color: white;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
-input[type="search"]:focus,
-input[type="number"]:focus,
-textarea:focus,
-select:focus {
-  border-color: var(--p-color-border-focus, #458fff);
-  outline: none;
-  box-shadow: 0 0 0 1px var(--p-color-border-focus, #458fff), var(--p-shadow-inset-focus);
+.pb-header-bg {
+  background-color: var(--pb-primary);
+  color: white;
+  padding: 2rem;
 }
 
-/* Styling for the submit button in the login form to match Polaris Button */
-/* It's better to use <Button submit> from @shopify/polaris where possible */
-/* This is a fallback if you must use a raw <button type="submit"> */
-form button[type="submit"] {
-  background-color: var(--p-color-bg-interactive, #2c6ecb);
-  color: var(--p-color-text-on-interactive, #ffffff);
-  border: var(--p-border-width-1) solid transparent;
-  border-radius: var(--p-border-radius-100, 3px);
-  padding: var(--p-space-200) var(--p-space-400); /* Adjusted padding */
-  font-weight: var(--p-font-weight-semibold, 600);
-  line-height: var(--p-line-height-3, 1.5);
+.pb-sidebar {
+  background-color: var(--pb-surface);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 1rem;
+}
+
+.pb-card {
+  background-color: var(--pb-surface);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Navigation */
+.pb-nav-item {
+  padding: 12px 16px;
+  color: var(--pb-text);
   cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.pb-nav-item:hover {
+  background-color: #f7fafc;
+}
+
+.pb-nav-item.active {
+  background-color: var(--pb-primary-light);
+  color: var(--pb-secondary);
+}
+
+/* Buttons */
+.pb-btn-primary {
+  background-color: var(--pb-secondary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.pb-btn-primary:hover {
+  background-color: var(--pb-primary-hover);
+}
+
+.pb-btn-secondary {
+  background-color: var(--pb-surface);
+  color: var(--pb-text);
+  padding: 8px 16px;
+  border: 1px solid var(--pb-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.pb-btn-secondary:hover {
+  background-color: #f7fafc;
+}
+
+/* Status Indicators */
+.pb-status-healthy {
+  background-color: var(--pb-success);
+  color: var(--pb-success-text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pb-status-low {
+  background-color: var(--pb-warning);
+  color: var(--pb-warning-text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pb-status-critical {
+  background-color: var(--pb-critical);
+  color: var(--pb-critical-text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Alerts */
+.pb-alert-critical {
+  border-left: 4px solid #f56565;
+  background-color: #fff5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.pb-alert-warning {
+  border-left: 4px solid #ecc94b;
+  background-color: #fffff0;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.pb-alert-high-sales {
+  border-left: 4px solid #3182ce;
+  background-color: var(--pb-info);
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+/* Form Elements */
+.pb-input, .pb-textarea, .pb-select {
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  padding: 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pb-input:focus, .pb-textarea:focus, .pb-select:focus {
+  border-color: var(--pb-secondary);
+  box-shadow: 0 0 0 3px rgba(216, 27, 96, 0.1);
+}
+
+/* Tables */
+.pb-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.pb-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 500;
+  color: var(--pb-text-light);
+  border-bottom: 1px solid var(--pb-border);
+  cursor: pointer;
+}
+
+.pb-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--pb-border);
+}
+
+.pb-table tr:hover {
+  background-color: #f7fafc;
+}
+
+/* Metrics */
+.pb-metric-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.pb-metric-products {
+  background-color: var(--pb-primary-light);
+  color: var(--pb-secondary);
+}
+
+.pb-metric-stock {
+  background-color: #fff5f5;
+  color: #c53030;
+}
+
+.pb-metric-inventory {
+  background-color: var(--pb-info);
+  color: var(--pb-info-text);
+}
+
+/* Product Cards */
+.pb-product-card {
+  height: 200px;
+  background-color: #f3f4f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pb-product-info {
+  padding: 16px;
+}
+
+.pb-trending-tag {
+  background-color: var(--pb-info);
+  color: var(--pb-info-text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+/* Modal */
+.pb-modal {
+  background-color: rgba(0,0,0,0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.pb-modal-content {
+  background-color: white;
+  padding: 24px;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Grid System */
+.pb-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pb-grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.pb-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pb-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pb-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Responsive Design */
+@media (min-width: 768px) {
+  .pb-grid-md-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pb-grid-md-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pb-grid-md-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Utility Classes */
+.pb-flex { display: flex; }
+.pb-flex-col { flex-direction: column; }
+.pb-items-center { align-items: center; }
+.pb-justify-between { justify-content: space-between; }
+.pb-justify-center { justify-content: center; }
+.pb-space-x-4 > * + * { margin-left: 1rem; }
+.pb-space-y-4 > * + * { margin-top: 1rem; }
+.pb-mb-4 { margin-bottom: 1rem; }
+.pb-mb-6 { margin-bottom: 1.5rem; }
+.pb-mt-4 { margin-top: 1rem; }
+.pb-p-4 { padding: 1rem; }
+.pb-p-6 { padding: 1.5rem; }
+.pb-text-sm { font-size: 0.875rem; }
+.pb-text-lg { font-size: 1.125rem; }
+.pb-text-xl { font-size: 1.25rem; }
+.pb-text-2xl { font-size: 1.5rem; }
+.pb-text-3xl { font-size: 1.875rem; }
+.pb-font-medium { font-weight: 500; }
+.pb-font-bold { font-weight: 700; }
+.pb-w-full { width: 100%; }
+.pb-h-full { height: 100%; }
+.pb-min-h-screen { min-height: 100vh; }
+.pb-overflow-hidden { overflow: hidden; }
+.pb-overflow-y-auto { overflow-y: auto; }
+.pb-cursor-pointer { cursor: pointer; }
+
+/* Container */
+.pb-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Footer */
+.pb-footer {
+  background-color: #1f2937;
+  color: white;
+  padding: 16px;
   text-align: center;
-  box-shadow: var(--p-shadow-button);
-  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-form button[type="submit"]:hover {
-  background-color: var(--p-color-bg-interactive-hover, #1e4f8a);
-  box-shadow: var(--p-shadow-button-hover);
-}
-
-form button[type="submit"]:active {
-  background-color: var(--p-color-bg-interactive-active, #1a4373);
-  box-shadow: var(--p-shadow-button-active);
-}
-
-/* Ensure that the custom styles for TopBar and Navigation do not conflict
-   with any inline styles or other stylesheets. Using !important should be
-   a last resort, prefer specificity or ensure Polaris styles are loaded first.
-*/
-
-/*
-  If Polaris styles are correctly linked in app/root.tsx via:
-  import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
-  { rel: "stylesheet", href: polarisStyles },
-  Then these custom properties should ideally be available globally.
-  The :root block above is more of a fallback or for documentation.
-*/
+/* Product specific colors (matching example) */
+.anastasia-brow-gel { background-color: #d3a8b0; }
+.elta-md-sunscreen { background-color: #e5e7eb; }
+.borghese-serum { background-color: #f5c6cb; }
+.kerastase-shampoo { background-color: #1f2937; }
+.mario-badescu-spray { background-color: #64748b; }
+.t3-hair-dryer { background-color: #ef4444; }

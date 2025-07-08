@@ -20,6 +20,7 @@ export const meta: MetaFunction = () => [{ title: "Planet Beauty AI Inventory" }
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
   { rel: "stylesheet", href: appStyles }, // This was kept as per the user's corrected code
+  { rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" },
   ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
 ];
 

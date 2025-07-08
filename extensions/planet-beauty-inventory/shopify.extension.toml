@@ -1,0 +1,12 @@
+type = "admin_link"
+name = "planet-beauty-inventory"
+handle = "planet-beauty-inventory"
+
+[extensions.planet-beauty-inventory]
+metafields = []
+
+[[extensions.planet-beauty-inventory.targeting]]
+target = "admin.product.details.actions.render"
+
+[[extensions.planet-beauty-inventory.targeting]]
+target = "admin.product.index.actions.bulk.render"
