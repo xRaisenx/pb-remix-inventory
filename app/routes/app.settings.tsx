@@ -1,7 +1,5 @@
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs, redirect } from "@remix-run/node";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore Node built-in buffer module types
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
