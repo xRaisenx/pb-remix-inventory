@@ -5,13 +5,10 @@ import { Text } from "@shopify/polaris";
 // Assuming login is exported from your shopify.server.ts
 import { login } from "~/shopify.server"; // Make sure login is imported
 
-// Assuming styles.module.css is in the same directory as this route file
-// e.g., app/routes/styles.module.css or app/routes/_index/styles.module.css
-// If it's app/styles/index.module.css, then use:
-// import styles from "~/styles/index.module.css";
-import stylesUrl from "./styles.module.css?url";
+// Import CSS modules properly without ?url
+import styles from "./styles.module.css";
 
-export const links: LinksFunction = () => [{ rel: "stylesheet", href: stylesUrl as string }];
+export const links: LinksFunction = () => [];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
