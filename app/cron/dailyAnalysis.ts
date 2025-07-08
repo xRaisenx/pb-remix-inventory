@@ -1,6 +1,5 @@
 import prisma from '~/db.server';
 import { performDailyProductSync } from '~/dailyAnalysis';
-import { getDemandForecast } from '../services/ai.server';
 import { Session } from "@shopify/shopify-api";
 
 // ... (sendEmailNotification function remains the same)

@@ -8,7 +8,6 @@ import prisma from "~/db.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { stringify } from "csv-stringify/sync";
 import React, { useState } from "react";
-import React from "react"; // Added missing import for React
 
 // TypeScript Interfaces
 interface ReportProductSummary {
@@ -169,8 +168,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const csvRows = products.map(product => {
       const totalInventory = product.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
       const warehouseNames = [...new Set(product.inventory
-        .filter(inv => inv.quantity > 0)
-        .map(inv => inv.warehouse.name))]
+        .filter((inv: { quantity: number; warehouse: { name: string } }) => inv.quantity > 0)
+        .map((inv: { warehouse: { name: string } }) => inv.warehouse.name))]
         .join(', ') || 'N/A';
       const firstVariant = product.variants?.[0];
 
@@ -217,7 +216,7 @@ export default function AppReportsPage() {
     if (isGeneratingCsv) {
       setExportProgress(0);
       const interval = setInterval(() => {
-        setExportProgress(prev => {
+        setExportProgress((prev: number) => {
           if (prev >= 100) {
             clearInterval(interval);
             return 100;
@@ -300,7 +299,7 @@ export default function AppReportsPage() {
               <h2 className="pb-text-lg pb-font-medium pb-mb-4">Top Trending Products</h2>
               {visualSummary.topTrendingProducts.length > 0 ? (
                 <div className="pb-space-y-3">
-                  {visualSummary.topTrendingProducts.map((product, index) => (
+                  {visualSummary.topTrendingProducts.map((product: {title:string; salesVelocityFloat:number|null}, index: number) => (
                     <div key={product.title} className="pb-flex pb-justify-between pb-items-center pb-p-3 bg-gray-50 rounded-md">
                       <div className="pb-flex pb-items-center">
                         <div className="pb-w-8 pb-h-8 pb-flex pb-items-center pb-justify-center rounded-full" style={{ backgroundColor: '#d81b60', color: 'white' }}>
@@ -324,7 +323,7 @@ export default function AppReportsPage() {
               <h2 className="pb-text-lg pb-font-medium pb-mb-4">Inventory by Category</h2>
               {visualSummary.inventoryByCategory.length > 0 ? (
                 <div className="pb-space-y-3">
-                  {visualSummary.inventoryByCategory.slice(0, 5).map((category) => (
+                  {visualSummary.inventoryByCategory.slice(0, 5).map((category: {category:string; totalQuantity:number}) => (
                     <div key={category.category} className="pb-flex pb-justify-between pb-items-center">
                       <span className="pb-font-medium">{category.category}</span>
                       <span className="pb-badge-info">

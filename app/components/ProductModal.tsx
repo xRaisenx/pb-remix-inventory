@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import type { ProductForTable } from "~/routes/app.products";
 import { INTENT } from "~/utils/intents";
 
