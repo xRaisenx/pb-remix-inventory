@@ -22,7 +22,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // If a 'shop' parameter is present, initiate the auth process immediately.
   // This is the standard flow for new app installations.
   if (url.searchParams.get("shop")) {
-    throw await login(request);
+    return await login(request);
   }
 
   // If no 'shop' param, show the manual login form.
@@ -33,7 +33,7 @@ export default function IndexPage() { // Renamed component for clarity
   const { showForm } = useLoaderData<typeof loader>();
 
   return (
-    <div className="index-container"> {/* Using a more generic class name from styles.module.css */}
+    <div className="index"> {/* Fixed class name to match styles.module.css */}
       <div className="content">
         <h1 className="heading">Welcome to [Your App Name]</h1>
         <p className="text">
