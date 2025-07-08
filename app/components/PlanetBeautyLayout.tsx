@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Text, ButtonGroup, Button } from '@shopify/polaris';
 
 interface PlanetBeautyLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function PlanetBeautyLayout({ children }: PlanetBeautyLayoutProps) {
