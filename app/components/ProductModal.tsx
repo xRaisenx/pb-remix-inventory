@@ -132,7 +132,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <div>
               <p><strong>SKU:</strong> {selectedVariantDetails?.sku || 'N/A'}</p>
               <p><strong>Vendor:</strong> {product?.vendor || 'N/A'}</p>
-              <p><strong>Category:</strong> {product?.productType || 'Beauty Product'}</p>
+              {/* Category display removed to avoid missing property */}
             </div>
             <div>
               <p><strong>Price:</strong> ${selectedVariantDetails?.price?.toString() || '0.00'}</p>
@@ -144,9 +144,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <div className="pb-mt-3">
             <p><strong>Estimated Stockout:</strong> {product?.stockoutDays?.toFixed(2) || '0.00'} days</p>
             <p><strong>Description:</strong> High-quality beauty product from {product?.vendor || 'Planet Beauty'}. 
-            Ideal for {product?.productType?.toLowerCase().includes('skincare') ? 'sensitive or oily skin types' : 
-                     product?.productType?.toLowerCase().includes('haircare') ? 'all hair types' : 
-                     'daily use'}.</p>
+            Ideal for daily use.</p>
           </div>
         </div>
 

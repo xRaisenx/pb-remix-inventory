@@ -20,7 +20,7 @@ const createPrismaClient = () => {
 const prisma = global.prisma || createPrismaClient();
 
 // Add query timing telemetry middleware
-prisma.$use(async (params: Prisma.MiddlewareParams, next: Prisma.MiddlewareNext) => {
+prisma.$use(async (params: Prisma.MiddlewareParams, next: (params: Prisma.MiddlewareParams) => Promise<unknown>) => {
   const start = Date.now();
   const result = await next(params);
   const duration = Date.now() - start;

@@ -4,7 +4,7 @@ import PQueue from "p-queue";
 const writeQueue = new PQueue({ concurrency: 8 });
 
 export function queuedWrite<T>(fn: () => Promise<T>): Promise<T> {
-  return writeQueue.add(fn);
+  return writeQueue.add(async () => await fn()) as Promise<T>;
 }
 
 // Optional helper for common CRUD patterns
