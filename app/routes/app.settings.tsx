@@ -66,6 +66,11 @@ function validateSettings(settings: NotificationSettingsType): Record<string, st
     errors.stockoutThreshold = "Stockout threshold must be between 1 and 365 days";
   }
 
+  // AI key validation
+  if (settings.ai?.enabled && !settings.ai.apiKey.trim()) {
+    errors.ai = "API key required when custom Gemini key is enabled";
+  }
+
   return errors;
 }
 
@@ -130,7 +135,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
     stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
     notificationFrequency: (notificationSettings?.frequency as 'immediate' | 'hourly' | 'daily') ?? 'daily',
-    syncEnabled: notificationSettings?.syncEnabled ?? false
+    syncEnabled: notificationSettings?.syncEnabled ?? false,
+    ai: {
+      enabled: false,
+      apiKey: ''
+    }
   };
 
   const url = new URL(request.url);

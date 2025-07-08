@@ -41,6 +41,7 @@ export interface NotificationSettingsType {
   stockoutThreshold: number;
   notificationFrequency: 'immediate' | 'hourly' | 'daily';
   syncEnabled: boolean;
+  ai: { enabled: boolean; apiKey: string };
 }
 
 interface SettingsProps {
@@ -101,6 +102,11 @@ export default function Settings({ notificationSettings, setNotificationSettings
       if (!settings.telegram.chatId.trim()) {
         errors.telegramChat = "Chat ID is required for Telegram notifications";
       }
+    }
+
+    // AI API Key validation
+    if (settings.ai.enabled && !settings.ai.apiKey.trim()) {
+      errors.ai = "API key is required when custom Gemini key is enabled";
     }
 
     // Numeric validation
@@ -429,6 +435,36 @@ export default function Settings({ notificationSettings, setNotificationSettings
           />
           <span className="pb-font-medium">Enable Real-Time Shopify Inventory Sync</span>
         </label>
+      </div>
+
+      {/* AI Settings */}
+      <div className="pb-card">
+        <h3 className="pb-text-lg pb-font-medium pb-mb-4" style={{ color: '#374151' }}>AI Settings (Gemini 2.0 Flash)</h3>
+        <div className="pb-space-y-4">
+          <label className="pb-flex pb-items-center pb-mb-3">
+            <input
+              type="checkbox"
+              checked={notificationSettings.ai.enabled}
+              onChange={(e) => handleInputChange('ai', 'enabled', e.target.checked)}
+              className="mr-2"
+            />
+            <span className="pb-font-medium">Use custom Gemini API key</span>
+          </label>
+          <input
+            type="text"
+            className={`pb-input pb-w-full ${validationErrors.ai ? 'border-red-500' : ''}`}
+            placeholder="Your Gemini 2.0 Flash API Key"
+            value={notificationSettings.ai.apiKey}
+            onChange={(e) => handleInputChange('ai', 'apiKey', e.target.value)}
+            disabled={!notificationSettings.ai.enabled}
+          />
+          {validationErrors.ai && (
+            <p className="text-red-500 text-sm mt-1">{validationErrors.ai}</p>
+          )}
+          <p className="pb-text-xs" style={{ color: '#6b7280' }}>
+            Leave unchecked to use the app's default Gemini 2.0 Flash credentials.
+          </p>
+        </div>
       </div>
 
       {/* Notification History */}

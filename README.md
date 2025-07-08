@@ -143,7 +143,7 @@ Transform your Shopify beauty store with advanced AI-driven inventory management
 - **Frontend**: React + Remix.js with TypeScript
 - **Backend**: Node.js with Express and GraphQL
 - **Database**: PostgreSQL with Prisma ORM
-- **AI Engine**: Google Generative AI integration
+- **AI Engine**: Gemini 2.0 Flash (default, app-provided) — merchants can supply their own OpenAI or Gemini API keys in Settings
 - **Hosting**: Vercel with edge functions
 - **Integration**: Shopify GraphQL API
 
