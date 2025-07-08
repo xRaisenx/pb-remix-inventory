@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERRORimport React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => any>(
@@ -142,7 +142,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
         setValidationErrors((prev: ValidationErrors) => ({ ...prev, [channel]: '' }));
       }
     }, 300),
-    [validationErrors]
+    [validationErrors, setNotificationSettings]
   );
 
   const handleInputChange = useCallback((channel: keyof NotificationSettingsType, field: string, value: any) => {
@@ -159,7 +159,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
     if (validationErrors[field as string]) {
       setValidationErrors((prev: ValidationErrors) => ({ ...prev, [field as string]: '' }));
     }
-  }, [validationErrors]);
+  }, [validationErrors, setNotificationSettings]);
 
   const testNotification = (channel: string) => {
     const message = `Test notification sent via ${channel}`;
@@ -176,7 +176,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
     console.log(`${channel.charAt(0).toUpperCase() + channel.slice(1)} test sent: ${message}`);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     // Validate before submitting
     const errors = validateSettings(notificationSettings);
     if (Object.keys(errors).length > 0) {
@@ -202,7 +202,7 @@ export default function Settings({ notificationSettings, setNotificationSettings
     }
     
     setIsSaving(false);
-  };
+  }, [notificationSettings, onSubmit]);
 
   // Debounced submit to prevent double-clicking
   const debouncedSubmit = useMemo(
