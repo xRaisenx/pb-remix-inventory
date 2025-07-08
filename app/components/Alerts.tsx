@@ -86,11 +86,15 @@ export default function AlertsDisplay({ alerts, maxAlertsToShow = 3 /*, onDismis
       ))}
 
       {alerts.length > maxAlertsToShow && (
-        // Using a less prominent way to link to all alerts, could also be a Button or Banner action
+        // Using a simple button approach instead of problematic Link with onClick
         <div style={{paddingBlockStart: 'var(--p-space-200)', textAlign: 'right'}}>
-            <Link onClick={() => navigate("/app/alerts")}>
+            <Button 
+              variant="plain" 
+              onClick={() => navigate("/app/alerts")}
+              accessibilityLabel={`View all ${alerts.length} alerts`}
+            >
               View all {alerts.length} alerts...
-            </Link>
+            </Button>
         </div>
       )}
     </BlockStack>

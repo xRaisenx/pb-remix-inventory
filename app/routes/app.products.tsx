@@ -431,7 +431,11 @@ export default function AppProductsPage() {
           <div className="pb-flex pb-justify-center pb-items-center pb-space-x-4">
             <button
               className="pb-btn-secondary"
-              onClick={() => navigate(pageInfo.prevPageUrl!)}
+              onClick={() => {
+                if (pageInfo.prevPageUrl) {
+                  navigate(pageInfo.prevPageUrl);
+                }
+              }}
               disabled={!pageInfo.prevPageUrl}
             >
               Previous
@@ -441,7 +445,11 @@ export default function AppProductsPage() {
             </span>
             <button
               className="pb-btn-secondary"
-              onClick={() => navigate(pageInfo.nextPageUrl!)}
+              onClick={() => {
+                if (pageInfo.nextPageUrl) {
+                  navigate(pageInfo.nextPageUrl);
+                }
+              }}
               disabled={!pageInfo.nextPageUrl}
             >
               Next
