@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -17,6 +17,18 @@ const createPrismaClient = () => {
 };
 
 const prisma = global.prisma || createPrismaClient();
+
+// Add query timing telemetry middleware
+prisma.$use(async (params: Prisma.MiddlewareParams, next: Prisma.MiddlewareNext) => {
+  const start = Date.now();
+  const result = await next(params);
+  const duration = Date.now() - start;
+  // Only log in non-production environments or if query exceeds 2000ms
+  if (process.env.NODE_ENV !== "production" || duration > 2000) {
+    console.log(`Query ${params.model}.${params.action} took ${duration}ms`);
+  }
+  return result;
+});
 
 if (process.env.NODE_ENV !== "production") {
   if (!global.prisma) {
