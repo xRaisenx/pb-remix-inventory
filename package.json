@@ -8,6 +8,7 @@
     "db:fix": "node scripts/fix-database-schema.js",
     "fix:typescript": "node scripts/fix-typescript-errors.js",
     "test:installation": "node scripts/test-installation-flow.js",
+    "db:indexes": "node scripts/add-session-indexes.js",
     "db:setup": "prisma generate && prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "build": "npm run db:setup && remix vite:build",

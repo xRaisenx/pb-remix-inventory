@@ -17,9 +17,10 @@ console.log("[DIAGNOSTIC] SCOPES:", process.env.SCOPES, "| TYPE:", typeof proces
 console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYPE:", typeof process.env.SHOPIFY_APP_URL);
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
 
-// Enhanced session storage with error handling
+// Enhanced session storage with error handling and performance optimization
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private errorCount = 0;
+  private cache = new Map<string, any>();
   
   constructor(prismaClient: typeof prisma) {
     super(prismaClient);
@@ -28,6 +29,8 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
 
   async storeSession(session: any): Promise<boolean> {
     try {
+      // Cache the session for faster access
+      this.cache.set(session.id, session);
       return await super.storeSession(session);
     } catch (error) {
       console.error("Session storage error:", error);
@@ -37,20 +40,49 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
 
   async loadSession(id: string): Promise<any> {
     try {
-      return await super.loadSession(id);
+      // Check cache first
+      if (this.cache.has(id)) {
+        console.log(`[SESSION] Cache hit for session ${id}`);
+        return this.cache.get(id);
+      }
+      
+      // Load from database with timeout
+      const session = await Promise.race([
+        super.loadSession(id),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session load timeout')), 10000)
+        )
+      ]);
+      
+      if (session) {
+        this.cache.set(id, session);
+        console.log(`[SESSION] Loaded session ${id} from database`);
+      }
+      
+      return session;
     } catch (error) {
       console.error("Session loading error:", error);
+      // Clear cache entry if it exists
+      this.cache.delete(id);
       return undefined; // Return undefined instead of throwing to allow for retry
     }
   }
 
   async deleteSession(id: string): Promise<boolean> {
     try {
+      // Clear cache
+      this.cache.delete(id);
       return await super.deleteSession(id);
     } catch (error) {
       console.error("Session deletion error:", error);
       return false;
     }
+  }
+  
+  // Clear cache periodically to prevent memory leaks
+  clearCache() {
+    this.cache.clear();
+    console.log("[SESSION] Cache cleared");
   }
 }
 
@@ -133,6 +165,7 @@ const shopify = shopifyApp({
       }
       
       console.log("Redirecting to embedded app with host:", host);
+      // IMPORTANT: Use relative URL to stay within the embedded context
       throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
     },
   },

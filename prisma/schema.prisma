@@ -78,6 +78,9 @@ model Session {
   userId      BigInt?
 
   @@index([shopId])
+  @@index([state])
+  @@index([expires])
+  @@index([isOnline])
 }
 
 model Shop {
