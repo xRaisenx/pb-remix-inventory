@@ -2,7 +2,6 @@ import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { ProductStatus } from "@prisma/client";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { Metrics } from "~/components/Metrics";
@@ -30,7 +29,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const totalProducts = await prisma.product.count({ where: { shopId } });
     const lowStockItemsCount = await prisma.product.count({
-      where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
+      where: { shopId, status: { in: ["Low", "Critical"] } },
     });
 
     const variants: Array<{ inventoryQuantity: number | null }> = await prisma.variant.findMany({
@@ -49,10 +48,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }) as DashboardTrendingProduct[];
 
     const lowStockProductsForAlerts = await prisma.product.findMany({
-      where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
+      where: { shopId, status: { in: ["Low", "Critical"] } },
       select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } },
       take: 3,
-    }).then(products => products.map(p => ({
+    }).then((products: any[]) => products.map((p: any) => ({
       ...p,
       inventory: p.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0)
     }))) as DashboardAlertProduct[];
@@ -103,6 +102,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function DashboardIndex() {
+  // Fix loaderData type for useLoaderData
   const loaderData = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
 
@@ -144,6 +144,23 @@ export default function DashboardIndex() {
     );
   }
 
+  // Add type guard for dashboard data
+  const isDashboardData = (data: any): data is {
+    initialSyncCompleted: boolean;
+    totalProducts: number;
+    lowStockItemsCount: number;
+    totalInventoryUnits: number;
+    trendingProducts: DashboardTrendingProduct[];
+    lowStockProductsForAlerts: DashboardAlertProduct[];
+    highSalesTrendProducts: DashboardAlertProduct[];
+    storeName: string;
+  } => data && data.initialSyncCompleted === true && typeof data.totalProducts === 'number';
+
+  if (!isDashboardData(loaderData)) {
+    // Fallback for incomplete loaderData
+    return null;
+  }
+
   return (
     <PlanetBeautyLayout>
       <div className="pb-space-y-6">
@@ -160,7 +177,7 @@ export default function DashboardIndex() {
         <TrendingProducts products={loaderData.trendingProducts} />
         <div className="pb-grid pb-grid-cols-1 pb-grid-md-cols-2 pb-gap-6">
           <QuickActions />
-          <AIAssistant shopName={loaderData.storeName} />
+          <AIAssistant shopId={loaderData.storeName} />
         </div>
       </div>
     </PlanetBeautyLayout>

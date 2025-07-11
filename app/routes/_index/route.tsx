@@ -1,4 +1,5 @@
 import { json, type LinksFunction, type LoaderFunctionArgs } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { Text } from "@shopify/polaris";
 
@@ -16,6 +17,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // If a 'shop' parameter is present, initiate the auth process immediately.
   // This is the standard flow for new app installations.
   if (url.searchParams.get("shop")) {
+    // After login, redirect to the embedded app route, not admin.shopify.com
+    const shop = url.searchParams.get("shop");
+    const host = url.searchParams.get("host");
+    if (shop && host) {
+      // Redirect to embedded app entry point
+      return redirect(`/app?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
+    }
     return await login(request);
   }
 

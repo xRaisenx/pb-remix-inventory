@@ -1,14 +1,20 @@
 // app/services/shopify.sync.server.ts
 import shopify from '~/shopify.server'; // Your Shopify app instance
 import prisma from '~/db.server';       // Your Prisma client instance
-import { ProductStatus } from "@prisma/client"; // Added ProductStatus
 import type { Session } from "@shopify/shopify-api"; // Shopify API Session type
 import { updateAllProductMetricsForShop } from './product.service'; // Service to update metrics post-sync
 
 // --- Local Type Definitions for GraphQL Payloads ---
 // These help in typing the expected response from Shopify's GraphQL API.
 interface ShopifyLocationNode { id: string; name: string; }
-interface ShopifyInventoryLevelNode { available: number; location: { id: string; } }
+interface ShopifyInventoryQuantity {
+  name: string;
+  quantity: number;
+}
+interface ShopifyInventoryLevelNode {
+  quantities: ShopifyInventoryQuantity[];
+  location: { id: string; };
+}
 interface ShopifyInventoryItemNode {
   id: string;
   inventoryLevels?: { edges: { node: ShopifyInventoryLevelNode }[] } | null; // Can be null if no levels
@@ -116,8 +122,8 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
     const response = await client.query({ // Corrected client usage
       data: {
         query: `#graphql
-          query GetProducts($cursor: String, $variantCount: Int!, $locationLevelCount: Int!) {
-            products(first: ${PRODUCT_BATCH_SIZE}, after: $cursor) {
+          query GetProducts($cursor: String, $variantCount: Int!, $locationLevelCount: Int!, $productBatchSize: Int!) {
+            products(first: $productBatchSize, after: $cursor) {
               edges {
                 node {
                   id title vendor productType tags
@@ -128,7 +134,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
                         inventoryItem {
                           id
                           inventoryLevels(first: $locationLevelCount) { # Fetch inventory levels for each variant's item
-                            edges { node { available location { id } } }
+                            edges { node { quantities(names: ["available"]) { name quantity } location { id } } }
                           }
                         }
                       }
@@ -139,7 +145,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
               pageInfo { hasNextPage endCursor }
             }
           }`,
-        variables: { cursor: productCursor, variantCount: VARIANT_BATCH_SIZE, locationLevelCount: LOCATION_LEVEL_BATCH_SIZE },
+        variables: { cursor: productCursor, variantCount: VARIANT_BATCH_SIZE, locationLevelCount: LOCATION_LEVEL_BATCH_SIZE, productBatchSize: PRODUCT_BATCH_SIZE },
       },
     });
 
@@ -165,7 +171,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
           create: {
             shopifyId: sp.id, title: sp.title, vendor: sp.vendor || 'Unknown',
             productType: sp.productType, tags: sp.tags, shopId: shopId,
-            status: ProductStatus.Unknown, trending: false, // Default status/trending
+            status: 'Unknown', trending: false, // Default status/trending
           },
         });
         totalProductsSynced++;
@@ -186,10 +192,13 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
               const invLevel = levelEdge.node;
               const prismaWarehouseId = locationsMap.get(invLevel.location.id); // Get Prisma Warehouse ID
               if (prismaWarehouseId) {
+                // Find the 'available' quantity from quantities array
+                const availableObj = invLevel.quantities.find(q => q.name === 'available');
+                const availableQty = availableObj ? availableObj.quantity : 0;
                 await prisma.inventory.upsert({
                   where: { productId_warehouseId: { productId: productRecord.id, warehouseId: prismaWarehouseId } },
-                  update: { quantity: invLevel.available },
-                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, quantity: invLevel.available },
+                  update: { availableQuantity: availableQty },
+                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, availableQuantity: availableQty },
                 });
               } else {
                 console.warn(`[Sync][${shopDomain}] Shopify Location GID ${invLevel.location.id} not found in local warehouse map for product ${sp.title}, variant ${v.sku}. Inventory for this location not synced.`);
