@@ -46,7 +46,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process order line items to update product sales data
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Process each line item to update product sales data
       for (const lineItem of orderData.line_items) {
         if (lineItem.product_id && lineItem.variant_id) {

@@ -1,0 +1,50 @@
+[
+  {
+    "scenario": "Database Connection Test",
+    "status": "FAIL",
+    "error": "Database connection failed: DATABASE_URL environment variable not set",
+    "details": "Error: Database connection failed: DATABASE_URL environment variable not set\n    at testDatabaseConnection (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:119:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:26:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)\n    at file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:433:1\n    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)"
+  },
+  {
+    "scenario": "Prisma Client Generation",
+    "status": "FAIL",
+    "error": "Prisma client generation failed: Command failed: npx prisma generate",
+    "details": "Error: Prisma client generation failed: Command failed: npx prisma generate\n    at testPrismaClient (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:154:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:30:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "Build Process Test",
+    "status": "FAIL",
+    "error": "Build process failed: Command failed: npm run build",
+    "details": "Error: Build process failed: Command failed: npm run build\n    at testBuildProcess (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:181:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:34:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "Environment Variables Check",
+    "status": "FAIL",
+    "error": "Missing environment variables: DATABASE_URL, SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, SHOPIFY_APP_URL, SESSION_SECRET",
+    "details": "Error: Missing environment variables: DATABASE_URL, SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, SHOPIFY_APP_URL, SESSION_SECRET\n    at checkEnvironmentVariables (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:209:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:38:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "OAuth Flow Simulation",
+    "status": "FAIL",
+    "error": "OAuth flow simulation failed: OAuth configuration incomplete",
+    "details": "Error: OAuth flow simulation failed: OAuth configuration incomplete\n    at simulateOAuthFlow (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:247:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:42:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "App Bridge Configuration",
+    "status": "FAIL",
+    "error": "App Bridge configuration test failed: AppBridgeProvider not found in entry.server.tsx",
+    "details": "Error: App Bridge configuration test failed: AppBridgeProvider not found in entry.server.tsx\n    at testAppBridgeConfig (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:281:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:46:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "Session Management Test",
+    "status": "FAIL",
+    "error": "Session management test failed: SESSION_SECRET not configured",
+    "details": "Error: Session management test failed: SESSION_SECRET not configured\n    at testSessionManagement (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:316:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:50:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  },
+  {
+    "scenario": "Loader Functions Test",
+    "status": "FAIL",
+    "error": "Loader functions test failed: Loader function not found in app.tsx",
+    "details": "Error: Loader functions test failed: Loader function not found in app.tsx\n    at testLoaderFunctions (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:351:11)\n    at Object.test (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:54:17)\n    at runTests (file:///C:/GIT/pb-remix-inventory/scripts/debug-blank.js:66:37)"
+  }
+]

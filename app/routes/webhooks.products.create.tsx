@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { ProductStatus, type PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { calculateProductMetrics } from "~/services/product.service";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -44,17 +44,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Create product in local database with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Create product
       const product = await tx.product.create({
         data: {
-          shopifyId: `gid://shopify/Product/${productData.id}`,
+          shopifyId: productData.id,
           title: productData.title,
-          vendor: productData.vendor || 'Unknown',
-          productType: productData.product_type || null,
+          vendor: productData.vendor,
+          productType: productData.product_type,
           tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : [],
           shopId: shopRecord.id,
-          status: ProductStatus.Unknown,
+          status: "Unknown",
           trending: false,
           salesVelocityFloat: 0,
           stockoutDays: null,

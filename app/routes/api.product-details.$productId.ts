@@ -58,7 +58,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       id: productFromDB.id, // Prisma Product ID
       shopifyId: productFromDB.shopifyId, // Shopify Product GID
       title: productFromDB.title,
-      vendor: productFromDB.vendor,
+      vendor: productFromDB.vendor || "",
       price: firstVariant?.price?.toString() ?? '0.00',
       sku: firstVariant?.sku ?? 'N/A',
       inventory: totalInventory, // This is total across locations IF 'inventory' field means that.

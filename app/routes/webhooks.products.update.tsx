@@ -46,7 +46,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const productGid = `gid://shopify/Product/${productData.id}`;
 
     // Update product in local database with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Find existing product
       const existingProduct = await tx.product.findUnique({
         where: { shopifyId: productGid },

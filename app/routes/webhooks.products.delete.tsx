@@ -33,7 +33,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const productGid = `gid://shopify/Product/${productData.id}`;
 
     // Delete product and all related data with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Find the product to be deleted
       const productToDelete = await tx.product.findUnique({
         where: { shopifyId: productGid },

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getProductById, authenticate } from './shopify.server'; // Consolidated imports
+import { authenticate } from './shopify.server'; // Consolidated imports
 import prisma from './db.server';
 
 // Mock Prisma
@@ -18,7 +18,7 @@ vi.mock('./db.server', () => ({
 vi.mock('./shopify.server', async (importOriginal) => {
   const actual = await importOriginal();
   return {
-    ...actual,
+    ...(actual as any),
     authenticate: {
       admin: vi.fn(),
     },

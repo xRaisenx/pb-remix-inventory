@@ -13,66 +13,74 @@ import { AIAssistant } from "~/components/AIAssistant";
 import { QuickActions } from "~/components/QuickActions";
 import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
-  const shopDomain = session.shop;
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
-  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  try {
+    const { session } = await authenticate.admin(request);
+    console.log("[LOADER] /app._index session:", session);
+    const shopDomain = session.shop;
+    const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
-  if (!shopRecord.initialSyncCompleted) {
-    return json({ initialSyncCompleted: false, storeName: shopDomain.replace(".myshopify.com", "") });
+    if (!shopRecord.initialSyncCompleted) {
+      return json({ initialSyncCompleted: false, storeName: shopDomain.replace(".myshopify.com", "") });
+    }
+
+    const { id: shopId } = shopRecord;
+    const storeName = shopDomain.replace(".myshopify.com", "");
+
+    const totalProducts = await prisma.product.count({ where: { shopId } });
+    const lowStockItemsCount = await prisma.product.count({
+      where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
+    });
+
+    const variants: Array<{ inventoryQuantity: number | null }> = await prisma.variant.findMany({
+      where: { product: { shopId } },
+      select: { inventoryQuantity: true },
+    });
+    const totalInventoryUnits = variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
+
+    const trendingProducts = await prisma.product.findMany({
+      where: { shopId, trending: true },
+      take: 3,
+      select: {
+        id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true,
+        variants: { select: { sku: true, price: true }, take: 1 },
+      },
+    }) as DashboardTrendingProduct[];
+
+    const lowStockProductsForAlerts = await prisma.product.findMany({
+      where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
+      select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } },
+      take: 3,
+    }).then(products => products.map(p => ({
+      ...p,
+      inventory: p.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0)
+    }))) as DashboardAlertProduct[];
+
+    const highSalesTrendProducts = await prisma.product.findMany({
+      where: { shopId, trending: true },
+      select: { id: true, title: true, salesVelocityFloat: true, stockoutDays: true },
+      take: 3,
+      orderBy: { salesVelocityFloat: 'desc' }
+    }) as DashboardAlertProduct[];
+
+    const loaderData = {
+      initialSyncCompleted: true,
+      totalProducts,
+      lowStockItemsCount,
+      totalInventoryUnits,
+      trendingProducts,
+      lowStockProductsForAlerts,
+      highSalesTrendProducts,
+      storeName,
+    };
+    console.log("[LOADER] /app._index loaderData:", loaderData);
+    return json(loaderData);
+  } catch (error) {
+    console.error("[LOADER ERROR] /app._index loader failed:", error);
+    throw error;
   }
-
-  const { id: shopId } = shopRecord;
-  const storeName = shopDomain.replace(".myshopify.com", "");
-
-  const totalProducts = await prisma.product.count({ where: { shopId } });
-  const lowStockItemsCount = await prisma.product.count({
-    where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
-  });
-
-  const variants: Array<{ inventoryQuantity: number | null }> = await prisma.variant.findMany({
-    where: { product: { shopId } },
-    select: { inventoryQuantity: true },
-  });
-  const totalInventoryUnits = variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
-
-  const trendingProducts = await prisma.product.findMany({
-    where: { shopId, trending: true },
-    take: 3,
-    select: {
-      id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true,
-      variants: { select: { sku: true, price: true }, take: 1 },
-    },
-  }) as DashboardTrendingProduct[];
-
-  const lowStockProductsForAlerts = await prisma.product.findMany({
-    where: { shopId, status: { in: [ProductStatus.Low, ProductStatus.Critical] } },
-    select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } },
-    take: 3,
-  }).then(products => products.map(p => ({
-    ...p,
-    inventory: p.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0)
-  }))) as DashboardAlertProduct[];
-
-  const highSalesTrendProducts = await prisma.product.findMany({
-    where: { shopId, trending: true },
-    select: { id: true, title: true, salesVelocityFloat: true, stockoutDays: true },
-    take: 3,
-    orderBy: { salesVelocityFloat: 'desc' }
-  }) as DashboardAlertProduct[];
-
-  return json({
-    initialSyncCompleted: true,
-    totalProducts,
-    lowStockItemsCount,
-    totalInventoryUnits,
-    trendingProducts,
-    lowStockProductsForAlerts,
-    highSalesTrendProducts,
-    storeName,
-  });
-}
+};
 
 export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);

@@ -8,6 +8,7 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "~/db.server";
+import { redirect } from "@remix-run/node";
 
 // --- BEGIN DIAGNOSTIC LOGGING ---
 console.log("[DIAGNOSTIC] SHOPIFY_API_KEY:", process.env.SHOPIFY_API_KEY, "| TYPE:", typeof process.env.SHOPIFY_API_KEY);
@@ -17,7 +18,7 @@ console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYP
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
 
 // Enhanced session storage with error handling
-class EnhancedPrismaSessionStorage extends PrismaSessionStorage {
+class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private errorCount = 0;
   
   constructor(prismaClient: typeof prisma) {
@@ -56,11 +57,11 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage {
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: "2024-07",
+  apiVersion: "2024-07" as any,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new EnhancedPrismaSessionStorage(prisma),
+  sessionStorage: new EnhancedPrismaSessionStorage(prisma) as any,
   distribution: AppDistribution.AppStore,
   webhooks: {
     APP_UNINSTALLED: {
@@ -97,7 +98,7 @@ const shopify = shopifyApp({
     },
   },
   hooks: {
-    afterAuth: async ({ session }) => {
+    afterAuth: async ({ session, ...rest }) => {
       try {
         console.log("Registering webhooks for shop:", session.shop);
         await shopify.registerWebhooks({ session });
@@ -118,6 +119,10 @@ const shopify = shopifyApp({
         console.error("Error in afterAuth hook:", error);
         // Don't throw to prevent auth loop, but log the error
       }
+      // Always redirect to embedded app URL after auth
+      // Try to get host from session or from rest (if available)
+      const host = (session as any).host || "";
+      throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
     },
   },
   future: {

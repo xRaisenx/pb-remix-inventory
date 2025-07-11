@@ -46,7 +46,7 @@ export default function AuthLoginPage() {
   // Use action data for errors from form submission attempts
   const actionData = useActionData<typeof action>();
   // Errors are now directly the displayable messages processed by loader/action
-  const formErrors = actionData?.errors || loaderErrors;
+  const formErrors = (actionData as any)?.errors || loaderErrors;
 
   // shopError is now directly available if it exists in formErrors
   const shopError = formErrors?.shop;

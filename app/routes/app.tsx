@@ -11,18 +11,24 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-  const url = new URL(request.url);
-  const host = url.searchParams.get("host");
-
-  if (!host) {
-    throw new Response("Missing host parameter for App Bridge", { status: 400 });
+  try {
+    const session = await authenticate.admin(request);
+    const url = new URL(request.url);
+    const host = url.searchParams.get("host");
+    console.log("[LOADER] /app session:", session);
+    console.log("[LOADER] /app host param:", host);
+    if (!host) {
+      console.error("[LOADER ERROR] Missing host parameter for App Bridge");
+      throw new Response("Missing host parameter for App Bridge", { status: 400 });
+    }
+    return json({
+      apiKey: process.env.SHOPIFY_API_KEY,
+      host: host,
+    });
+  } catch (error) {
+    console.error("[LOADER ERROR] /app loader failed:", error);
+    throw error;
   }
-
-  return json({
-    apiKey: process.env.SHOPIFY_API_KEY,
-    host: host,
-  });
 };
 
 export default function App() {
@@ -54,7 +60,7 @@ export default function App() {
       appBridge={{
         apiKey: apiKey!, // Non-null assertion as apiKey presence is checked above
         host: host,
-        // forceRedirect: true, // This is usually implicit or handled by App Bridge
+        forceRedirect: true, // Ensure app is always loaded in Shopify admin
       }}
     >
       <AppLayout>

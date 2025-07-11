@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { calculateProductMetrics, updateAllProductMetricsForShop } from './product.service';
 import prisma from '~/db.server'; // Note: path might differ based on actual location from test file
-import type { Product as PrismaProduct, Variant as PrismaVariant, Shop as PrismaShop, NotificationSetting as PrismaNotificationSettings } from '@prisma/client';
+import type { Product, Variant, Shop, NotificationSetting } from "@prisma/client";
 
 // Mock Prisma
 vi.mock('~/db.server', () => ({ // Adjusted path for mocking
@@ -19,13 +19,13 @@ vi.mock('~/db.server', () => ({ // Adjusted path for mocking
 
 // Helper type for product input to calculateProductMetrics - aligning with ProductWithVariantsAndSalesVelocity from service
 // This type needs to represent a complete Prisma Product object, with 'variants' added/overridden.
-type ProductInputForTest = PrismaProduct & {
-    variants: Pick<PrismaVariant, 'inventoryQuantity'>[];
+type ProductInputForTest = Product & {
+    variants: Pick<Variant, 'inventoryQuantity'>[];
     // salesVelocityFloat is already part of PrismaProduct
 };
 
 // Default values for a mock product to ensure all fields are present
-const baseMockProduct: Omit<PrismaProduct, 'id' | 'title' | 'salesVelocityFloat' | 'status' | 'trending' | 'stockoutDays'> = {
+const baseMockProduct: Omit<Product, 'id' | 'title' | 'salesVelocityFloat' | 'status' | 'trending' | 'stockoutDays'> = {
   shopifyId: 'gid://shopify/Product/0',
   vendor: 'Mock Vendor',
   productType: 'Test Type',
@@ -243,7 +243,7 @@ describe('updateAllProductMetricsForShop', () => {
 
   const mockShopId = 'shop-id-123';
   // Aligning mockShopData with the updated Prisma schema for Shop and NotificationSetting[]
-  const mockShopData: Partial<PrismaShop & { NotificationSettings: Array<Partial<PrismaNotificationSettings>> }> = {
+  const mockShopData: Partial<Shop & { NotificationSettings: Array<Partial<NotificationSetting>> }> = {
     id: mockShopId,
     shop: 'test.myshopify.com',
     lowStockThreshold: 10, // Shop-level default
@@ -333,7 +333,7 @@ describe('updateAllProductMetricsForShop', () => {
   });
 
   it('should use default thresholds if shop and NotificationSettings are missing specific values', async () => {
-    const minimalShopData: Partial<PrismaShop & { NotificationSettings: Array<Partial<PrismaNotificationSettings>> | null }> = { id: mockShopId, shop: 'test.myshopify.com', lowStockThreshold: null, NotificationSettings: null };
+    const minimalShopData: Partial<Shop & { NotificationSettings: Array<Partial<NotificationSetting>> | null }> = { id: mockShopId, shop: 'test.myshopify.com', lowStockThreshold: null, NotificationSettings: null };
     (prisma.shop.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(minimalShopData);
     (prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([mockProducts[0]]);
 

@@ -13,12 +13,25 @@ import { addDocumentResponseHeaders } from "./shopify.server";
 
 const ABORT_DELAY = 5000;
 
+function getShopFromRequest(request: Request) {
+  try {
+    const url = new URL(request.url);
+    return url.searchParams.get("shop");
+  } catch {
+    return null;
+  }
+}
+
 export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
+  // Set CSP header for Shopify embedded app
+  const shop = getShopFromRequest(request) || '';
+  const csp = `frame-ancestors https://admin.shopify.com https://${shop};`;
+  responseHeaders.set("Content-Security-Policy", csp);
   addDocumentResponseHeaders(request, responseHeaders);
   const callbackName = isbot(request.headers.get("user-agent"))
     ? "onAllReady"

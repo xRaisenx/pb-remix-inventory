@@ -4,7 +4,7 @@ import type { Session } from '@shopify/shopify-api';
 
 export async function syncShopifyProductsForShop(shopDomain: string, session: Session) {
   // Corrected GraphQL client initialization
-  const client = new shopify.clients.Graphql({ session });
+  const client = new (shopify as any).clients.Graphql({ session });
   const shopId = (await prisma.shop.findUnique({ where: { shop: shopDomain } }))?.id;
   if (!shopId) throw new Error(`Shop ${shopDomain} not found in DB.`);
 

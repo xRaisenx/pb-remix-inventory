@@ -375,9 +375,9 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
       };
     }
 
-    const criticalCount = lowStockProducts.filter(p => p.status === 'Critical').length;
-    const lowCount = lowStockProducts.filter(p => p.status === 'Low').length;
-    const outOfStockCount = lowStockProducts.filter(p => p.status === 'OutOfStock').length;
+    const criticalCount = lowStockProducts.filter((p: any) => p.status === 'Critical').length;
+    const lowCount = lowStockProducts.filter((p: any) => p.status === 'Low').length;
+    const outOfStockCount = lowStockProducts.filter((p: any) => p.status === 'OutOfStock').length;
 
     let message = `📊 **Stock Alert Summary**:\n`;
     if (criticalCount > 0) message += `🔴 ${criticalCount} Critical\n`;
@@ -386,8 +386,8 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
 
     message += `\n**Products needing attention**:\n\n`;
 
-    lowStockProducts.slice(0, 10).forEach(product => {
-      const totalQuantity = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+    lowStockProducts.slice(0, 10).forEach((product: any) => {
+      const totalQuantity = product.variants.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0);
       const statusEmoji = {
         'Critical': '🔴',
         'Low': '⚠️',
@@ -418,10 +418,10 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
       message,
       data: {
         summary: { critical: criticalCount, low: lowCount, outOfStock: outOfStockCount },
-        products: lowStockProducts.map(p => ({
+        products: lowStockProducts.map((p: any) => ({
           id: p.id,
           title: p.title,
-          quantity: p.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0),
+          quantity: p.variants.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0),
           status: p.status
         }))
       },

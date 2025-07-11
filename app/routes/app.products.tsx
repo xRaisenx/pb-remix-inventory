@@ -130,7 +130,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         id: p.id,
         shopifyId: p.shopifyId,
         title: p.title,
-        vendor: p.vendor,
+        vendor: p.vendor || "",
         price: firstVariant?.price?.toString() ?? '0.00',
         sku: firstVariant?.sku ?? 'N/A',
         inventory: totalInventory,

@@ -42,7 +42,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process paid order to update trending status
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       const notificationSettings = shopRecord.NotificationSettings?.[0];
       const salesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 25.0;
 
@@ -118,7 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 revenue: lineItem.quantity * parseFloat(lineItem.price),
                 recordedAt: new Date(orderData.created_at),
                 trend: shouldBeTrending ? 'INCREASING' : 'STABLE',
-              },
+              } as any,
             });
 
             console.log(`✅ Updated trending status for product: ${product.title} (trending: ${shouldBeTrending})`);

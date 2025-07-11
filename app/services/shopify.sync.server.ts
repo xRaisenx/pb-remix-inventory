@@ -98,7 +98,7 @@ async function getOrSyncLocations(client: any, shopId: string, shopDomain: strin
 // Main sync function
 export async function syncProductsAndInventory(shopDomain: string, session: Session) {
   // Corrected GraphQL client initialization
-  const client = new shopify.clients.Graphql({ session });
+  const client = new (shopify as any).clients.Graphql({ session });
   const shopId = await getShopId(shopDomain); // Get Prisma shop ID
   const locationsMap = await getOrSyncLocations(client, shopId, shopDomain); // Get Shopify GID -> Prisma Warehouse ID map
 

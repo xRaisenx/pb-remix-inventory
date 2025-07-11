@@ -93,7 +93,7 @@ export default function AlertsDisplay({ alerts, maxAlertsToShow = 3 /*, onDismis
               onClick={() => navigate("/app/alerts")}
               accessibilityLabel={`View all ${alerts.length} alerts`}
             >
-              View all {alerts.length} alerts...
+              View all {alerts.length.toString()} alerts...
             </Button>
         </div>
       )}

@@ -38,7 +38,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const locationGid = `gid://shopify/Location/${inventoryData.location_id}`;
 
     // Update inventory in local database with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Find the variant associated with this inventory item
       const variant = await tx.variant.findFirst({
         where: { inventoryItemId: inventoryItemGid },

@@ -149,14 +149,14 @@ export default function NewWarehouse() {
             <TextField
               label="Warehouse Name"
               name="name"
-              defaultValue=""
+              value=""
               error={actionData?.errors?.name?.join(", ")}
               autoComplete="off"
             />
             <TextField
               label="Location Address"
               name="location"
-              defaultValue=""
+              value=""
               error={actionData?.errors?.location?.join(", ")}
               autoComplete="off"
               multiline={3}
@@ -168,7 +168,7 @@ export default function NewWarehouse() {
                 { label: "None (Local Warehouse Only)", value: "" },
                 ...(shopifyLocations?.map(loc => ({ label: loc.name, value: loc.id })) || [])
               ]}
-              defaultValue=""
+              value=""
               error={actionData?.errors?.shopifyLocationGid?.join(", ")}
               helpText="Link to an existing Shopify Location to enable inventory syncing."
               disabled={!!loaderError}

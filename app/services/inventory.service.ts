@@ -226,7 +226,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
-      return await prisma.$transaction(async (tx: PrismaClient) => {
+      return await prisma.$transaction(async (tx) => {
         // Get current product data
         const variant = await tx.variant.findUnique({
           where: { id: variantId },
@@ -252,7 +252,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         const product = variant.product;
 
         // Step 4: Update inventory in Shopify first
-        const client = new shopify.clients.Graphql({ 
+        const client = new (shopify as any).clients.Graphql({ 
           session: {
             ...session,
             shop: shopDomain,
@@ -424,7 +424,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
             id: product.id,
             title: product.title,
             handle: product.handle || product.title.toLowerCase().replace(/\s+/g, '-')
-          },
+          } as any,
           alertGenerated,
           suggestedRestock
         };

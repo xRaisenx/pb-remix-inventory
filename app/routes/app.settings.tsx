@@ -102,46 +102,54 @@ async function logSettingsChange(
 
 // Loader Function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
-  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
+  try {
+    const { session } = await authenticate.admin(request);
+    console.log("[LOADER] /app.settings session:", session);
+    const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+    if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
-  const notificationSettings = await prisma.notificationSetting.findUnique({
-    where: { shopId: shopRecord.id },
-  });
+    const notificationSettings = await prisma.notificationSetting.findUnique({
+      where: { shopId: shopRecord.id } as any,
+    });
 
-  const settings: NotificationSettingsType = {
-    email: {
-      enabled: notificationSettings?.email ?? false,
-      address: notificationSettings?.emailAddress ?? ''
-    },
-    slack: {
-      enabled: notificationSettings?.slack ?? false,
-      webhook: decryptSensitiveField(notificationSettings?.slackWebhookUrl ?? '')
-    },
-    telegram: {
-      enabled: notificationSettings?.telegram ?? false,
-      botToken: decryptSensitiveField(notificationSettings?.telegramBotToken ?? ''),
-      chatId: notificationSettings?.telegramChatId ?? ''
-    },
-    mobilePush: {
-      enabled: notificationSettings?.mobilePush ?? false,
-      service: notificationSettings?.mobilePushService ?? ''
-    },
-    salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
-    stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
-    notificationFrequency: (notificationSettings?.frequency as 'immediate' | 'hourly' | 'daily') ?? 'daily',
-    syncEnabled: notificationSettings?.syncEnabled ?? false,
-    ai: {
-      enabled: false,
-      apiKey: ''
-    }
-  };
+    const settings: NotificationSettingsType = {
+      email: {
+        enabled: notificationSettings?.email ?? false,
+        address: notificationSettings?.emailAddress ?? ''
+      },
+      slack: {
+        enabled: notificationSettings?.slack ?? false,
+        webhook: decryptSensitiveField(notificationSettings?.slackWebhookUrl ?? '')
+      },
+      telegram: {
+        enabled: notificationSettings?.telegram ?? false,
+        botToken: decryptSensitiveField(notificationSettings?.telegramBotToken ?? ''),
+        chatId: notificationSettings?.telegramChatId ?? ''
+      },
+      mobilePush: {
+        enabled: notificationSettings?.mobilePush ?? false,
+        service: notificationSettings?.mobilePushService ?? ''
+      },
+      salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
+      stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
+      notificationFrequency: (notificationSettings?.frequency as 'immediate' | 'hourly' | 'daily') ?? 'daily',
+      syncEnabled: notificationSettings?.syncEnabled ?? false,
+      ai: {
+        enabled: false,
+        apiKey: ''
+      }
+    };
 
-  const url = new URL(request.url);
-  const successMessage = url.searchParams.get("success");
+    const url = new URL(request.url);
+    const successMessage = url.searchParams.get("success");
 
-  return json({ settings, success: successMessage ?? undefined });
+    const loaderData: LoaderData = { settings, success: successMessage ?? undefined };
+    console.log("[LOADER] /app.settings loaderData:", loaderData);
+    return json(loaderData);
+  } catch (error) {
+    console.error("[LOADER ERROR] /app.settings loader failed:", error);
+    throw error;
+  }
 };
 
 // Action Function
@@ -174,7 +182,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
        const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx: typeof prisma) => {
+       await prisma.$transaction(async (tx) => {
          // Update shop-level settings
          await tx.shop.update({
            where: { id: shopRecord.id },
@@ -196,7 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             telegramBotToken: encryptedBotToken,
             telegramChatId: settingsData.telegram.chatId,
             mobilePush: settingsData.mobilePush.enabled,
-            mobilePushService: settingsData.mobilePush.service,
+            // mobilePushService: settingsData.mobilePush.service,
             salesVelocityThreshold: settingsData.salesThreshold,
             criticalStockoutDays: settingsData.stockoutThreshold,
             frequency: settingsData.notificationFrequency,
@@ -213,7 +221,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             telegramBotToken: encryptedBotToken,
             telegramChatId: settingsData.telegram.chatId,
             mobilePush: settingsData.mobilePush.enabled,
-            mobilePushService: settingsData.mobilePush.service,
+            // mobilePushService: settingsData.mobilePush.service,
             salesVelocityThreshold: settingsData.salesThreshold,
             criticalStockoutDays: settingsData.stockoutThreshold,
             frequency: settingsData.notificationFrequency,
@@ -224,7 +232,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
                  // Log the settings change for audit trail
          await logSettingsChange(
-           session.userId?.toString() || null,
+           (session as any).userId?.toString() || null,
            shopRecord.id,
            currentSettings || {},
            settingsData
