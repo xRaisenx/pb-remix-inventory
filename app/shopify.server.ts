@@ -29,22 +29,33 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
 
   async storeSession(session: any): Promise<boolean> {
     try {
+      console.log(`[SESSION] Storing session: ${session.id}`);
+      console.log(`[SESSION] Session shop: ${session.shop}`);
+      console.log(`[SESSION] Session state: ${session.state}`);
+      
       // Cache the session for faster access
       this.cache.set(session.id, session);
-      return await super.storeSession(session);
+      
+      const result = await super.storeSession(session);
+      console.log(`[SESSION] Session stored successfully: ${result}`);
+      return result;
     } catch (error) {
-      console.error("Session storage error:", error);
+      console.error(`[SESSION] Session storage error for ${session.id}:`, error);
       throw new Error("Failed to store session. Please ensure database is properly configured.");
     }
   }
 
   async loadSession(id: string): Promise<any> {
     try {
+      console.log(`[SESSION] Attempting to load session: ${id}`);
+      
       // Check cache first
       if (this.cache.has(id)) {
         console.log(`[SESSION] Cache hit for session ${id}`);
         return this.cache.get(id);
       }
+      
+      console.log(`[SESSION] Cache miss for session ${id}, querying database...`);
       
       // Load from database with timeout
       const session = await Promise.race([
@@ -56,12 +67,21 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       
       if (session) {
         this.cache.set(id, session);
-        console.log(`[SESSION] Loaded session ${id} from database`);
+        console.log(`[SESSION] Loaded session ${id} from database successfully`);
+        console.log(`[SESSION] Session data:`, {
+          id: (session as any).id,
+          shop: (session as any).shop,
+          state: (session as any).state,
+          isOnline: (session as any).isOnline,
+          expires: (session as any).expires
+        });
+      } else {
+        console.log(`[SESSION] No session found in database for ${id}`);
       }
       
       return session;
     } catch (error) {
-      console.error("Session loading error:", error);
+      console.error(`[SESSION] Error loading session ${id}:`, error);
       // Clear cache entry if it exists
       this.cache.delete(id);
       return undefined; // Return undefined instead of throwing to allow for retry

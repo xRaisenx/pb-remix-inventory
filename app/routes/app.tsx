@@ -13,15 +13,40 @@ export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const session = await authenticate.admin(request);
-    const url = new URL(request.url);
-    const host = url.searchParams.get("host");
-    const shop = url.searchParams.get("shop");
+    console.log("[LOADER] /app starting authentication...");
+    console.log("[LOADER] /app request URL:", request.url);
+    console.log("[LOADER] /app request headers:", Object.fromEntries(request.headers.entries()));
     
-    console.log("[LOADER] /app session:", session);
-    console.log("[LOADER] /app host param:", host);
+    // Check if we have a valid session before calling authenticate.admin
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+    const host = url.searchParams.get("host");
+    
     console.log("[LOADER] /app shop param:", shop);
-    console.log("[LOADER] /app full URL:", request.url);
+    console.log("[LOADER] /app host param:", host);
+    
+    if (!shop) {
+      console.error("[LOADER ERROR] No shop parameter found");
+      throw new Response("Missing shop parameter", { status: 400 });
+    }
+    
+    // Try to authenticate with detailed error handling
+    let session;
+    try {
+      session = await authenticate.admin(request);
+      console.log("[LOADER] /app authentication successful");
+      console.log("[LOADER] /app session:", session);
+    } catch (authError) {
+      console.error("[LOADER ERROR] Authentication failed:", authError);
+      
+      // If authentication fails, redirect to login
+      let loginUrl = `/auth/login?shop=${encodeURIComponent(shop)}`;
+      if (host) {
+        loginUrl += `&host=${encodeURIComponent(host)}`;
+      }
+      console.log("[LOADER] Redirecting to login:", loginUrl);
+      throw redirect(loginUrl);
+    }
     
     if (!host) {
       console.error("[LOADER ERROR] Missing host parameter for App Bridge");
@@ -40,13 +65,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       throw redirect(redirectUrl);
     }
     
+    console.log("[LOADER] /app returning data with host:", host);
     return json({
       apiKey: process.env.SHOPIFY_API_KEY,
       host: host,
     });
   } catch (error) {
     console.error("[LOADER ERROR] /app loader failed:", error);
-    throw error;
+    
+    // If it's a redirect, let it pass through
+    if (error instanceof Response && error.status >= 300 && error.status < 400) {
+      throw error;
+    }
+    
+    // For other errors, show a user-friendly message
+    throw new Response("Failed to load app. Please try again.", { status: 500 });
   }
 };
 
