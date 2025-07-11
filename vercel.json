@@ -9,11 +9,6 @@
   "outputDirectory": "build/client",
   "framework": "remix",
   "installCommand": "npm install --legacy-peer-deps",
-  "devCommand": "npm run dev",
-  "functions": {
-    "build/server/index.js": {
-      "maxDuration": 30
-    }
-  }
+  "devCommand": "npm run dev"
 }
 
