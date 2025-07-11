@@ -4,6 +4,7 @@
   "scripts": {
     "shopify:deploy": "shopify app deploy --client-id $SHOPIFY_API_KEY --force --verbose",
     "db:init": "node scripts/db-init.js",
+    "db:fix": "node scripts/fix-database-schema.js",
     "db:setup": "prisma generate && prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "build": "npm run db:setup && remix vite:build",
@@ -17,7 +18,7 @@
     "docker-start": "npm run setup && npm run start",
     "setup": "npm run db:init",
     "postbuild": "npm run db:init",
-    "vercel-build": "npm run db:setup && remix vite:build",
+    "vercel-build": "npm run db:setup && npm run db:fix && remix vite:build",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "shopify": "shopify",
     "prisma": "prisma",

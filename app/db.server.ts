@@ -16,10 +16,10 @@ const createPrismaClient = () => {
   // Enhanced Neon connection configuration
   let connectionUrl = databaseUrl;
   
-  // Ensure connection pooling parameters for Neon
+  // Ensure connection pooling parameters for Neon (optimized for serverless)
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=5&connect_timeout=15&pool_timeout=15`;
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=3&connect_timeout=30&pool_timeout=30`;
   }
 
   return new PrismaClient({

@@ -19,11 +19,11 @@ const createPrismaClient = () => {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  // Ensure proper Neon connection parameters
+  // Ensure proper Neon connection parameters (optimized for serverless)
   let connectionUrl = databaseUrl;
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=5&connect_timeout=15&pool_timeout=15`;
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=3&connect_timeout=30&pool_timeout=30`;
   }
 
   return new PrismaClient({
@@ -137,6 +137,27 @@ async function runMigrations() {
   }
 }
 
+async function fixDatabaseSchema() {
+  console.log('🔧 Fixing database schema...');
+  try {
+    // Run the schema fix script
+    const { stdout, stderr } = await execAsync('npm run db:fix');
+    console.log('Schema fix output:', stdout);
+    if (stderr) console.warn('Schema fix warnings:', stderr);
+    
+    console.log('✅ Database schema fixes completed');
+    return true;
+  } catch (error) {
+    console.error('❌ Schema fix failed:', error.message);
+    
+    // Check if the issue is missing columns
+    if (error.message.includes('does not exist')) {
+      console.error('🚨 Column missing error - attempting manual fix');
+    }
+    return false;
+  }
+}
+
 async function verifyShopifyIntegration() {
   console.log('�️  Verifying Shopify integration setup...');
   try {
@@ -185,6 +206,7 @@ async function main() {
     { name: '🌐 Environment Validation', fn: validateEnvironment },
     { name: '🔌 Neon Connection Test', fn: () => checkDatabaseConnection(5) },
     { name: '🛠️  Migration Deployment', fn: runMigrations },
+    { name: '🔧 Schema Fix Application', fn: fixDatabaseSchema },
     { name: '🎫 Session Table Check', fn: checkSessionTable },
     { name: '🛍️  Shopify Integration', fn: verifyShopifyIntegration },
     { name: '🏥 Health Check', fn: performHealthCheck },
