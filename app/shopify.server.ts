@@ -119,9 +119,20 @@ const shopify = shopifyApp({
         console.error("Error in afterAuth hook:", error);
         // Don't throw to prevent auth loop, but log the error
       }
-      // Always redirect to embedded app URL after auth
-      // Try to get host from session or from rest (if available)
-      const host = (session as any).host || "";
+      
+      // Get host from the request context for embedded app redirect
+      // The host parameter is crucial for App Bridge to work properly
+      const host = (rest as any)?.host || (session as any)?.host || "";
+      
+      if (!host) {
+        console.error("Missing host parameter in afterAuth - this will cause embedded app issues");
+        // Fallback: try to construct host from shop domain
+        const fallbackHost = `${session.shop.replace('.myshopify.com', '')}.myshopify.com`;
+        console.log("Using fallback host:", fallbackHost);
+        throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
+      }
+      
+      console.log("Redirecting to embedded app with host:", host);
       throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
     },
   },

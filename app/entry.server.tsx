@@ -28,10 +28,16 @@ export default function handleRequest(
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
-  // Set CSP header for Shopify embedded app
+  // Set proper CSP headers for Shopify embedded app
+  // This allows the app to be embedded in Shopify admin
   const shop = getShopFromRequest(request) || '';
-  const csp = `frame-ancestors https://admin.shopify.com https://${shop};`;
+  const csp = `frame-ancestors https://admin.shopify.com https://*.myshopify.com https://${shop};`;
   responseHeaders.set("Content-Security-Policy", csp);
+  
+  // Add additional headers for embedded app security
+  responseHeaders.set("X-Frame-Options", "ALLOWALL");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
+  
   addDocumentResponseHeaders(request, responseHeaders);
   const callbackName = isbot(request.headers.get("user-agent"))
     ? "onAllReady"

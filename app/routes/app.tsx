@@ -7,6 +7,7 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import { redirect } from "@remix-run/node";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -15,12 +16,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const session = await authenticate.admin(request);
     const url = new URL(request.url);
     const host = url.searchParams.get("host");
+    const shop = url.searchParams.get("shop");
+    
     console.log("[LOADER] /app session:", session);
     console.log("[LOADER] /app host param:", host);
+    console.log("[LOADER] /app shop param:", shop);
+    console.log("[LOADER] /app full URL:", request.url);
+    
     if (!host) {
       console.error("[LOADER ERROR] Missing host parameter for App Bridge");
-      throw new Response("Missing host parameter for App Bridge", { status: 400 });
+      console.error("[LOADER ERROR] This will cause 'admin.shopify.com refused to connect' error");
+      
+      // Try to construct host from shop parameter or session
+      const fallbackHost = shop ? 
+        `${shop.replace('.myshopify.com', '')}.myshopify.com` : 
+        `${(session as any).shop.replace('.myshopify.com', '')}.myshopify.com`;
+      
+      console.log("[LOADER] Using fallback host:", fallbackHost);
+      
+      // Redirect with the constructed host
+      const redirectUrl = `/app?shop=${encodeURIComponent((session as any).shop)}&host=${encodeURIComponent(fallbackHost)}`;
+      console.log("[LOADER] Redirecting to:", redirectUrl);
+      throw redirect(redirectUrl);
     }
+    
     return json({
       apiKey: process.env.SHOPIFY_API_KEY,
       host: host,

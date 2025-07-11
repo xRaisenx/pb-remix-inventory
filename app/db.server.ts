@@ -53,32 +53,32 @@ prisma.$use(async (params: any, next: any) => {
   const maxRetries = 3;
   
   while (retries <= maxRetries) {
-    try {
-      const result = await next(params);
-      const duration = Date.now() - start;
+  try {
+    const result = await next(params);
+    const duration = Date.now() - start;
+    
+    if (process.env.NODE_ENV !== "production" || duration > 2000) {
+      console.log(`[DB PERF] Query ${params.model}.${params.action} took ${duration}ms`);
       
-      if (process.env.NODE_ENV !== "production" || duration > 2000) {
-        console.log(`[DB PERF] Query ${params.model}.${params.action} took ${duration}ms`);
-        
-        if (duration > 5000) {
-          console.warn(`[DB WARNING] Slow query detected: ${params.model}.${params.action} (${duration}ms)`);
-        }
+      if (duration > 5000) {
+        console.warn(`[DB WARNING] Slow query detected: ${params.model}.${params.action} (${duration}ms)`);
       }
-      
-      return result;
-    } catch (error) {
-      const duration = Date.now() - start;
+    }
+    
+    return result;
+  } catch (error) {
+    const duration = Date.now() - start;
       console.error(`[DB ERROR] ${params.model}.${params.action} failed after ${duration}ms (attempt ${retries + 1}/${maxRetries + 1}):`, error);
-      
-      // Enhanced error logging for Neon connection issues
-      if (error instanceof Error) {
-        if (error.message.includes("Can't reach database server")) {
-          console.error("[DB NEON] Database server unreachable - check Neon instance status");
-        } else if (error.message.includes("connection pool")) {
-          console.error("[DB NEON] Connection pool issue - retrying with backoff");
+    
+    // Enhanced error logging for Neon connection issues
+    if (error instanceof Error) {
+      if (error.message.includes("Can't reach database server")) {
+        console.error("[DB NEON] Database server unreachable - check Neon instance status");
+      } else if (error.message.includes("connection pool")) {
+        console.error("[DB NEON] Connection pool issue - retrying with backoff");
         } else if (error.message.includes("connection") && error.message.includes("closed")) {
           console.error("[DB NEON] Connection closed unexpectedly - attempting reconnection");
-        }
+  }
       }
       
       // Retry logic for connection-related errors
@@ -95,8 +95,8 @@ prisma.$use(async (params: any, next: any) => {
           console.log(`[DB NEON] Retrying connection in ${Math.round(delay)}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
-        }
-      }
+  }
+}
       
       throw error;
     }
