@@ -7,9 +7,9 @@
  * It handles Polaris component issues, Prisma schema mismatches, and type definition problems.
  */
 
-import fs from 'fs';
-import path from 'path';
 import { execSync } from 'child_process';
+import fs from 'fs';
+import _path from 'path';
 
 // Common fixes to apply
 const fixes = [

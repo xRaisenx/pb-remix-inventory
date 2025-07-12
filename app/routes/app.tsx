@@ -103,8 +103,7 @@ export default function App() {
 
   // Wrap the app in Polaris AppProvider with apiKey and host for embedded context
   return (
-    <PolarisAppProvider
-      i18n={enTranslations}
+    <PolarisAppProvider i18n={enTranslations}>
       <AppLayout>
         <Outlet />
       </AppLayout>

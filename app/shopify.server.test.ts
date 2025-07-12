@@ -27,7 +27,14 @@ vi.mock('./shopify.server', async (importOriginal) => {
 
 
 // Mock Request object
-const mockRequest = new Request("http://localhost:8787/test") as any;
+const _mockRequest = {
+  url: 'https://test-shop.myshopify.com/admin/oauth/authorize?client_id=test&scope=read_products&redirect_uri=https://test.com/auth/callback&state=test-state',
+  headers: new Headers({
+    'host': 'test-shop.myshopify.com',
+    'user-agent': 'Mozilla/5.0 (compatible; ShopifyApp/1.0)',
+  }),
+  method: 'GET',
+};
 
 describe('getProductById', () => {
   let mockAdminGraphQL: ReturnType<typeof vi.fn>;
