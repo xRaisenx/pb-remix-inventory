@@ -1,11 +1,11 @@
-THIS SHOULD BE A LINTER ERRORimport {
+import {
   Card,
   Layout,
-  Link,
-  List,
+  Link as _Link,
+  List as _List,
   Page,
   Text,
-  BlockStack
+  BlockStack as _BlockStack
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 
