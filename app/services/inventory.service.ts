@@ -1,6 +1,6 @@
 import prisma from "~/db.server";
 import shopify from "~/shopify.server";
-import type { ProductStatus, PrismaClient } from "@prisma/client";
+import type { ProductStatus, PrismaClient as _PrismaClient } from "@prisma/client";
 
 // Enhanced inventory service with comprehensive error handling and validation
 export interface InventoryUpdateResult {
