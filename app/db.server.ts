@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
+import type { Prisma as _Prisma } from "@prisma/client";
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -232,7 +232,7 @@ if (typeof globalThis !== 'undefined' && 'process' in globalThis) {
   nodeProcess.on?.('beforeExit', gracefulShutdown);
   
   // Handle unhandled database errors
-  nodeProcess.on?.('unhandledRejection', (reason: any, promise: any) => {
+  nodeProcess.on?.('unhandledRejection', (reason: any, _promise: any) => {
     if (reason && typeof reason === 'object' && 'code' in reason) {
       if (reason.code === 'P1001') {
         console.error("[DB NEON] Connection error detected in unhandled rejection");

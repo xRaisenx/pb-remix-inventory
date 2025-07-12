@@ -6,7 +6,7 @@ interface AIAssistantProps {
   shopId: string;
 }
 
-export function AIAssistant({ shopId }: AIAssistantProps) {
+export function AIAssistant({ shopId: _shopId }: AIAssistantProps) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);

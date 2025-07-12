@@ -92,8 +92,7 @@ export default function App() {
   // when it receives the host and apiKey.
   if (!apiKey || !host) {
     return (
-      <PolarisAppProvider
-      i18n={enTranslations}
+      <PolarisAppProvider i18n={enTranslations}>
         <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
           <h2>Configuration Error</h2>
           <p>Missing Shopify API Key or Host. Please check your environment variables and app setup.</p>

@@ -27,9 +27,9 @@ export const ResourceListTable: React.FC<ResourceListTableProps> = ({
   items,
   headings,
   renderItemRow,
-  selectable = false, // Defaulting to false unless explicitly interactive
-  selectedResources,
-  onSelectionChange,
+  selectable: _selectable = false, // Defaulting to false unless explicitly interactive
+  selectedResources: _selectedResources,
+  onSelectionChange: _onSelectionChange,
 }) => {
   const resourceIDResolver = (item: any): string => {
     return item.id || items.indexOf(item).toString(); // Ensure item has an id or use index
