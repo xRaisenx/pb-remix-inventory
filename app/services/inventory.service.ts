@@ -210,10 +210,10 @@ export async function updateInventoryQuantityInShopifyAndDB(
     // Step 2: Get shop session for Shopify API
     const shop = await prisma.shop.findUnique({
       where: { shop: shopDomain },
-      include: { sessions: { where: { isOnline: false }, take: 1 } }
+      include: { }
     });
 
-    if (!shop || !shop.sessions[0]) {
+    if (!shop) {
       return {
         success: false,
         message: 'Unable to connect to your Shopify store. Please reinstall the app.',
@@ -222,7 +222,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
       };
     }
 
-    const session = shop.sessions[0];
+    const session = await prisma.session.findFirst({ where: { shop: shop.shop, isOnline: false } });
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
@@ -256,11 +256,11 @@ export async function updateInventoryQuantityInShopifyAndDB(
           session: {
             ...session,
             shop: shopDomain,
-            accessToken: session.accessToken,
-            expires: session.expires,
-            isOnline: session.isOnline,
-            scope: session.scope || '',
-            state: session.state,
+            accessToken: session?.accessToken || "",
+            expires: session?.expires,
+            isOnline: session?.isOnline || false,
+            scope: session?.scope || "",
+            state: session?.state || "",
           }
         });
 

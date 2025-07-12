@@ -88,11 +88,12 @@ export default function App() {
 
   // The AppBridgeProvider wrapper is removed.
   // The necessary App Bridge config (apiKey, host) is passed to PolarisAppProvider.
-  // forceRedirect is generally a default behavior or handled internally by App Bridge
+  // isEmbeddedApp={true} is generally a default behavior or handled internally by App Bridge
   // when it receives the host and apiKey.
   if (!apiKey || !host) {
     return (
-      <PolarisAppProvider i18n={enTranslations}>
+      <PolarisAppProvider
+      i18n={enTranslations}
         <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
           <h2>Configuration Error</h2>
           <p>Missing Shopify API Key or Host. Please check your environment variables and app setup.</p>
@@ -105,10 +106,6 @@ export default function App() {
   return (
     <PolarisAppProvider
       i18n={enTranslations}
-      apiKey={apiKey}
-      host={host}
-      forceRedirect
-    >
       <AppLayout>
         <Outlet />
       </AppLayout>

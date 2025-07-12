@@ -25,7 +25,7 @@ type ProductInputForTest = Product & {
 };
 
 // Default values for a mock product to ensure all fields are present
-const baseMockProduct: Omit<Product, 'id' | 'title' | 'salesVelocityFloat' | 'status' | 'trending' | 'stockoutDays'> = {
+const baseMockProduct: any = {
   shopifyId: 'gid://shopify/Product/0',
   vendor: 'Mock Vendor',
   productType: 'Test Type',
@@ -253,7 +253,7 @@ describe('updateAllProductMetricsForShop', () => {
       criticalStockoutDays: 2,
       salesVelocityThreshold: 50,
       // Add other required fields for PrismaNotificationSettings or make them optional in Partial<>
-      id: 'ns1', shopId: mockShopId, channel: 'email', enabled: true, email: false, slack: false, telegram: false, mobilePush: false, frequency: 'daily', syncEnabled: false, createdAt: new Date(), updatedAt: new Date(), emailAddress: null, slackWebhookUrl: null, telegramBotToken: null, telegramChatId: null
+      id: "ns1", shopId: mockShopId, email: true, slack: false, telegram: false, mobilePush: false, frequency: 'daily', syncEnabled: false, createdAt: new Date(), updatedAt: new Date(), emailAddress: null, slackWebhookUrl: null, telegramBotToken: null, telegramChatId: null
     }],
   };
 

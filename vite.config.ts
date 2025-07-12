@@ -102,6 +102,8 @@ export default defineConfig({
     // Improve build performance
     chunkSizeWarningLimit: 1000
   },
+  // Remove resolve.alias for Polaris (let Vite handle ESM)
+  // Remove noExternal for Polaris (let Vite handle ESM)
   optimizeDeps: {
     include: [
       "@shopify/app-bridge-react", 
@@ -114,7 +116,8 @@ export default defineConfig({
   },
   // SSR optimization for serverless
   ssr: {
-    noExternal: ["@shopify/polaris", "@shopify/app-bridge-react"]
+    noExternal: ["@shopify/app-bridge-react"], // Only app-bridge-react, not polaris
+    external: ["@shopify/polaris"] // Force Vite to externalize Polaris (ESM-only)
   },
   // Define globals for better tree-shaking
   define: {

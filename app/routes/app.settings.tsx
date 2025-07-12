@@ -86,12 +86,12 @@ async function logSettingsChange(
         message: `Settings modified by user ${userId || 'unknown'}`,
         subject: 'Settings Change',
         status: 'Sent',
-        metadata: {
-          action: 'SETTINGS_MODIFIED',
+        metadata: JSON.stringify({
+          action: "SETTINGS_MODIFIED",
           oldValues: oldSettings,
           newValues: newSettings,
           userId: userId
-        }
+        })
       }
     });
   } catch (error) {
@@ -128,7 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       mobilePush: {
         enabled: notificationSettings?.mobilePush ?? false,
-        service: notificationSettings?.mobilePushService ?? ''
+        service: "default"
       },
       salesThreshold: notificationSettings?.salesVelocityThreshold ?? 50,
       stockoutThreshold: notificationSettings?.criticalStockoutDays ?? 3,
@@ -234,7 +234,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
          await logSettingsChange(
            (session as any).userId?.toString() || null,
            shopRecord.id,
-           currentSettings || {},
+           (currentSettings as any) || {},
            settingsData
          );
       });

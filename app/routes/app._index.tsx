@@ -38,14 +38,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
     const totalInventoryUnits = variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
 
-    const trendingProducts = await prisma.product.findMany({
+    const trendingProducts = (await prisma.product.findMany({
       where: { shopId, trending: true },
       take: 3,
       select: {
         id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true,
         variants: { select: { sku: true, price: true }, take: 1 },
       },
-    }) as DashboardTrendingProduct[];
+    })).map((p: any) => ({...p, variants: p.variants.map((v: any) => ({...v, price: v.price?.toString() || "0"}))})) as DashboardTrendingProduct[];
 
     const lowStockProductsForAlerts = await prisma.product.findMany({
       where: { shopId, status: { in: ["Low", "Critical"] } },

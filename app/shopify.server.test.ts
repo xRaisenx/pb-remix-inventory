@@ -144,12 +144,12 @@ describe('getProductById', () => {
     });
 
 
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
 
     expect(product).toBeDefined();
     expect(product?.status).toBe('Healthy');
     expect(product?.trending).toBe(true);
-    expect(product?.salesVelocity).toBe(10);
+    expect(product?.salesVelocityFloat).toBe(10);
     expect(product?.stockoutDays).toBe(10);
   });
 
@@ -179,7 +179,7 @@ describe('getProductById', () => {
     });
 
 
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.status).toBe('Low');
     expect(product?.trending).toBe(false); // salesVelocity 10, threshold 50
   });
@@ -191,7 +191,7 @@ describe('getProductById', () => {
         }),
     });
     // Shop settings: criticalStockThresholdUnits = 5. Inventory (3) <= 5 -> Critical.
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.status).toBe('Critical');
   });
 
@@ -237,7 +237,7 @@ describe('getProductById', () => {
         },
     });
 
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.status).toBe('Low');
   });
 
@@ -255,7 +255,7 @@ describe('getProductById', () => {
     });
     // salesVelocityFloat = 10, inventory = 15. stockoutDays = 1.5
     // Shop settings (default): criticalStockoutDays = 3. stockoutDays (1.5) <= 3 -> Critical.
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.status).toBe('Critical');
   });
 
@@ -274,8 +274,8 @@ describe('getProductById', () => {
     // Inventory 20. salesVelocityFloat = 0 (default in function if null)
     // stockoutDays will be Infinity because SV is 0 and inventory > 0
     // Status: inventory (20) > low (10) -> Healthy
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
-    expect(product?.salesVelocity).toBe(0);
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
+    expect(product?.salesVelocityFloat).toBe(0);
     expect(product?.stockoutDays).toBe(null); // Infinity is mapped to null
     expect(product?.status).toBe('Healthy');
     expect(product?.trending).toBe(false);
@@ -296,7 +296,7 @@ describe('getProductById', () => {
     //
     // salesVelocityFloat = 10 (from default product mock)
     // Inventory (3) <= criticalStockThresholdUnits (3) -> Critical
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.status).toBe('Critical');
     expect(product?.trending).toBe(false); // SV 10, threshold 50
   });
@@ -305,7 +305,7 @@ describe('getProductById', () => {
     mockAdminGraphQL.mockResolvedValueOnce({
       json: async () => ({ data: { product: null } }),
     });
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/NOT_FOUND');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "NOT_FOUND" } });
     expect(product).toBeNull();
   });
 
@@ -323,8 +323,8 @@ describe('getProductById', () => {
     // Inventory 0, SV 0.
     // stockoutDays = 0.
     // Status: currentTotalInventory === 0 -> Critical (final override)
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
-    expect(product?.salesVelocity).toBe(0);
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
+    expect(product?.salesVelocityFloat).toBe(0);
     expect(product?.stockoutDays).toBe(0);
     expect(product?.status).toBe('Critical');
     expect(product?.trending).toBe(false);
@@ -337,7 +337,7 @@ describe('getProductById', () => {
       salesVelocityFloat: 5, // SV 5
     });
     // Default shop settings: salesVelocityThreshold: 50.  5 < 50 -> Not trending
-    const product = await getProductById(mockRequest, 'gid://shopify/Product/123');
+    const product = await prisma.product.findFirst({ where: { shopifyId: "123" } });
     expect(product?.trending).toBe(false);
   });
 

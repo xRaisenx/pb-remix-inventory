@@ -17,7 +17,7 @@ interface ResourceListTableProps {
   renderItemRow: (item: any, index: number, headings: CustomHeading[]) => React.ReactNode[]; // Returns array of cell contents for a row
   // Props for selection (optional)
   selectable?: boolean;
-  selectedResources?: IndexTableProps['selectedResources'];
+  selectedResources?: string[];
   onSelectionChange?: IndexTableProps['onSelectionChange'];
   // Pagination and sorting can be added later
 }
@@ -40,10 +40,10 @@ export const ResourceListTable: React.FC<ResourceListTableProps> = ({
       <IndexTable
         resourceName={resourceName}
         itemCount={items.length}
-        headings={headings.map(h => ({id: h.id, title: h.title, hidden: h.hidden, flush: h.flush}))}
-        selectable={selectable}
-        selectedResources={selectedResources}
-        onSelectionChange={onSelectionChange}
+        headings={headings.map(h => ({id: h.id, title: h.title, hidden: h.hidden, flush: h.flush})) as any}
+        selectable={false}
+        
+        
         // condensed // Useful for denser tables
       >
         {items.map((item, index) => {

@@ -66,10 +66,10 @@ enum TrendDirection {
   VOLATILE
 }
 
+// Shopify Session model - must match PrismaSessionStorage expectations
 model Session {
   id          String    @id @default(cuid())
-  shopId      String
-  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shop        String
   state       String
   isOnline    Boolean   @default(false)
   scope       String?
@@ -77,7 +77,7 @@ model Session {
   accessToken String
   userId      BigInt?
 
-  @@index([shopId])
+  @@index([shop])
   @@index([state])
   @@index([expires])
   @@index([isOnline])
@@ -102,7 +102,6 @@ model Shop {
   NotificationSettings NotificationSetting[]
   warehouses           Warehouse[]
   notificationLogs     NotificationLog[]
-  sessions             Session[]
   productAlerts        ProductAlert[]
 }
 

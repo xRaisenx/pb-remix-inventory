@@ -105,7 +105,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       }
     }
-    return json({ success: true, message: result.message, inventoryAdjustmentGroupId: result.inventoryAdjustmentGroupId });
+    return json({ success: true, message: result.message, inventoryAdjustmentGroupId: (result as any).inventoryAdjustmentGroupId });
   }
   return json({ error: "Invalid intent" }, { status: 400 });
 };

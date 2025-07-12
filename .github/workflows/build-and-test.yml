@@ -1,0 +1,340 @@
+name: 🚀 Build and Test with Auto-Fix
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  # Job 1: Pre-flight checks
+  preflight:
+    name: 🔍 Pre-flight Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        npm run db:setup
+        
+    - name: 🔍 Environment validation
+      run: |
+        echo "Checking environment variables..."
+        if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+          echo "❌ DATABASE_URL is not set"
+          exit 1
+        fi
+        if [ -z "${{ secrets.SHOPIFY_API_KEY }}" ]; then
+          echo "❌ SHOPIFY_API_KEY is not set"
+          exit 1
+        fi
+        if [ -z "${{ secrets.SHOPIFY_API_SECRET }}" ]; then
+          echo "❌ SHOPIFY_API_SECRET is not set"
+          exit 1
+        fi
+        echo "✅ Environment variables validated"
+        
+    - name: 🗄️ Database connection test
+      run: |
+        npm run db:test
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        
+    - name: 📋 Pre-flight summary
+      run: |
+        echo "✅ Pre-flight checks completed successfully"
+        echo "📊 Node.js version: $(node --version)"
+        echo "📊 npm version: $(npm --version)"
+        echo "📊 Database: Connected"
+
+  # Job 2: Comprehensive testing with auto-fix
+  test-and-fix:
+    name: 🧪 Test & Auto-Fix
+    runs-on: ubuntu-latest
+    needs: preflight
+    timeout-minutes: 30
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        
+    - name: 🗄️ Setup database
+      run: |
+        npm run db:setup
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        
+    - name: 🧪 Run comprehensive tests
+      run: |
+        npm run test:comprehensive
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+        SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+        SHOPIFY_APP_URL: ${{ secrets.SHOPIFY_APP_URL }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+    - name: 📊 Test results summary
+      if: always()
+      run: |
+        echo "📋 Test execution completed"
+        echo "📊 Check the logs above for detailed results"
+        
+    - name: 💾 Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ github.run_id }}
+        path: |
+          build-report-*.json
+          test-results-*.json
+        retention-days: 7
+
+  # Job 3: Build with testing feedback loop
+  build-with-testing:
+    name: 🏗️ Build with Testing
+    runs-on: ubuntu-latest
+    needs: [preflight, test-and-fix]
+    timeout-minutes: 45
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        
+    - name: 🗄️ Setup database
+      run: |
+        npm run db:setup
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        
+    - name: 🏗️ Build with comprehensive testing
+      run: |
+        npm run build:with-testing
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+        SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+        SHOPIFY_APP_URL: ${{ secrets.SHOPIFY_APP_URL }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+    - name: 📊 Build results summary
+      if: always()
+      run: |
+        if [ -f "build/build-report.json" ]; then
+          echo "📋 Build report:"
+          cat build/build-report.json | jq '.'
+        fi
+        
+    - name: 💾 Upload build artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ github.run_id }}
+        path: |
+          build/
+          build-report-*.json
+        retention-days: 30
+
+  # Job 4: Security and quality checks
+  security-quality:
+    name: 🛡️ Security & Quality
+    runs-on: ubuntu-latest
+    needs: build-with-testing
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        
+    - name: 🔍 Run linting
+      run: |
+        npm run lint
+        
+    - name: 🛡️ Security audit
+      run: |
+        npm audit --audit-level=moderate
+        
+    - name: 📊 Code quality check
+      run: |
+        echo "📋 Code quality checks completed"
+        echo "✅ Linting passed"
+        echo "✅ Security audit passed"
+
+  # Job 5: Deployment (conditional)
+  deploy:
+    name: 🚀 Deploy
+    runs-on: ubuntu-latest
+    needs: [build-with-testing, security-quality]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 20
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        
+    - name: 🗄️ Setup database
+      run: |
+        npm run db:setup
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        
+    - name: 🏗️ Build for deployment
+      run: |
+        npm run build:with-testing
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+        SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+        SHOPIFY_APP_URL: ${{ secrets.SHOPIFY_APP_URL }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+    - name: 🚀 Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
+        
+    - name: 📊 Deployment summary
+      run: |
+        echo "🚀 Deployment completed successfully"
+        echo "🌐 App URL: ${{ secrets.SHOPIFY_APP_URL }}"
+        echo "📊 Build artifacts uploaded to Vercel"
+
+  # Job 6: Post-deployment validation
+  post-deployment:
+    name: ✅ Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        
+    - name: 🧪 Post-deployment tests
+      run: |
+        echo "🧪 Running post-deployment validation..."
+        npm run test:comprehensive
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+        SHOPIFY_API_SECRET: ${{ secrets.SHOPIFY_API_SECRET }}
+        SHOPIFY_APP_URL: ${{ secrets.SHOPIFY_APP_URL }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        
+    - name: 📊 Final validation summary
+      run: |
+        echo "✅ Post-deployment validation completed"
+        echo "🎉 All systems operational"
+        echo "📊 App is ready for production use"
+
+  # Job 7: Notification
+  notify:
+    name: 📢 Notifications
+    runs-on: ubuntu-latest
+    needs: [post-deployment]
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+    - name: 📊 Workflow summary
+      run: |
+        echo "📋 Workflow Summary:"
+        echo "✅ Pre-flight checks: ${{ needs.preflight.result }}"
+        echo "✅ Testing: ${{ needs.test-and-fix.result }}"
+        echo "✅ Build: ${{ needs.build-with-testing.result }}"
+        echo "✅ Security: ${{ needs.security-quality.result }}"
+        echo "✅ Deployment: ${{ needs.deploy.result }}"
+        echo "✅ Post-deployment: ${{ needs.post-deployment.result }}"
+        
+    - name: 📢 Success notification
+      if: success()
+      run: |
+        echo "🎉 Deployment successful!"
+        echo "🌐 App URL: ${{ secrets.SHOPIFY_APP_URL }}"
+        echo "📊 All tests passed"
+        echo "🛡️ Security checks passed"
+        
+    - name: 📢 Failure notification
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        echo "🔍 Check the logs for details"
+        echo "🔄 Manual intervention may be required" 
