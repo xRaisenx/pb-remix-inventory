@@ -105,19 +105,25 @@ async function testDatabaseCRUD() {
   // Generate unique test shop domain to avoid conflicts
   const uniqueShopDomain = `test-shop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.myshopify.com`;
   
-  let testShop, testProduct;
+  let testShop, testProduct, testInventory;
   
   try {
-    // Create test shop (using only required fields)
-    testShop = await prisma.shop.create({
-      data: {
-        shop: uniqueShopDomain,
-      },
-    });
+         // Create test shop (using only required fields)
+     const shopId = `cmd${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+     const now = new Date();
+     testShop = await prisma.shop.create({
+       data: {
+         id: shopId,
+         shop: uniqueShopDomain,
+         updatedAt: now,
+       },
+     });
 
          // Create test product
+     const productId = `cmd${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
      testProduct = await prisma.product.create({
        data: {
+         id: productId,
          shopifyId: `test-product-${Date.now()}`,
          title: 'Test Product',
          handle: `test-product-${Date.now()}`,
@@ -126,12 +132,34 @@ async function testDatabaseCRUD() {
          quantity: 100,
          vendor: 'Test Vendor',
          shopId: testShop.id,
+         updatedAt: now,
        },
      });
 
-         // Skip inventory creation for now to avoid schema mismatch issues
-     // Focus on core product CRUD operations
-     log('Skipping inventory creation due to schema mismatch - focusing on product CRUD', 'db');
+         // Create test warehouse with actual schema
+     const warehouseId = `cmd${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+     const testWarehouse = await prisma.warehouse.create({
+       data: {
+         id: warehouseId,
+         name: 'Test Warehouse',
+         location: 'Test Location',
+         shopId: testShop.id,
+         updatedAt: now,
+       },
+     });
+
+     // Create test inventory with actual schema
+     const inventoryId = `cmd${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+     testInventory = await prisma.inventory.create({
+       data: {
+         id: inventoryId,
+         productId: testProduct.id,
+         quantity: 100,
+         warehouseId: testWarehouse.id,
+         availableQuantity: 100,
+         updatedAt: now,
+       },
+     });
 
     // Test updates
     await prisma.product.update({
@@ -139,23 +167,34 @@ async function testDatabaseCRUD() {
       data: { quantity: 50 },
     });
 
-         // Test queries
+         // Test queries with inventory
      const products = await prisma.product.findMany({
        where: { shopId: testShop.id },
+       include: { Inventory: true },
      });
 
      if (products.length === 0) {
        throw new Error('Failed to query products');
      }
 
-     log('Database CRUD operations successful', 'db');
+     // Verify inventory was created
+     if (products[0].Inventory.length === 0) {
+       throw new Error('Failed to create inventory');
+     }
+
+     log('Database CRUD operations successful - including inventory', 'db');
   } finally {
     // Cleanup - always execute even if test fails
     try {
+      if (testInventory) {
+        await prisma.inventory.delete({ where: { id: testInventory.id } });
+      }
       if (testProduct) {
         await prisma.product.delete({ where: { id: testProduct.id } });
       }
       if (testShop) {
+        // Clean up warehouses first
+        await prisma.warehouse.deleteMany({ where: { shopId: testShop.id } });
         await prisma.shop.delete({ where: { id: testShop.id } });
       }
     } catch (cleanupError) {

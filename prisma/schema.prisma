@@ -1,22 +1,210 @@
-// prisma/schema.prisma
-datasource db {
-  provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
-  // uncomment next line if you use Prisma <5.10
-  // directUrl = env("DATABASE_URL_UNPOOLED")
-}
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
-enum ProductStatus {
-  Unknown
-  OK
-  Low
-  Critical
-  OutOfStock
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AnalyticsData {
+  id        String   @id
+  productId String
+  date      DateTime
+  unitsSold Int?
+  revenue   Float?
+  orders    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([productId])
+}
+
+model DemandForecast {
+  id              String   @id
+  productId       String
+  predictedDemand Float
+  periodDays      Int
+  confidenceScore Float
+  createdAt       DateTime @default(now())
+  Product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Inventory {
+  id                String    @id
+  quantity          Int
+  warehouseId       String
+  productId         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  availableQuantity Int?
+  Product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+}
+
+model NotificationLog {
+  id           String              @id
+  shopId       String
+  channel      NotificationChannel
+  recipient    String?
+  message      String
+  status       NotificationStatus
+  productId    String?
+  productTitle String?
+  alertType    String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime
+  errorMessage String?
+  subject      String?
+  Shop         Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+}
+
+model NotificationSetting {
+  id                          String   @id
+  shopId                      String   @unique
+  email                       Boolean  @default(false)
+  slack                       Boolean  @default(false)
+  telegram                    Boolean  @default(false)
+  mobilePush                  Boolean  @default(false)
+  emailAddress                String?
+  slackWebhookUrl             String?
+  telegramBotToken            String?
+  telegramChatId              String?
+  frequency                   String   @default("daily")
+  lowStockThreshold           Int?
+  salesVelocityThreshold      Float?
+  criticalStockThresholdUnits Int?
+  criticalStockoutDays        Int?
+  syncEnabled                 Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime
+  Shop                        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id                     String           @id
+  shopifyId              String           @unique
+  title                  String
+  vendor                 String
+  productType            String?
+  status                 ProductStatus?   @default(Unknown)
+  trending               Boolean?         @default(false)
+  salesVelocityFloat     Float?
+  stockoutDays           Float?
+  lastRestockedDate      DateTime?
+  category               String?
+  tags                   String[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime
+  shopId                 String
+  handle                 String?
+  quantity               Int?             @default(0)
+  shopifyInventoryItemId String?
+  price                  Decimal?         @default(0) @db.Decimal(10, 2)
+  sku                    String?
+  imageUrl               String?
+  description            String?
+  weight                 Float?
+  dimensions             String?
+  lastUpdated            DateTime?        @default(now())
+  lastUpdatedBy          String?
+  AnalyticsData          AnalyticsData[]
+  DemandForecast         DemandForecast[]
+  Inventory              Inventory[]
+  Shop                   Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  ProductAlert           ProductAlert[]
+  Variant                Variant[]
+
+  @@index([shopId])
+}
+
+model ProductAlert {
+  id        String   @id
+  productId String
+  alertType String
+  message   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([productId])
+}
+
+model Session {
+  id          String    @id
+  shopId      String
+  state       String
+  isOnline    Boolean   @default(false)
+  scope       String?
+  expires     DateTime?
+  accessToken String
+  userId      BigInt?
+  Shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+}
+
+model Shop {
+  id                         String               @id
+  shop                       String               @unique
+  emailForNotifications      String?
+  slackWebhookUrl            String?
+  telegramBotToken           String?
+  telegramChatId             String?
+  whatsAppApiCredentialsJson String?
+  lowStockThreshold          Int?                 @default(10)
+  initialSyncCompleted       Boolean              @default(false)
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime
+  criticalStockThreshold     Int?                 @default(5)
+  highDemandThreshold        Float?               @default(50.0)
+  NotificationLog            NotificationLog[]
+  NotificationSetting        NotificationSetting?
+  Product                    Product[]
+  Session                    Session[]
+  Warehouse                  Warehouse[]
+}
+
+model Variant {
+  id                String   @id
+  shopifyId         String   @unique
+  title             String?
+  sku               String?
+  price             Decimal?
+  inventoryQuantity Int?
+  inventoryItemId   String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  productId         String
+  Product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, sku])
+  @@index([productId])
+}
+
+model Warehouse {
+  id                 String      @id
+  name               String
+  location           String
+  shopifyLocationGid String?     @unique
+  shopId             String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime
+  Inventory          Inventory[]
+  Shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, name])
 }
 
 enum NotificationChannel {
@@ -37,307 +225,12 @@ enum NotificationStatus {
   Simulated
   FailedConfiguration
   Pending
-  Read
-  Dismissed
 }
 
-enum AlertType {
-  LOW_STOCK
-  CRITICAL_STOCK
-  OUT_OF_STOCK
-  HIGH_DEMAND
-  SALES_SPIKE
-  INVENTORY_DISCREPANCY
-  RESTOCK_REMINDER
-  SYSTEM_ERROR
-}
-
-enum AlertSeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum TrendDirection {
-  INCREASING
-  DECREASING
-  STABLE
-  VOLATILE
-}
-
-// Shopify Session model - must match PrismaSessionStorage expectations
-model Session {
-  id          String    @id @default(cuid())
-  shop        String
-  state       String
-  isOnline    Boolean   @default(false)
-  scope       String?
-  expires     DateTime?
-  accessToken String
-  userId      BigInt?
-
-  @@index([shop])
-  @@index([state])
-  @@index([expires])
-  @@index([isOnline])
-}
-
-model Shop {
-  id                          String                  @id @default(cuid())
-  shop                        String                  @unique
-  emailForNotifications       String?
-  slackWebhookUrl             String?
-  telegramBotToken            String?
-  telegramChatId              String?
-  whatsAppApiCredentialsJson  String?
-  lowStockThreshold           Int?                    @default(10)
-  criticalStockThreshold      Int?                    @default(5)
-  highDemandThreshold         Float?                  @default(50.0)
-  initialSyncCompleted        Boolean                 @default(false)
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
-
-  products             Product[]
-  NotificationSettings NotificationSetting[]
-  warehouses           Warehouse[]
-  notificationLogs     NotificationLog[]
-  productAlerts        ProductAlert[]
-}
-
-model NotificationSetting {
-  id                          String    @id @default(cuid())
-  shopId                      String    @unique
-  shop                        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  email                       Boolean   @default(true)
-  slack                       Boolean   @default(false)
-  telegram                    Boolean   @default(false)
-  mobilePush                  Boolean   @default(false)
-  sms                         Boolean   @default(false)
-  webhook                     Boolean   @default(false)
-  emailAddress                String?
-  slackWebhookUrl             String?
-  telegramBotToken            String?
-  telegramChatId              String?
-  smsNumber                   String?
-  webhookUrl                  String?
-  frequency                   String    @default("realtime") // realtime, hourly, daily
-  lowStockThreshold           Int?      @default(10)
-  salesVelocityThreshold      Float?    @default(25.0)
-  criticalStockThresholdUnits Int?      @default(5)
-  criticalStockoutDays        Int?      @default(1)
-  syncEnabled                 Boolean   @default(true)
-  alertsEnabled               Boolean   @default(true)
-  businessHoursOnly           Boolean   @default(false)
-  timezone                    String?   @default("UTC")
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
-}
-
-model Product {
-  id                      String           @id @default(cuid())
-  shopifyId               String           @unique
-  shopifyInventoryItemId  String?          @unique
-  title                   String
-  handle                  String?
-  vendor                  String?
-  productType             String?
-  status                  ProductStatus?   @default(Unknown)
-  trending                Boolean?         @default(false)
-  salesVelocityFloat      Float?           @default(0)
-  stockoutDays            Float?
-  lastRestockedDate       DateTime?
-  category                String?
-  tags                    String[]
-  price                   Decimal          @default(0)
-  quantity                Int              @default(0)
-  sku                     String?
-  imageUrl                String?
-  description             String?
-  weight                  Float?
-  dimensions              String?
-  lastUpdated             DateTime         @default(now())
-  lastUpdatedBy           String?
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  shopId                  String
-  shop                    Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  variants                Variant[]
-  inventory               Inventory[]
-  DemandForecasts         DemandForecast[]
-  productAlerts           ProductAlert[]
-  analyticsData           AnalyticsData[]
-
-  @@index([shopId])
-  @@index([status])
-  @@index([trending])
-  @@index([salesVelocityFloat])
-}
-
-model ProductAlert {
-  id              String        @id @default(cuid())
-  shopId          String
-  shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  type            AlertType
-  severity        AlertSeverity
-  title           String
-  message         String
-  resolved        Boolean       @default(false)
-  resolvedAt      DateTime?
-  resolvedBy      String?
-  metadata        Json?
-  notificationsSent Int         @default(0)
-  lastNotificationSent DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@index([shopId])
-  @@index([productId])
-  @@index([type])
-  @@index([severity])
-  @@index([resolved])
-  @@index([createdAt])
-}
-
-model AnalyticsData {
-  id                  String         @id @default(cuid())
-  productId           String
-  product             Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  salesVelocity       Float?         @default(0)
-  stockLevel          Int?           @default(0)
-  daysUntilStockout   Float?
-  reorderPoint        Int?
-  suggestedOrderQty   Int?
-  trend               TrendDirection @default(STABLE)
-  demandScore         Float?         @default(0)
-  profitMargin        Float?
-  revenue             Decimal?       @default(0)
-  unitsSold           Int?           @default(0)
-  conversionRate      Float?
-  seasonalityFactor   Float?         @default(1.0)
-  recordedAt          DateTime       @default(now())
-  createdAt           DateTime       @default(now())
-
-  @@index([productId])
-  @@index([recordedAt])
-  @@index([trend])
-  @@index([salesVelocity])
-}
-
-model Variant {
-  id                  String    @id @default(cuid())
-  shopifyId           String    @unique
-  title               String?
-  sku                 String?
-  price               Decimal?  @default(0)
-  inventoryQuantity   Int?      @default(0)
-  inventoryItemId     String?   @unique
-  barcode             String?
-  weight              Float?
-  taxable             Boolean   @default(true)
-  requiresShipping    Boolean   @default(true)
-  fulfillmentService  String?   @default("manual")
-  inventoryManagement String?   @default("shopify")
-  inventoryPolicy     String?   @default("deny")
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  productId           String
-  product             Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, sku])
-  @@index([productId])
-  @@index([sku])
-}
-
-model Inventory {
-  id              String    @id @default(cuid())
-  quantity        Int       @default(0)
-  reservedQuantity Int      @default(0)
-  availableQuantity Int     @default(0)
-  committedQuantity Int     @default(0)
-  warehouseId     String
-  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  lastCountDate   DateTime?
-  lastMovementDate DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@unique([productId, warehouseId])
-  @@index([productId])
-  @@index([warehouseId])
-}
-
-model Warehouse {
-  id                 String      @id @default(cuid())
-  name               String
-  location           String
-  address            String?
-  city               String?
-  state              String?
-  country            String?
-  zipCode            String?
-  shopifyLocationGid String?     @unique
-  active             Boolean     @default(true)
-  shopId             String
-  shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  inventories        Inventory[]
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-
-  @@unique([shopId, name])
-  @@index([shopId])
-  @@index([active])
-}
-
-model DemandForecast {
-  id                  String   @id @default(cuid())
-  productId           String
-  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  predictedDemand     Float
-  periodDays          Int
-  confidenceScore     Float
-  methodology         String?  @default("linear_regression")
-  seasonalAdjustment  Float?   @default(1.0)
-  trendComponent      Float?
-  forecastHorizon     Int      @default(30)
-  accuracy            Float?
-  createdAt           DateTime @default(now())
-
-  @@index([productId])
-  @@index([createdAt])
-  @@index([confidenceScore])
-}
-
-model NotificationLog {
-  id              String             @id @default(cuid())
-  shopId          String
-  shop            Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  channel         NotificationChannel
-  recipient       String?
-  message         String
-  subject         String?
-  status          NotificationStatus
-  productId       String?
-  productTitle    String?
-  alertType       String?
-  alertId         String?
-  errorMessage    String?
-  retryCount      Int                @default(0)
-  scheduledAt     DateTime?
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  readAt          DateTime?
-  metadata        Json?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  @@index([shopId])
-  @@index([channel])
-  @@index([status])
-  @@index([productId])
-  @@index([createdAt])
+enum ProductStatus {
+  Unknown
+  OK
+  Low
+  Critical
+  OutOfStock
 }

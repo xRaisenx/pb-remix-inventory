@@ -27,6 +27,7 @@ export interface SMSResult {
   error?: string;
   cost?: number;
   deliveryStatus?: string;
+  provider?: string;
 }
 
 class SMSService {
@@ -151,7 +152,13 @@ class SMSService {
       messageId: mockMessageId,
       cost: 0.01,
       deliveryStatus: 'delivered',
+      provider: 'mock',
     };
+  }
+
+  // Expose config for testing and integration
+  getConfig(): SMSConfig {
+    return this.config;
   }
 
   private async logNotification(
