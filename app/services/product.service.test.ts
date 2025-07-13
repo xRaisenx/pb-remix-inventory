@@ -22,6 +22,9 @@ jest.mock('~/db.server', () => ({
   },
 }));
 
+// Type the mocked prisma client
+const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+
 // Helper function to create a mock product with all required fields
 const createMockProduct = (overrides: any = {}) => ({
   id: '1',
@@ -196,11 +199,18 @@ describe('Product Service', () => {
     it('should update all product metrics for a shop', async () => {
       const mockShop = {
         id: 'test-shop',
-        shopifyDomain: 'test-shop.myshopify.com',
-        accessToken: 'test-token',
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
+        shop: 'test-shop.myshopify.com',
+        emailForNotifications: null,
+        slackWebhookUrl: null,
+        telegramBotToken: null,
+        telegramChatId: null,
+        whatsAppApiCredentialsJson: null,
+        lowStockThreshold: 20,
+        criticalStockThreshold: 10,
+        highDemandThreshold: 50.0,
+        initialSyncCompleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       const mockProducts = [
@@ -216,14 +226,14 @@ describe('Product Service', () => {
         }),
       ];
 
-      const mockUpdatedProduct = {
+      const mockUpdatedProduct = createMockProduct({
         id: '1',
         status: ProductStatus.OK,
-      };
+      });
 
-      (prisma.shop.findUnique as jest.Mock).mockResolvedValue(mockShop);
-      (prisma.product.findMany as jest.Mock).mockResolvedValue(mockProducts);
-      (prisma.product.update as jest.Mock).mockResolvedValue(mockUpdatedProduct);
+      mockPrisma.shop.findUnique.mockResolvedValue(mockShop);
+      mockPrisma.product.findMany.mockResolvedValue(mockProducts);
+      mockPrisma.product.update.mockResolvedValue(mockUpdatedProduct);
 
       const result = await updateAllProductMetricsForShop('test-shop');
 
@@ -239,7 +249,7 @@ describe('Product Service', () => {
     });
 
     it('should handle shop not found', async () => {
-      (prisma.shop.findUnique as jest.Mock).mockResolvedValue(null);
+      mockPrisma.shop.findUnique.mockResolvedValue(null);
 
       const result = await updateAllProductMetricsForShop('non-existent-shop');
 
@@ -249,7 +259,7 @@ describe('Product Service', () => {
     });
 
     it('should handle database errors', async () => {
-      (prisma.shop.findUnique as jest.Mock).mockRejectedValue(
+      mockPrisma.shop.findUnique.mockRejectedValue(
         new Error('Database connection failed')
       );
 
