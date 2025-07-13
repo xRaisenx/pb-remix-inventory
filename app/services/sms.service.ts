@@ -221,8 +221,19 @@ class SMSService {
 
 // Factory function to create SMS service with environment-based configuration
 export function createSMSService(): SMSService {
+  // Determine provider based on available environment variables
+  let provider: 'twilio' | 'aws-sns' | 'mock' = 'mock';
+  
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+    provider = 'twilio';
+  } else if (process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    provider = 'aws-sns';
+  } else if (process.env.SMS_PROVIDER === 'twilio' || process.env.SMS_PROVIDER === 'aws-sns') {
+    provider = process.env.SMS_PROVIDER as 'twilio' | 'aws-sns';
+  }
+  
   const config: SMSConfig = {
-    provider: (process.env.SMS_PROVIDER as 'twilio' | 'aws-sns' | 'mock') || 'mock',
+    provider,
     twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
     twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
     twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER,
