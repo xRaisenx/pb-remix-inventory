@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import { analyzeProductVelocity, createFastSellingAlert } from "~/services/predictive-velocity.service";
 
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -90,6 +91,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
 
             console.log(`📈 Updated sales data for product: ${product.title} (+${lineItem.quantity} units)`);
+
+            // NEW: Run predictive velocity analysis for this product
+            if (shopRecord.aiPredictionsEnabled) {
+              try {
+                const velocityAnalysis = await analyzeProductVelocity(product.id);
+                
+                if (velocityAnalysis.shouldAlert) {
+                  await createFastSellingAlert(shopRecord.id, velocityAnalysis);
+                  console.log(`🚨 Fast-selling alert created for ${product.title}: ${velocityAnalysis.alertType}`);
+                }
+              } catch (error) {
+                console.error(`❌ Error in predictive analysis for ${product.title}:`, error);
+              }
+            }
           } else {
             console.warn(`Product or variant not found for line item: ${lineItem.title}`);
           }

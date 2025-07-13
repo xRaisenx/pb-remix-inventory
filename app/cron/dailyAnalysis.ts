@@ -1,5 +1,6 @@
 import prisma from '~/db.server';
 import { performDailyProductSync } from '~/dailyAnalysis';
+import { runPredictiveAnalysis } from '~/services/predictive-velocity.service';
 import { Session } from "@shopify/shopify-api";
 
 // ... (sendEmailNotification function remains the same)
@@ -52,6 +53,30 @@ export async function runDailyTasks() {
       console.log(`[CRON JOB] Product sync completed for ${shop.shop}.`);
     } catch (error) {
       console.error(`[CRON JOB] Error during product sync for ${shop.shop}:`, error);
+    }
+
+    // NEW: Run predictive sales velocity analysis
+    if (shop.aiPredictionsEnabled) {
+      try {
+        console.log(`[CRON JOB] Running predictive velocity analysis for ${shop.shop}...`);
+        const analysisResult = await runPredictiveAnalysis(shop.id);
+        
+        if (analysisResult.success) {
+          console.log(`[CRON JOB] Predictive analysis completed for ${shop.shop}:`);
+          console.log(`  - Products analyzed: ${analysisResult.productsAnalyzed}`);
+          console.log(`  - Alerts generated: ${analysisResult.alertsGenerated}`);
+          console.log(`  - Critical alerts: ${analysisResult.criticalAlerts}`);
+          console.log(`  - Fast-selling products: ${analysisResult.summary.fastSellingProducts}`);
+          console.log(`  - Imminent stockouts: ${analysisResult.summary.imminentStockouts}`);
+          console.log(`  - Velocity spikes: ${analysisResult.summary.velocitySpikes}`);
+        } else {
+          console.error(`[CRON JOB] Predictive analysis failed for ${shop.shop}: ${analysisResult.error}`);
+        }
+      } catch (error) {
+        console.error(`[CRON JOB] Error during predictive analysis for ${shop.shop}:`, error);
+      }
+    } else {
+      console.log(`[CRON JOB] AI predictions disabled for ${shop.shop}, skipping predictive analysis.`);
     }
 
     // ... (rest of the AI forecasting and low stock check logic remains the same)

@@ -85,46 +85,66 @@ model NotificationSetting {
   criticalStockThresholdUnits Int?
   criticalStockoutDays        Int?
   syncEnabled                 Boolean  @default(false)
+  // New predictive alert settings
+  fastSellingAlertsEnabled    Boolean  @default(true)
+  velocityAlertThreshold      Float?   @default(25.0) // Alert when velocity exceeds this
+  stockoutWarningDays         Int?     @default(7)    // Warn X days before predicted stockout
+  aiPredictionsEnabled        Boolean  @default(true)
+  autoReorderSuggestions      Boolean  @default(false)
+  velocityTrendAlertsEnabled  Boolean  @default(true)
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime
   Shop                        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 }
 
 model Product {
-  id                     String           @id
-  shopifyId              String           @unique
+  id                     String                    @id
+  shopifyId              String                    @unique
   title                  String
   vendor                 String
   productType            String?
-  status                 ProductStatus?   @default(Unknown)
-  trending               Boolean?         @default(false)
+  status                 ProductStatus?            @default(Unknown)
+  trending               Boolean?                  @default(false)
   salesVelocityFloat     Float?
   stockoutDays           Float?
   lastRestockedDate      DateTime?
   category               String?
   tags                   String[]
-  createdAt              DateTime         @default(now())
+  createdAt              DateTime                  @default(now())
   updatedAt              DateTime
   shopId                 String
   handle                 String?
-  quantity               Int?             @default(0)
+  quantity               Int?                      @default(0)
   shopifyInventoryItemId String?
-  price                  Decimal?         @default(0) @db.Decimal(10, 2)
+  price                  Decimal?                  @default(0) @db.Decimal(10, 2)
   sku                    String?
   imageUrl               String?
   description            String?
   weight                 Float?
   dimensions             String?
-  lastUpdated            DateTime?        @default(now())
+  lastUpdated            DateTime?                 @default(now())
   lastUpdatedBy          String?
+  // New predictive fields
+  isFastSelling          Boolean?                  @default(false)
+  velocityTrend          String?                   // 'INCREASING' | 'DECREASING' | 'STABLE' | 'ACCELERATING'
+  lastVelocityUpdate     DateTime?
+  aiRiskScore            Float?                    // AI-calculated risk score (0-1)
+  predictedStockoutDate  DateTime?                 // AI-predicted stockout date
+  // Relations
   AnalyticsData          AnalyticsData[]
   DemandForecast         DemandForecast[]
   Inventory              Inventory[]
-  Shop                   Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  Shop                   Shop                      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   ProductAlert           ProductAlert[]
   Variant                Variant[]
+  SalesVelocityPrediction SalesVelocityPrediction[]
+  FastSellingAlert       FastSellingAlert[]
+  VelocityAnalytics      VelocityAnalytics[]
 
   @@index([shopId])
+  @@index([isFastSelling])
+  @@index([velocityTrend])
+  @@index([predictedStockoutDate])
 }
 
 model ProductAlert {
@@ -139,6 +159,77 @@ model ProductAlert {
 
   @@index([isActive])
   @@index([productId])
+}
+
+model SalesVelocityPrediction {
+  id                    String   @id
+  productId             String
+  predictedVelocity     Float    // Predicted units/day
+  currentVelocity       Float    // Current units/day
+  velocityTrend         String   // 'INCREASING' | 'DECREASING' | 'STABLE' | 'ACCELERATING'
+  predictedStockoutDate DateTime?
+  daysUntilStockout     Int?
+  confidenceScore       Float    // 0-1 confidence in prediction
+  riskLevel            String   // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  aiInsights           String?  // AI-generated insights
+  lastCalculated       DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime
+  Product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([riskLevel])
+  @@index([predictedStockoutDate])
+}
+
+model FastSellingAlert {
+  id                 String               @id
+  shopId             String
+  productId          String
+  alertType          FastSellingAlertType
+  severity           AlertSeverity
+  title              String
+  message            String
+  predictedStockout  DateTime?
+  currentVelocity    Float
+  velocityTrend      String
+  daysUntilStockout  Int?
+  suggestedAction    String?
+  isActive           Boolean              @default(true)
+  isResolved         Boolean              @default(false)
+  notificationsSent  Boolean              @default(false)
+  lastNotified       DateTime?
+  aiRecommendation   String?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  Shop               Shop                 @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  Product            Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@index([productId])
+  @@index([isActive])
+  @@index([severity])
+}
+
+model VelocityAnalytics {
+  id                    String   @id
+  productId             String
+  date                  DateTime
+  dailyVelocity         Float
+  weeklyVelocity        Float
+  monthlyVelocity       Float
+  velocityAcceleration  Float    // Rate of change in velocity
+  seasonalFactor        Float?   // Seasonal adjustment factor
+  promotionImpact       Float?   // Impact of promotions on velocity
+  stockLevel            Int
+  isWeekend             Boolean  @default(false)
+  isHoliday             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  Product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([date])
 }
 
 model Session {
@@ -169,11 +260,17 @@ model Shop {
   updatedAt                  DateTime
   criticalStockThreshold     Int?                 @default(5)
   highDemandThreshold        Float?               @default(50.0)
+  // New predictive settings
+  aiPredictionsEnabled       Boolean              @default(true)
+  lastVelocityAnalysis       DateTime?
   NotificationLog            NotificationLog[]
   NotificationSetting        NotificationSetting?
   Product                    Product[]
   Session                    Session[]
   Warehouse                  Warehouse[]
+  FastSellingAlert           FastSellingAlert[]
+
+  @@index([aiPredictionsEnabled])
 }
 
 model Variant {
@@ -233,4 +330,21 @@ enum ProductStatus {
   Low
   Critical
   OutOfStock
+}
+
+enum FastSellingAlertType {
+  VELOCITY_SPIKE
+  FAST_SELLING_WARNING
+  IMMINENT_STOCKOUT
+  REORDER_SUGGESTION
+  VELOCITY_TREND_CHANGE
+  AI_PREDICTION_ALERT
+}
+
+enum AlertSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
