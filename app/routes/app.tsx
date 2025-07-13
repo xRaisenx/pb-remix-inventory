@@ -2,7 +2,6 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
-// Provider as AppBridgeProvider from "@shopify/app-bridge-react" is no longer needed
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
@@ -47,7 +46,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       throw redirect(loginUrl);
     }
     
-    if (!host) {
+    // Ensure we have a proper host parameter for App Bridge
+    let validHost = host;
+    if (!validHost) {
       console.error("[LOADER ERROR] Missing host parameter for App Bridge");
       console.error("[LOADER ERROR] This will cause 'admin.shopify.com refused to connect' error");
       
@@ -57,6 +58,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         `${(session as any).shop.replace('.myshopify.com', '')}.myshopify.com`;
       
       console.log("[LOADER] Using fallback host:", fallbackHost);
+      validHost = fallbackHost;
       
       // Redirect with the constructed host
       const redirectUrl = `/app?shop=${encodeURIComponent((session as any).shop)}&host=${encodeURIComponent(fallbackHost)}`;
@@ -64,10 +66,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       throw redirect(redirectUrl);
     }
     
-    console.log("[LOADER] /app returning data with host:", host);
+    console.log("[LOADER] /app returning data with host:", validHost);
     return json({
       apiKey: process.env.SHOPIFY_API_KEY,
-      host: host,
+      host: validHost,
+      shop: (session as any).shop,
     });
   } catch (error) {
     console.error("[LOADER ERROR] /app loader failed:", error);
@@ -83,24 +86,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  const { apiKey, host } = useLoaderData<typeof loader>();
+  const { apiKey, host, shop } = useLoaderData<typeof loader>();
 
-  // The AppBridgeProvider wrapper is removed.
-  // The necessary App Bridge config (apiKey, host) is passed to PolarisAppProvider.
-  // isEmbeddedApp={true} is generally a default behavior or handled internally by App Bridge
-  // when it receives the host and apiKey.
+  // Configuration validation
   if (!apiKey || !host) {
     return (
       <PolarisAppProvider i18n={enTranslations}>
         <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
           <h2>Configuration Error</h2>
           <p>Missing Shopify API Key or Host. Please check your environment variables and app setup.</p>
+          <p>API Key: {apiKey ? 'Present' : 'Missing'}</p>
+          <p>Host: {host ? 'Present' : 'Missing'}</p>
         </div>
       </PolarisAppProvider>
     );
   }
 
-  // Wrap the app in Polaris AppProvider with apiKey and host for embedded context
   return (
     <PolarisAppProvider i18n={enTranslations}>
       <AppLayout>
