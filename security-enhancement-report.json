@@ -1,0 +1,206 @@
+{
+  "timestamp": "2025-07-13T21:20:03.318Z",
+  "securityLevel": "CRITICAL",
+  "summary": {
+    "totalTests": 18,
+    "passed": 15,
+    "failed": 3,
+    "securityLevel": "CRITICAL",
+    "recommendations": [
+      "CRITICAL: JWT Token Security failed",
+      "CRITICAL: Data Encryption at Rest failed"
+    ]
+  },
+  "inputValidation": [
+    {
+      "name": "SQL Injection Prevention",
+      "success": true,
+      "critical": true,
+      "details": "Prevented 5/5 SQL injection attempts",
+      "recommendations": [
+        "SQL injection protection is working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.315Z"
+    },
+    {
+      "name": "XSS Protection",
+      "success": true,
+      "critical": true,
+      "details": "Protected against 5/5 XSS attempts",
+      "recommendations": [
+        "XSS protection is working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.315Z"
+    },
+    {
+      "name": "Input Length Validation",
+      "success": true,
+      "critical": false,
+      "details": "Validated 4/4 input length checks",
+      "recommendations": [
+        "Input length validation working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.315Z"
+    },
+    {
+      "name": "Data Type Validation",
+      "success": true,
+      "critical": false,
+      "details": "Validated 5/5 data type checks",
+      "recommendations": [
+        "Data type validation working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.315Z"
+    },
+    {
+      "name": "Domain Validation",
+      "success": true,
+      "critical": false,
+      "details": "Validated 4/4 domain checks",
+      "recommendations": [
+        "Domain validation working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.315Z"
+    }
+  ],
+  "authentication": [
+    {
+      "name": "Password Hashing",
+      "success": true,
+      "critical": true,
+      "details": "Password hashing: implemented",
+      "recommendations": [
+        "Password hashing is secure"
+      ],
+      "timestamp": "2025-07-13T21:20:03.316Z"
+    },
+    {
+      "name": "Session Management",
+      "success": true,
+      "critical": true,
+      "details": "Session management: working",
+      "recommendations": [
+        "Session management is secure"
+      ],
+      "timestamp": "2025-07-13T21:20:03.316Z"
+    },
+    {
+      "name": "JWT Token Security",
+      "success": false,
+      "critical": true,
+      "details": "JWT security: weak",
+      "recommendations": [
+        "Use stronger JWT secrets"
+      ],
+      "timestamp": "2025-07-13T21:20:03.316Z"
+    },
+    {
+      "name": "API Key Validation",
+      "success": true,
+      "critical": true,
+      "details": "API key validation: working",
+      "recommendations": [
+        "API key validation working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.316Z"
+    },
+    {
+      "name": "Webhook Signature Verification",
+      "success": true,
+      "critical": true,
+      "details": "Webhook signature verification: implemented",
+      "recommendations": [
+        "Webhook signatures are secure"
+      ],
+      "timestamp": "2025-07-13T21:20:03.317Z"
+    }
+  ],
+  "rateLimiting": [
+    {
+      "name": "API Rate Limiting",
+      "success": true,
+      "critical": false,
+      "details": "API rate limiting: active",
+      "recommendations": [
+        "Rate limiting is working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.317Z"
+    },
+    {
+      "name": "Webhook Rate Limiting",
+      "success": true,
+      "critical": false,
+      "details": "Webhook rate limiting: active",
+      "recommendations": [
+        "Webhook rate limiting working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.317Z"
+    },
+    {
+      "name": "Login Attempt Limiting",
+      "success": true,
+      "critical": true,
+      "details": "Login attempt limiting: active",
+      "recommendations": [
+        "Login limiting is working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.317Z"
+    },
+    {
+      "name": "IP-based Rate Limiting",
+      "success": true,
+      "critical": false,
+      "details": "IP rate limiting: active",
+      "recommendations": [
+        "IP rate limiting working"
+      ],
+      "timestamp": "2025-07-13T21:20:03.318Z"
+    }
+  ],
+  "encryption": [
+    {
+      "name": "Data Encryption at Rest",
+      "success": false,
+      "critical": true,
+      "error": "crypto.createCipher is not a function",
+      "recommendations": [
+        "Fix Data Encryption at Rest implementation"
+      ],
+      "timestamp": "2025-07-13T21:20:03.318Z"
+    },
+    {
+      "name": "Connection Encryption",
+      "success": true,
+      "critical": true,
+      "details": "Connection encryption: enabled",
+      "recommendations": [
+        "Connections are encrypted"
+      ],
+      "timestamp": "2025-07-13T21:20:03.318Z"
+    },
+    {
+      "name": "API Key Encryption",
+      "success": true,
+      "critical": true,
+      "details": "API key encryption: implemented",
+      "recommendations": [
+        "API keys are encrypted"
+      ],
+      "timestamp": "2025-07-13T21:20:03.318Z"
+    },
+    {
+      "name": "Webhook Payload Encryption",
+      "success": false,
+      "critical": false,
+      "error": "crypto.createCipher is not a function",
+      "recommendations": [
+        "Fix Webhook Payload Encryption implementation"
+      ],
+      "timestamp": "2025-07-13T21:20:03.318Z"
+    }
+  ],
+  "overallRecommendations": [
+    "Authentication: 1 security issues need attention",
+    "Encryption: 2 security issues need attention"
+  ]
+}

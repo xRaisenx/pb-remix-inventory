@@ -1,0 +1,160 @@
+{
+  "timestamp": "2025-07-13T21:18:00.283Z",
+  "summary": {
+    "optimizations": 7,
+    "improvements": 8,
+    "recommendations": []
+  },
+  "database": [
+    {
+      "average": 128,
+      "min": 68,
+      "max": 236,
+      "target": 50,
+      "optimized": false,
+      "improved": false,
+      "recommendations": [
+        "Critical: Consider query optimization or caching"
+      ],
+      "name": "Index Analysis",
+      "category": "database"
+    },
+    {
+      "average": 52,
+      "min": 39,
+      "max": 70,
+      "target": 50,
+      "optimized": false,
+      "improved": true,
+      "recommendations": [
+        "Minor: Small optimization opportunity available"
+      ],
+      "name": "Query Optimization",
+      "category": "database"
+    },
+    {
+      "average": 70,
+      "min": 25,
+      "max": 151,
+      "target": 50,
+      "optimized": false,
+      "improved": false,
+      "recommendations": [
+        "Minor: Small optimization opportunity available"
+      ],
+      "name": "Connection Pooling",
+      "category": "database"
+    },
+    {
+      "average": 88,
+      "min": 52,
+      "max": 151,
+      "target": 50,
+      "optimized": false,
+      "improved": false,
+      "recommendations": [
+        "Warning: Performance below target, review implementation"
+      ],
+      "name": "Batch Operations",
+      "category": "database"
+    }
+  ],
+  "services": [
+    {
+      "average": 73,
+      "min": 63,
+      "max": 88,
+      "target": 100,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Performance within target"
+      ],
+      "name": "SMS Service Response Time",
+      "category": "service"
+    },
+    {
+      "average": 59,
+      "min": 49,
+      "max": 68,
+      "target": 100,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Performance within target"
+      ],
+      "name": "Webhook Service Response Time",
+      "category": "service"
+    },
+    {
+      "average": 43,
+      "min": 32,
+      "max": 60,
+      "target": 100,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Performance within target"
+      ],
+      "name": "HTTP Client Optimization",
+      "category": "service"
+    },
+    {
+      "average": 43,
+      "min": 41,
+      "max": 44,
+      "target": 100,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Performance within target"
+      ],
+      "name": "Caching Strategy",
+      "category": "service"
+    }
+  ],
+  "memory": [
+    {
+      "memoryUsed": 0.01,
+      "target": 50,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Memory usage within target"
+      ],
+      "name": "Database Connection Management",
+      "category": "memory"
+    },
+    {
+      "memoryUsed": 0,
+      "target": 30,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Memory usage within target"
+      ],
+      "name": "Object Pooling",
+      "category": "memory"
+    },
+    {
+      "memoryUsed": 0.01,
+      "target": 40,
+      "optimized": true,
+      "improved": true,
+      "recommendations": [
+        "Excellent: Memory usage within target"
+      ],
+      "name": "Garbage Collection",
+      "category": "memory"
+    }
+  ],
+  "recommendations": [
+    "Database: 4 optimization opportunities identified"
+  ],
+  "targets": {
+    "databaseQuery": 50,
+    "serviceResponse": 100,
+    "apiResponse": 200,
+    "webhookProcessing": 150
+  }
+}
