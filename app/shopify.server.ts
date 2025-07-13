@@ -21,10 +21,15 @@ console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, 
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private errorCount = 0;
   private cache = new Map<string, any>();
+  private sessionCountCache = { count: 0, lastUpdated: 0 };
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
   
   constructor(prismaClient: typeof prisma) {
     super(prismaClient);
     console.log('Enhanced Prisma session storage initialized');
+    
+    // Start cache cleanup interval
+    setInterval(() => this.cleanupCache(), 10 * 60 * 1000); // Cleanup every 10 minutes
   }
 
   async storeSession(session: any): Promise<boolean> {
@@ -34,10 +39,20 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       console.log(`[SESSION] Session state: ${session.state}`);
       
       // Cache the session for faster access
-      this.cache.set(session.id, session);
+      this.cache.set(session.id, {
+        session,
+        timestamp: Date.now()
+      });
       
       const result = await super.storeSession(session);
       console.log(`[SESSION] Session stored successfully: ${result}`);
+      
+      // Update session count cache
+      if (result) {
+        this.sessionCountCache.count++;
+        this.sessionCountCache.lastUpdated = Date.now();
+      }
+      
       return result;
     } catch (error) {
       console.error(`[SESSION] Session storage error for ${session.id}:`, error);
@@ -50,58 +65,124 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       console.log(`[SESSION] Attempting to load session: ${id}`);
       
       // Check cache first
-      if (this.cache.has(id)) {
-        console.log(`[SESSION] Cache hit for session ${id}`);
-        return this.cache.get(id);
+      const cached = this.cache.get(id);
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+        console.log(`[SESSION] Session loaded from cache: ${id}`);
+        return cached.session;
       }
       
-      console.log(`[SESSION] Cache miss for session ${id}, querying database...`);
+      const startTime = Date.now();
+      const session = await super.loadSession(id);
+      const loadTime = Date.now() - startTime;
       
-      // Load from database with timeout
-      const session = await Promise.race([
-        super.loadSession(id),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session load timeout')), 10000)
-        )
-      ]);
+      if (loadTime > 1000) {
+        console.log(`[SESSION PERF] Slow session load: ${id} took ${loadTime}ms`);
+      }
       
       if (session) {
-        this.cache.set(id, session);
-        console.log(`[SESSION] Loaded session ${id} from database successfully`);
-        console.log(`[SESSION] Session data:`, {
-          id: (session as any).id,
-          shop: (session as any).shop,
-          state: (session as any).state,
-          isOnline: (session as any).isOnline,
-          expires: (session as any).expires
+        // Update cache
+        this.cache.set(id, {
+          session,
+          timestamp: Date.now()
         });
+        console.log(`[SESSION] Session loaded from database: ${id}`);
       } else {
-        console.log(`[SESSION] No session found in database for ${id}`);
+        console.log(`[SESSION] Session not found: ${id}`);
       }
       
       return session;
     } catch (error) {
-      console.error(`[SESSION] Error loading session ${id}:`, error);
-      // Clear cache entry if it exists
-      this.cache.delete(id);
-      return undefined; // Return undefined instead of throwing to allow for retry
+      console.error(`[SESSION] Session load error for ${id}:`, error);
+      this.errorCount++;
+      
+      if (this.errorCount > 10) {
+        console.error("[SESSION] Too many session errors - clearing cache");
+        this.clearCache();
+        this.errorCount = 0;
+      }
+      
+      throw error;
     }
   }
 
   async deleteSession(id: string): Promise<boolean> {
     try {
-      // Clear cache
+      console.log(`[SESSION] Deleting session: ${id}`);
+      
+      // Remove from cache
       this.cache.delete(id);
-      return await super.deleteSession(id);
+      
+      const result = await super.deleteSession(id);
+      console.log(`[SESSION] Session deleted: ${result}`);
+      
+      // Update session count cache
+      if (result) {
+        this.sessionCountCache.count = Math.max(0, this.sessionCountCache.count - 1);
+        this.sessionCountCache.lastUpdated = Date.now();
+      }
+      
+      return result;
     } catch (error) {
-      console.error("Session deletion error:", error);
-      return false;
+      console.error(`[SESSION] Session deletion error for ${id}:`, error);
+      throw error;
+    }
+  }
+  
+  // Optimize session count queries with caching
+  async getSessionCount(): Promise<number> {
+    try {
+      // Return cached count if recent
+      if (this.sessionCountCache.lastUpdated && 
+          (Date.now() - this.sessionCountCache.lastUpdated) < this.CACHE_TTL) {
+        return this.sessionCountCache.count;
+      }
+      
+      // Use efficient count query with timeout
+      const startTime = Date.now();
+      const count = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "Session"` as any[];
+      const queryTime = Date.now() - startTime;
+      
+      if (queryTime > 5000) {
+        console.log(`[SESSION PERF] Slow session count query: ${queryTime}ms`);
+      }
+      
+      const sessionCount = parseInt(count[0]?.count || '0');
+      
+      // Update cache
+      this.sessionCountCache = {
+        count: sessionCount,
+        lastUpdated: Date.now()
+      };
+      
+      return sessionCount;
+    } catch (error) {
+      console.error('[SESSION] Session count error:', error);
+      // Return cached value if available, otherwise 0
+      return this.sessionCountCache.count || 0;
+    }
+  }
+  
+  // Clean up old cache entries
+  private cleanupCache() {
+    const now = Date.now();
+    let cleaned = 0;
+    
+    for (const [key, value] of this.cache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.cache.delete(key);
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.log(`[SESSION] Cache cleanup: removed ${cleaned} expired entries`);
     }
   }
   
   // Clear cache periodically to prevent memory leaks
   clearCache() {
     this.cache.clear();
+    this.sessionCountCache = { count: 0, lastUpdated: 0 };
     console.log("[SESSION] Cache cleared");
   }
 }

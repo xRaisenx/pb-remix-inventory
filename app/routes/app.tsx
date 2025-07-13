@@ -15,7 +15,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log("[LOADER] /app request URL:", request.url);
     console.log("[LOADER] /app request headers:", Object.fromEntries(request.headers.entries()));
     
-    // Check if we have a valid session before calling authenticate.admin
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
     const host = url.searchParams.get("host");
@@ -27,61 +26,66 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.error("[LOADER ERROR] No shop parameter found");
       throw new Response("Missing shop parameter", { status: 400 });
     }
+
+    // Validate shop domain format
+    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+      console.error("[LOADER ERROR] Invalid shop domain format:", shop);
+      throw new Response("Invalid shop domain", { status: 400 });
+    }
     
-    // Try to authenticate with detailed error handling
+    // Try to authenticate with enhanced error handling
     let session;
     try {
       session = await authenticate.admin(request);
       console.log("[LOADER] /app authentication successful");
-      console.log("[LOADER] /app session:", session);
+      console.log("[LOADER] /app session shop:", session.shop);
+      console.log("[LOADER] /app session id:", session.id);
     } catch (authError) {
       console.error("[LOADER ERROR] Authentication failed:", authError);
       
-      // If authentication fails, redirect to login
-      let loginUrl = `/auth/login?shop=${encodeURIComponent(shop)}`;
-      if (host) {
-        loginUrl += `&host=${encodeURIComponent(host)}`;
+      // Check if this is a 302 redirect response (not an error)
+      if (authError instanceof Response && authError.status === 302) {
+        console.log("[LOADER] Received expected auth redirect");
+        throw authError; // Re-throw the redirect
       }
+      
+      // For other authentication errors, redirect to login with proper parameters
+      const loginParams = new URLSearchParams();
+      loginParams.set('shop', shop);
+      if (host) loginParams.set('host', host);
+      
+      const loginUrl = `/auth/login?${loginParams.toString()}`;
       console.log("[LOADER] Redirecting to login:", loginUrl);
       throw redirect(loginUrl);
     }
     
     // Ensure we have a proper host parameter for App Bridge
     let validHost = host;
-    if (!validHost) {
-      console.error("[LOADER ERROR] Missing host parameter for App Bridge");
-      console.error("[LOADER ERROR] This will cause 'admin.shopify.com refused to connect' error");
-      
-      // Try to construct host from shop parameter or session
-      const fallbackHost = shop ? 
-        `${shop.replace('.myshopify.com', '')}.myshopify.com` : 
-        `${(session as any).shop.replace('.myshopify.com', '')}.myshopify.com`;
-      
-      console.log("[LOADER] Using fallback host:", fallbackHost);
-      validHost = fallbackHost;
-      
-      // Redirect with the constructed host
-      const redirectUrl = `/app?shop=${encodeURIComponent((session as any).shop)}&host=${encodeURIComponent(fallbackHost)}`;
-      console.log("[LOADER] Redirecting to:", redirectUrl);
-      throw redirect(redirectUrl);
+    if (!validHost && session?.shop) {
+      // Generate a proper host parameter from the shop domain
+      const shopDomain = session.shop.replace('.myshopify.com', '');
+      validHost = btoa(`admin.shopify.com/store/${shopDomain}`);
+      console.log("[LOADER] Generated host parameter:", validHost);
     }
     
-    console.log("[LOADER] /app returning data with host:", validHost);
+    if (!validHost) {
+      console.error("[LOADER ERROR] Unable to determine valid host parameter");
+      throw new Response("Missing host parameter for embedded app", { status: 400 });
+    }
+
     return json({
-      apiKey: process.env.SHOPIFY_API_KEY,
+      shop: session.shop,
       host: validHost,
-      shop: (session as any).shop,
+      sessionId: session.id,
+      apiKey: process.env.SHOPIFY_API_KEY,
     });
   } catch (error) {
-    console.error("[LOADER ERROR] /app loader failed:", error);
-    
-    // If it's a redirect, let it pass through
-    if (error instanceof Response && error.status >= 300 && error.status < 400) {
-      throw error;
+    if (error instanceof Response) {
+      throw error; // Re-throw Response objects (redirects, etc.)
     }
     
-    // For other errors, show a user-friendly message
-    throw new Response("Failed to load app. Please try again.", { status: 500 });
+    console.error("[LOADER ERROR] /app loader failed:", error);
+    throw error;
   }
 };
 
