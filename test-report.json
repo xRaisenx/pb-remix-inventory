@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-07-13T14:09:20.283Z",
+  "timestamp": "2025-07-13T18:04:49.232Z",
   "summary": {
     "total": 20,
-    "passed": 13,
-    "failed": 7,
-    "successRate": 65,
-    "duration": 2307
+    "passed": 16,
+    "failed": 4,
+    "successRate": 80,
+    "duration": 7726
   },
   "categories": {
     "database": {
@@ -40,14 +40,14 @@
     },
     "integration": {
       "total": 4,
-      "passed": 1,
-      "failed": 3
+      "passed": 4,
+      "failed": 0
     }
   },
   "errors": [
     {
       "test": "Product Details API",
-      "error": "\nInvalid `prisma.product.create()` invocation:\n\n\nThe column `quantity` does not exist in the current database.",
+      "error": "Product details API returned 410",
       "category": "api"
     },
     {
@@ -64,21 +64,6 @@
       "test": "Google AI Integration",
       "error": "Google AI API key not configured",
       "category": "ai"
-    },
-    {
-      "test": "Product Sync",
-      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
-      "category": "integration"
-    },
-    {
-      "test": "Notification System",
-      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
-      "category": "integration"
-    },
-    {
-      "test": "Inventory Management",
-      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
-      "category": "integration"
     }
   ],
   "config": {

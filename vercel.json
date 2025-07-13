@@ -5,17 +5,6 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "regions": ["iad1"],
-  "functions": {
-    "app/routes/**/*.tsx": {
-      "maxDuration": 30
-    },
-    "app/routes/webhooks/**/*.tsx": {
-      "maxDuration": 60
-    },
-    "app/routes/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
