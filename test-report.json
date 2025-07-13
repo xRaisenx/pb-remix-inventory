@@ -1,11 +1,11 @@
 {
-  "timestamp": "2025-07-13T18:04:49.232Z",
+  "timestamp": "2025-07-13T18:37:29.198Z",
   "summary": {
     "total": 20,
-    "passed": 16,
-    "failed": 4,
-    "successRate": 80,
-    "duration": 7726
+    "passed": 20,
+    "failed": 0,
+    "successRate": 100,
+    "duration": 2278
   },
   "categories": {
     "database": {
@@ -20,8 +20,8 @@
     },
     "api": {
       "total": 3,
-      "passed": 1,
-      "failed": 2
+      "passed": 3,
+      "failed": 0
     },
     "webhooks": {
       "total": 1,
@@ -30,8 +30,8 @@
     },
     "ai": {
       "total": 2,
-      "passed": 0,
-      "failed": 2
+      "passed": 2,
+      "failed": 0
     },
     "frontend": {
       "total": 2,
@@ -44,28 +44,7 @@
       "failed": 0
     }
   },
-  "errors": [
-    {
-      "test": "Product Details API",
-      "error": "Product details API returned 410",
-      "category": "api"
-    },
-    {
-      "test": "Cron Endpoint",
-      "error": "Cron endpoint returned 401",
-      "category": "api"
-    },
-    {
-      "test": "AI Service",
-      "error": "AI query endpoint returned 410",
-      "category": "ai"
-    },
-    {
-      "test": "Google AI Integration",
-      "error": "Google AI API key not configured",
-      "category": "ai"
-    }
-  ],
+  "errors": [],
   "config": {
     "baseUrl": "https://pb-inventory-ai-olive.vercel.app/",
     "testShop": "test-shop.myshopify.com",
