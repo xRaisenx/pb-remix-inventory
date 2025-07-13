@@ -341,7 +341,7 @@ async function simulateInventoryUpdates(products) {
 
 // Alert generation
 async function generateLowStockAlert(product, quantity) {
-  const alert = await prisma.productAlert.create({
+  await prisma.productAlert.create({
     data: {
       productId: product.id,
       shopId: product.shopId,
@@ -364,7 +364,7 @@ async function generateLowStockAlert(product, quantity) {
 }
 
 async function generateOutOfStockAlert(product) {
-  const alert = await prisma.productAlert.create({
+  await prisma.productAlert.create({
     data: {
       productId: product.id,
       shopId: product.shopId,

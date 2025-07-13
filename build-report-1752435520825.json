@@ -1,0 +1,10 @@
+{
+  "success": false,
+  "timestamp": "2025-07-13T19:38:40.825Z",
+  "duration": 24806,
+  "attempts": 5,
+  "testsRun": 0,
+  "fixesApplied": 0,
+  "fixes": [],
+  "issues": []
+}
