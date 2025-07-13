@@ -91,8 +91,17 @@ const testProductTable = async () => {
 };
 
 const testPrismaMigrations = async () => {
-  // Test that all migrations are applied
-  await prisma.$queryRaw`SELECT version FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 1`;
+  // Test that migrations can be applied by checking if tables exist
+  const tables = await prisma.$queryRaw`
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name IN ('Session', 'Shop', 'Product', 'Variant', 'Inventory')
+  `;
+  
+  if (!tables || tables.length < 5) {
+    throw new Error(`Expected at least 5 tables, found ${tables?.length || 0}`);
+  }
 };
 
 // Authentication Tests
@@ -133,13 +142,20 @@ const testWarmupEndpoint = async () => {
 
 const testProductDetailsAPI = async () => {
   // Create a test product first
+  // Create a test shop first
+  const testShop = await prisma.shop.create({
+    data: {
+      shop: `test-shop-${Date.now()}.myshopify.com`,
+      emailForNotifications: 'test@example.com'
+    }
+  });
+
   const testProduct = await prisma.product.create({
     data: {
       shopifyId: 'gid://shopify/Product/test123',
       title: 'Test Product for API',
-      price: 19.99,
       quantity: 10,
-      shopId: 'test-shop-id',
+      shopId: testShop.id,
       vendor: 'Test Vendor',
       productType: 'Test Type',
       tags: ['test'],
@@ -158,6 +174,7 @@ const testProductDetailsAPI = async () => {
   
   // Clean up
   await prisma.product.delete({ where: { id: testProduct.id } });
+  await prisma.shop.delete({ where: { id: testShop.id } });
 };
 
 const testCronEndpoint = async () => {
@@ -274,10 +291,9 @@ const testProductSync = async () => {
   // Test product sync functionality
   const testShop = await prisma.shop.create({
     data: {
-      shop: TEST_CONFIG.testShop,
+      shop: `test-shop-sync-${Date.now()}.myshopify.com`,
       emailForNotifications: 'test@example.com',
-      lowStockThreshold: 10,
-      criticalStockThreshold: 5
+      lowStockThreshold: 10
     }
   });
   
@@ -295,7 +311,7 @@ const testNotificationSystem = async () => {
   // Test notification settings
   const testShop = await prisma.shop.create({
     data: {
-      shop: TEST_CONFIG.testShop,
+      shop: `test-shop-notification-${Date.now()}.myshopify.com`,
       emailForNotifications: 'test@example.com'
     }
   });
@@ -324,7 +340,7 @@ const testInventoryManagement = async () => {
   // Test inventory management functionality
   const testShop = await prisma.shop.create({
     data: {
-      shop: TEST_CONFIG.testShop,
+      shop: `test-shop-inventory-${Date.now()}.myshopify.com`,
       emailForNotifications: 'test@example.com'
     }
   });
@@ -333,7 +349,6 @@ const testInventoryManagement = async () => {
     data: {
       shopifyId: 'gid://shopify/Product/inventory-test',
       title: 'Inventory Test Product',
-      price: 29.99,
       quantity: 50,
       shopId: testShop.id,
       vendor: 'Test Vendor',

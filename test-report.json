@@ -1,0 +1,89 @@
+{
+  "timestamp": "2025-07-13T14:09:20.283Z",
+  "summary": {
+    "total": 20,
+    "passed": 13,
+    "failed": 7,
+    "successRate": 65,
+    "duration": 2307
+  },
+  "categories": {
+    "database": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "authentication": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "api": {
+      "total": 3,
+      "passed": 1,
+      "failed": 2
+    },
+    "webhooks": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "ai": {
+      "total": 2,
+      "passed": 0,
+      "failed": 2
+    },
+    "frontend": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "integration": {
+      "total": 4,
+      "passed": 1,
+      "failed": 3
+    }
+  },
+  "errors": [
+    {
+      "test": "Product Details API",
+      "error": "\nInvalid `prisma.product.create()` invocation:\n\n\nThe column `quantity` does not exist in the current database.",
+      "category": "api"
+    },
+    {
+      "test": "Cron Endpoint",
+      "error": "Cron endpoint returned 401",
+      "category": "api"
+    },
+    {
+      "test": "AI Service",
+      "error": "AI query endpoint returned 410",
+      "category": "ai"
+    },
+    {
+      "test": "Google AI Integration",
+      "error": "Google AI API key not configured",
+      "category": "ai"
+    },
+    {
+      "test": "Product Sync",
+      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
+      "category": "integration"
+    },
+    {
+      "test": "Notification System",
+      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
+      "category": "integration"
+    },
+    {
+      "test": "Inventory Management",
+      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nUnique constraint failed on the fields: (`shop`)",
+      "category": "integration"
+    }
+  ],
+  "config": {
+    "baseUrl": "https://pb-inventory-ai-olive.vercel.app/",
+    "testShop": "test-shop.myshopify.com",
+    "databaseUrl": "configured"
+  }
+}
