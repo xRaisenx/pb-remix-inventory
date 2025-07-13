@@ -12,13 +12,17 @@ const createPrismaClient = () => {
     throw new Error("DATABASE_URL environment variable is not set");
   }
 
-  // Enhanced Neon connection configuration with better pooling
+  // Enhanced Neon connection configuration optimized for serverless
   let connectionUrl = databaseUrl;
   
-  // Ensure connection pooling parameters for Neon (optimized for serverless)
+  // Ensure proper connection pooling parameters for Neon serverless
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=2&connect_timeout=60&pool_timeout=60&idle_timeout=30&max_lifetime=300`;
+    // Optimized settings for Neon serverless:
+    // - Increased connection_limit from 2 to 10 for better concurrency
+    // - Reduced timeouts for faster failure detection
+    // - Added proper pooling configuration
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=10&connect_timeout=10&pool_timeout=15&idle_timeout=30&max_lifetime=300&prepared_statements=false`;
   }
 
   return new PrismaClient({
@@ -158,11 +162,11 @@ export const healthCheck = async (): Promise<{
   }
 };
 
-// Optimized query helper with Neon-specific error handling
+// Optimized query helper with Neon-specific error handling for serverless
 export const executeQuery = async <T>(
   queryFn: () => Promise<T>,
   operation: string,
-  retries = 3
+  retries = 4
 ): Promise<T> => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     const start = Date.now();
@@ -179,16 +183,23 @@ export const executeQuery = async <T>(
       const duration = Date.now() - start;
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      console.error(`[DB NEON] ${operation} failed (attempt ${attempt}/${retries}) after ${duration}ms:`, errorMessage);
+      console.error(`[DB ERROR] ${operation} failed after ${duration}ms (attempt ${attempt}/${retries}):`, error);
       
-      // Retry on connection issues
+      // Retry on connection issues with exponential backoff
       if (attempt < retries && (
         errorMessage.includes("Can't reach database server") ||
         errorMessage.includes("connection pool") ||
-        errorMessage.includes("timeout")
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("Connection terminated") ||
+        errorMessage.includes("Connection closed")
       )) {
-        const delay = 1000 * attempt;
-        console.log(`[DB NEON] Retrying ${operation} in ${delay}ms...`);
+        // Exponential backoff with jitter for serverless: 100ms, 200ms, 400ms, 800ms
+        const baseDelay = 100 * Math.pow(2, attempt - 1);
+        const jitter = Math.random() * 100; // Add random jitter to avoid thundering herd
+        const delay = Math.min(baseDelay + jitter, 1000); // Cap at 1 second
+        
+        console.log(`[DB NEON] Connection pool issue - retrying with backoff`);
+        console.log(`[DB NEON] Retrying connection in ${Math.round(delay)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
