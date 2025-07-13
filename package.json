@@ -1,41 +1,35 @@
 {
-  "name": "app",
+  "name": "planet-beauty-inventory-ai",
+  "version": "1.0.0",
+  "description": "AI-powered inventory management for beauty retailers",
   "private": true,
-  "scripts": {
-    "shopify:deploy": "shopify app deploy --client-id $SHOPIFY_API_KEY --force --verbose",
-    "db:init": "node scripts/db-init.js",
-    "db:test": "node scripts/test-db-connection.js",
-    "db:fix": "node scripts/fix-database-schema.js",
-    "fix:typescript": "node scripts/fix-typescript-errors.js",
-    "test:installation": "node scripts/test-installation-flow.js",
-    "db:indexes": "node scripts/add-session-indexes.js",
-    "db:setup": "prisma generate && prisma migrate deploy",
-    "db:reset": "prisma migrate reset --force",
-    "test:comprehensive": "node scripts/comprehensive-app-test.js",
-    "test:full": "node scripts/comprehensive-test-suite.js",
-    "setup": "node scripts/setup-project.js",
-    "build:with-testing": "node scripts/build-with-testing.js",
-    "build": "npm run build:with-testing",
-    "dev": "shopify app dev",
-    "config:link": "shopify app config link",
-    "generate": "shopify app generate",
-    "deploy": "shopify app deploy",
-    "config:use": "shopify app config use",
-    "env": "shopify app env",
-    "start": "remix-serve ./build/server/index.js",
-    "docker-start": "npm run setup && npm run start",
-    "setup:db": "npm run db:init",
-    "postbuild": "echo 'Build completed'",
-    "vercel-build": "npm run db:setup && remix vite:build",
-    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
-    "shopify": "shopify",
-    "prisma": "prisma",
-    "graphql-codegen": "graphql-codegen",
-    "vite": "vite"
-  },
   "type": "module",
   "engines": {
     "node": "^18.20 || ^20.10 || >=21.0.0"
+  },
+  "scripts": {
+    "dev": "shopify app dev",
+    "build": "remix vite:build",
+    "vercel-build": "npm run db:setup && remix vite:build",
+    "start": "remix-serve ./build/server/index.js",
+    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "lint:fix": "eslint --fix .",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "db:setup": "prisma generate && prisma migrate deploy",
+    "db:test": "node scripts/test-db-connection.js",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "setup:project": "node scripts/setup-project.js",
+    "test:installation": "node scripts/test-installation-flow.js",
+    "test:comprehensive": "node scripts/comprehensive-test-suite.js",
+    "shopify:deploy": "shopify app deploy --client-id $SHOPIFY_API_KEY --force --verbose",
+    "shopify:config": "shopify app config",
+    "shopify:env": "shopify app env",
+    "postinstall": "prisma generate",
+    "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -69,10 +63,12 @@
     "@types/node": "^22.16.1",
     "@types/react": "^18.2.31",
     "@types/react-dom": "^18.2.14",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-vitest": "^0.5.4",
     "node-fetch": "^3.3.2",
+    "prettier": "^3.3.3",
     "prisma": "^6.10.1",
     "typescript": "^5.2.2",
     "vite": "^6.2.2",
@@ -95,5 +91,24 @@
     "@graphql-codegen/client-preset": "4.7.0",
     "@graphql-codegen/typescript-operations": "4.5.0",
     "minimatch": "9.0.5"
-  }
+  },
+  "keywords": [
+    "shopify",
+    "inventory",
+    "ai",
+    "beauty",
+    "retail",
+    "remix",
+    "typescript"
+  ],
+  "author": "Planet Beauty",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/planet-beauty/inventory-ai"
+  },
+  "bugs": {
+    "url": "https://github.com/planet-beauty/inventory-ai/issues"
+  },
+  "homepage": "https://github.com/planet-beauty/inventory-ai#readme"
 }

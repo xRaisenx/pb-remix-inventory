@@ -1,6 +1,12 @@
 // app/components/Metrics.tsx
 
 import React from 'react';
+import { Card, Text, Grid, Icon } from '@shopify/polaris';
+import { 
+  ProductIcon, 
+  AlertTriangleIcon, 
+  ChartVerticalIcon 
+} from '@shopify/polaris-icons';
 
 interface MetricsProps {
   totalProducts: number;
@@ -8,47 +14,86 @@ interface MetricsProps {
   totalInventoryUnits: number;
 }
 
-export const Metrics: React.FC<MetricsProps> = ({ totalProducts, lowStockItemsCount, totalInventoryUnits }) => {
+export const Metrics: React.FC<MetricsProps> = ({ 
+  totalProducts, 
+  lowStockItemsCount, 
+  totalInventoryUnits 
+}) => {
   return (
-    <div className="pb-grid pb-grid-cols-1 pb-grid-md-cols-3 pb-gap-4 pb-mb-6">
-      {/* Total Products Metric */}
-      <div className="pb-card">
-        <div className="pb-flex pb-justify-between pb-items-center">
-          <div>
-            <div className="pb-text-sm pb-text-light pb-mb-1">Total Products</div>
-            <div className="pb-text-2xl pb-font-bold">{totalProducts}</div>
+    <Grid>
+      <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+        <Card>
+          <div style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <Text variant="bodySm" tone="subdued" as="p">Total Products</Text>
+                <Text variant="heading2xl" as="h2">{totalProducts.toLocaleString()}</Text>
+              </div>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '50%', 
+                backgroundColor: '#fef3f2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Icon source={ProductIcon} tone="base" />
+              </div>
+            </div>
           </div>
-          <div className="pb-metric-icon pb-metric-products">
-            <i className="fas fa-cube"></i>
-          </div>
-        </div>
-      </div>
+        </Card>
+      </Grid.Cell>
 
-      {/* Low Stock Items Metric */}
-      <div className="pb-card">
-        <div className="pb-flex pb-justify-between pb-items-center">
-          <div>
-            <div className="pb-text-sm pb-text-light pb-mb-1">Low Stock Items</div>
-            <div className="pb-text-2xl pb-font-bold text-red-500">{lowStockItemsCount}</div>
+      <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+        <Card>
+          <div style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <Text variant="bodySm" tone="subdued" as="p">Low Stock Items</Text>
+                <Text variant="heading2xl" as="h2" tone={lowStockItemsCount > 0 ? "critical" : "success"}>
+                  {lowStockItemsCount.toLocaleString()}
+                </Text>
+              </div>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '50%', 
+                backgroundColor: lowStockItemsCount > 0 ? '#fef3f2' : '#f0f9ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Icon source={AlertTriangleIcon} tone={lowStockItemsCount > 0 ? "critical" : "base"} />
+              </div>
+            </div>
           </div>
-          <div className="pb-metric-icon pb-metric-stock">
-            <i className="fas fa-exclamation-triangle"></i>
-          </div>
-        </div>
-      </div>
+        </Card>
+      </Grid.Cell>
 
-      {/* Total Inventory Units Metric */}
-      <div className="pb-card">
-        <div className="pb-flex pb-justify-between pb-items-center">
-          <div>
-            <div className="pb-text-sm pb-text-light pb-mb-1">Total Inventory</div>
-            <div className="pb-text-2xl pb-font-bold">{totalInventoryUnits}</div>
+      <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+        <Card>
+          <div style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <Text variant="bodySm" tone="subdued" as="p">Total Inventory</Text>
+                <Text variant="heading2xl" as="h2">{totalInventoryUnits.toLocaleString()}</Text>
+              </div>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '50%', 
+                backgroundColor: '#f0f9ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Icon source={ChartVerticalIcon} tone="base" />
+              </div>
+            </div>
           </div>
-          <div className="pb-metric-icon pb-metric-inventory">
-            <i className="fas fa-chart-line"></i>
-          </div>
-        </div>
-      </div>
-    </div>
+        </Card>
+      </Grid.Cell>
+    </Grid>
   );
 };

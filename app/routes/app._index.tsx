@@ -3,7 +3,7 @@ import { useLoaderData, useFetcher } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
-import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
+import { Page, Layout, Card, Text, Button, Spinner, Banner, Grid } from "@shopify/polaris";
 import { Metrics } from "~/components/Metrics";
 import { TrendingProducts } from "~/components/TrendingProducts";
 import { ProductAlerts } from "~/components/ProductAlerts";
@@ -102,7 +102,6 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function DashboardIndex() {
-  // Fix loaderData type for useLoaderData
   const loaderData = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
 
@@ -110,37 +109,55 @@ export default function DashboardIndex() {
 
   if (!loaderData.initialSyncCompleted) {
     return (
-      <PlanetBeautyLayout>
-        <div className="pb-card">
-          <div className="pb-space-y-4">
-            <h2 className="pb-text-xl pb-font-medium">Initial Data Sync Required</h2>
-            <p>
-              To get started, we need to perform an initial sync of your products and inventory from Shopify.
-              This may take a few minutes depending on the size of your store.
-            </p>
-            {isSyncing ? (
-              <div className="pb-flex pb-flex-col pb-items-center pb-space-y-4">
-                <div className="spinner"></div>
-                <p className="pb-text-sm">Sync in progress... Please don't close this page.</p>
+      <Page
+        title="Welcome to Planet Beauty Inventory AI"
+        subtitle="Let's get your inventory management set up"
+      >
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <div style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <Text variant="headingMd" as="h2">
+                    Initial Data Sync Required
+                  </Text>
+                  <Text as="p">
+                    To get started, we need to perform an initial sync of your products and inventory from Shopify.
+                    This may take a few minutes depending on the size of your store.
+                  </Text>
+                  
+                  {isSyncing ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <Spinner size="large" />
+                      <Text as="p" variant="bodySm">
+                        Sync in progress... Please don't close this page.
+                      </Text>
+                    </div>
+                  ) : (
+                    <fetcher.Form method="post">
+                      <input type="hidden" name="intent" value="start_initial_sync" />
+                      <Button 
+                        submit
+                        variant="primary"
+                        loading={isSyncing}
+                        size="large"
+                      >
+                        Start Initial Sync
+                      </Button>
+                    </fetcher.Form>
+                  )}
+                  
+                  {fetcher.data?.error && !isSyncing && (
+                    <Banner tone="critical">
+                      {fetcher.data.error}
+                    </Banner>
+                  )}
+                </div>
               </div>
-            ) : (
-              <fetcher.Form method="post">
-                <input type="hidden" name="intent" value="start_initial_sync" />
-                <button 
-                  type="submit" 
-                  className="pb-btn-primary" 
-                  disabled={isSyncing}
-                >
-                  Start Initial Sync
-                </button>
-              </fetcher.Form>
-            )}
-            {fetcher.data?.error && !isSyncing && (
-              <div className="pb-alert-critical">{fetcher.data.error}</div>
-            )}
-          </div>
-        </div>
-      </PlanetBeautyLayout>
+            </Card>
+          </Layout.Section>
+        </Layout>
+      </Page>
     );
   }
 
@@ -157,29 +174,49 @@ export default function DashboardIndex() {
   } => data && data.initialSyncCompleted === true && typeof data.totalProducts === 'number';
 
   if (!isDashboardData(loaderData)) {
-    // Fallback for incomplete loaderData
     return null;
   }
 
   return (
-    <PlanetBeautyLayout>
-      <div className="pb-space-y-6">
-        <Metrics
-          totalProducts={loaderData.totalProducts}
-          lowStockItemsCount={loaderData.lowStockItemsCount}
-          totalInventoryUnits={loaderData.totalInventoryUnits}
-        />
-        <DashboardVisualizations />
-        <ProductAlerts
-          lowStockProducts={loaderData.lowStockProductsForAlerts}
-          highSalesTrendProducts={loaderData.highSalesTrendProducts}
-        />
-        <TrendingProducts products={loaderData.trendingProducts} />
-        <div className="pb-grid pb-grid-cols-1 pb-grid-md-cols-2 pb-gap-6">
-          <QuickActions />
-          <AIAssistant shopId={loaderData.storeName} />
-        </div>
-      </div>
-    </PlanetBeautyLayout>
+    <Page
+      title="Dashboard"
+      subtitle={`Welcome back, ${loaderData.storeName}`}
+    >
+      <Layout>
+        <Layout.Section>
+          <Metrics
+            totalProducts={loaderData.totalProducts}
+            lowStockItemsCount={loaderData.lowStockItemsCount}
+            totalInventoryUnits={loaderData.totalInventoryUnits}
+          />
+        </Layout.Section>
+        
+        <Layout.Section>
+          <DashboardVisualizations />
+        </Layout.Section>
+        
+        <Layout.Section>
+          <ProductAlerts
+            lowStockProducts={loaderData.lowStockProductsForAlerts}
+            highSalesTrendProducts={loaderData.highSalesTrendProducts}
+          />
+        </Layout.Section>
+        
+        <Layout.Section>
+          <TrendingProducts products={loaderData.trendingProducts} />
+        </Layout.Section>
+        
+        <Layout.Section>
+          <Grid>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <QuickActions />
+            </Grid.Cell>
+            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+              <AIAssistant shopId={loaderData.storeName} />
+            </Grid.Cell>
+          </Grid>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
 }

@@ -1,43 +1,67 @@
-# Planet Beauty AI Inventory Management - Shopify Remix App
+# 🌟 Planet Beauty Inventory AI
 
-A comprehensive Shopify embedded app for intelligent inventory management with AI-powered insights, real-time alerts, and automated restock recommendations.
+**AI-powered inventory management for beauty retailers**
 
-## 🚀 Features
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://vercel.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue)](https://www.typescriptlang.org/)
+[![Remix](https://img.shields.io/badge/Remix-2.16-purple)](https://remix.run/)
+[![Shopify](https://img.shields.io/badge/Shopify-App-orange)](https://shopify.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-- **AI-Powered Inventory Analysis**: Google AI integration for intelligent product insights
-- **Real-time Stock Monitoring**: Automated alerts for low stock and critical inventory levels
-- **Smart Restock Recommendations**: AI-driven suggestions for optimal reorder quantities
-- **Multi-channel Notifications**: Email, Slack, Telegram, and SMS alerting
-- **Comprehensive Reporting**: Sales velocity, demand forecasting, and trend analysis
-- **Warehouse Management**: Multi-location inventory tracking
-- **Shopify Integration**: Seamless embedded app experience with full Shopify API integration
+## 🚀 Overview
+
+Planet Beauty Inventory AI is a sophisticated Shopify embedded application that leverages artificial intelligence to provide intelligent inventory management for beauty retailers. Built with modern technologies and corporate-grade architecture, it offers real-time inventory tracking, predictive analytics, and automated alerts.
+
+### ✨ Key Features
+
+- 🤖 **AI-Powered Insights**: Google AI integration for intelligent inventory recommendations
+- 📊 **Real-time Analytics**: Comprehensive dashboard with key metrics and visualizations
+- 🔔 **Smart Alerts**: Automated notifications for low stock, high demand, and critical inventory levels
+- 📱 **Multi-channel Notifications**: Email, Slack, and Telegram integration
+- 🔄 **Automated Sync**: Seamless Shopify product and inventory synchronization
+- 📈 **Predictive Analytics**: Sales velocity tracking and stockout predictions
+- 🎨 **Modern UI**: Polaris design system for consistent Shopify admin experience
+- 🏗️ **Enterprise Architecture**: Scalable, maintainable, and production-ready
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Remix 2.16.8, React 18, Shopify Polaris 12
-- **Backend**: Node.js, Remix Server
-- **Database**: PostgreSQL (Neon) with Prisma ORM
-- **AI**: Google Generative AI
-- **Hosting**: Vercel
-- **Authentication**: Shopify App Bridge
-- **Testing**: Vitest, Comprehensive Test Suite
+### Frontend
+- **Remix** - Full-stack React framework
+- **TypeScript** - Type-safe development
+- **Shopify Polaris** - Design system and components
+- **Vite** - Fast build tooling
+
+### Backend
+- **Node.js** - Runtime environment
+- **Prisma** - Database ORM
+- **PostgreSQL** - Primary database (Neon)
+- **Shopify API** - E-commerce integration
+
+### AI & Analytics
+- **Google Generative AI** - Intelligent insights
+- **Custom Analytics Engine** - Sales velocity and predictions
+
+### Infrastructure
+- **Vercel** - Hosting and deployment
+- **Neon** - Serverless PostgreSQL
+- **Shopify App Bridge** - Embedded app framework
 
 ## 📋 Prerequisites
 
 - Node.js 18.20+ or 20.10+
-- PostgreSQL database (Neon recommended)
+- npm or yarn package manager
 - Shopify Partner account
+- Neon PostgreSQL database
 - Google AI API key
-- Vercel account (for deployment)
 
 ## 🚀 Quick Start
 
 ### 1. Clone and Setup
 
 ```bash
-git clone <repository-url>
-cd planet-beauty-inventory-ai
-npm run setup
+git clone https://github.com/planet-beauty/inventory-ai.git
+cd inventory-ai
+npm install
 ```
 
 ### 2. Environment Configuration
@@ -45,34 +69,33 @@ npm run setup
 Create a `.env` file with the following variables:
 
 ```env
-# Shopify App Configuration
-SHOPIFY_API_KEY=your_api_key_here
-SHOPIFY_API_SECRET=your_api_secret_here
-SHOPIFY_APP_URL=https://your-app-url.vercel.app
+# Shopify Configuration
+SHOPIFY_API_KEY=your_shopify_api_key
+SHOPIFY_API_SECRET=your_shopify_api_secret
+SHOPIFY_SCOPES=read_products,write_products,read_inventory,write_inventory,read_orders,write_orders
+SHOPIFY_APP_URL=https://your-app.vercel.app
 
-# Database Configuration (Neon PostgreSQL)
-DATABASE_URL=postgresql://username:password@host:port/database?sslmode=require
+# Database Configuration
+DATABASE_URL=postgresql://user:password@host:port/database
 
 # AI Configuration
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+GOOGLE_AI_API_KEY=your_google_ai_api_key
 
-# Optional Configuration
-NODE_ENV=production
-SESSION_SECRET=your_session_secret_here
-SHOPIFY_SCOPES=write_products,read_products,write_inventory,read_inventory,read_locations,read_orders
+# Security
+SESSION_SECRET=your_session_secret
+
+# App Configuration
+APP_URL=https://your-app.vercel.app
 ```
 
 ### 3. Database Setup
 
 ```bash
 # Generate Prisma client
-npx prisma generate
+npm run db:setup
 
-# Run migrations
-npx prisma migrate deploy
-
-# Create database indexes
-node scripts/add-session-indexes.js
+# Test database connection
+npm run db:test
 ```
 
 ### 4. Development
@@ -81,182 +104,125 @@ node scripts/add-session-indexes.js
 # Start development server
 npm run dev
 
-# Run linting
-npm run lint
-
 # Run tests
-npm run test:full
+npm run test
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
 ```
 
-### 5. Deployment
+### 5. Production Deployment
 
 ```bash
+# Build for production
+npm run vercel-build
+
 # Deploy to Vercel
-npm run deploy
-
-# Or build for production
-npm run build
+vercel --prod
 ```
 
-## 🧪 Testing
-
-### Comprehensive Test Suite
-
-Run the full test suite to verify all functionality:
-
-```bash
-npm run test:full
-```
-
-This tests:
-- Database connections and operations
-- Shopify authentication and API integration
-- AI service functionality
-- Webhook endpoints
-- Frontend routes and components
-- Integration scenarios
-- Performance benchmarks
-
-### Individual Test Categories
-
-```bash
-# Database tests
-npm run db:test
-
-# Installation flow tests
-npm run test:installation
-
-# Comprehensive app tests
-npm run test:comprehensive
-```
-
-## 📊 Project Structure
+## 📁 Project Structure
 
 ```
+planet-beauty-inventory-ai/
 ├── app/
 │   ├── components/          # React components
+│   │   ├── Metrics.tsx     # Dashboard metrics
+│   │   ├── AIAssistant.tsx # AI chat interface
+│   │   └── ...
 │   ├── routes/             # Remix routes
-│   ├── services/           # Business logic services
-│   ├── lib/                # Utility libraries
-│   ├── styles/             # CSS styles
-│   └── utils/              # Helper utilities
+│   │   ├── app._index.tsx  # Dashboard
+│   │   ├── app.products.tsx # Products management
+│   │   ├── webhooks/       # Shopify webhooks
+│   │   └── ...
+│   ├── services/           # Business logic
+│   │   ├── ai.server.ts    # AI integration
+│   │   ├── inventory.service.ts # Inventory logic
+│   │   └── ...
+│   ├── styles/             # CSS and styling
+│   └── db.server.ts        # Database connection
 ├── prisma/
-│   └── schema.prisma       # Database schema
-├── scripts/
-│   ├── setup-project.js    # Project setup script
-│   ├── comprehensive-test-suite.js  # Full test suite
-│   ├── db-init.js          # Database initialization
-│   └── ...                 # Other utility scripts
-├── extensions/             # Shopify app extensions
-└── public/                 # Static assets
+│   ├── schema.prisma       # Database schema
+│   └── migrations/         # Database migrations
+├── scripts/                # Utility scripts
+│   ├── setup-project.js    # Project setup
+│   ├── test-db-connection.js # Database tests
+│   └── ...
+├── package.json            # Dependencies and scripts
+├── vite.config.ts          # Vite configuration
+├── remix.config.js         # Remix configuration
+└── README.md               # This file
 ```
 
 ## 🔧 Configuration
 
-### Shopify App Configuration
+### Shopify App Setup
 
-The app is configured in `shopify.app.toml`:
+1. Create a new app in your Shopify Partner dashboard
+2. Configure the app URL and allowed redirection URLs
+3. Set up webhooks for the following topics:
+   - `products/create`
+   - `products/update`
+   - `products/delete`
+   - `inventory_levels/update`
+   - `orders/create`
+   - `orders/paid`
+   - `app/uninstalled`
 
-```toml
-client_id = "your_client_id"
-name = "focused-policy-app"
-handle = "focused-policy-app-6"
-application_url = "https://your-app-url.vercel.app/"
-embedded = true
+### Database Configuration
 
-[webhooks]
-api_version = "2024-07"
+The application uses Prisma with PostgreSQL. Key models include:
 
-[access_scopes]
-scopes = "write_products,read_products,write_inventory,read_inventory,read_locations,read_orders"
-```
-
-### Database Schema
-
-The Prisma schema includes models for:
-- **Session**: Shopify session management
-- **Shop**: Store configuration and settings
-- **Product**: Product inventory and analytics
-- **Variant**: Product variants
-- **Inventory**: Multi-location inventory tracking
-- **Warehouse**: Warehouse/location management
-- **NotificationSetting**: Alert configuration
-- **ProductAlert**: Active alerts and notifications
-- **AnalyticsData**: Historical analytics
-- **DemandForecast**: AI-powered demand predictions
-
-## 🤖 AI Integration
-
-### Google AI Features
-
-- **Inventory Analysis**: Smart stock level recommendations
-- **Demand Forecasting**: Predictive analytics for restock timing
-- **Natural Language Queries**: AI assistant for inventory questions
-- **Trend Analysis**: Sales velocity and pattern recognition
+- **Shop** - Store information and settings
+- **Product** - Product data and analytics
+- **Variant** - Product variants and inventory
+- **Inventory** - Warehouse inventory tracking
+- **ProductAlert** - Stock and sales alerts
+- **NotificationSetting** - Notification preferences
+- **AnalyticsData** - Sales and inventory analytics
 
 ### AI Configuration
 
-```typescript
-// Example AI query
-const aiResponse = await generateAIResponse({
-  query: "How much lipstick inventory do I have?",
-  context: { shopId, productData }
-});
+The AI system uses Google's Generative AI for:
+
+- Inventory recommendations
+- Sales trend analysis
+- Stockout predictions
+- Demand forecasting
+
+## 🧪 Testing
+
+### Test Suite
+
+```bash
+# Run all tests
+npm run test
+
+# Watch mode
+npm run test:watch
+
+# Coverage report
+npm run test:coverage
+
+# Installation flow test
+npm run test:installation
+
+# Comprehensive test suite
+npm run test:comprehensive
 ```
 
-## 📱 App Features
+### Test Coverage
 
-### Dashboard
-- Real-time inventory metrics
-- Trending products
-- Low stock alerts
-- Quick actions
-
-### Products
-- Product catalog management
-- Inventory level monitoring
-- AI-powered insights
-- Bulk operations
-
-### Inventory
-- Multi-location tracking
-- Stock level updates
-- Movement history
-- Automated alerts
-
-### Alerts
-- Configurable thresholds
-- Multi-channel notifications
-- Alert history
-- Resolution tracking
-
-### Reports
-- Sales velocity analysis
-- Demand forecasting
-- Inventory turnover
-- Performance metrics
-
-### Settings
-- Notification preferences
-- AI configuration
-- Warehouse management
-- Integration settings
-
-## 🔔 Notifications
-
-### Supported Channels
-- **Email**: SMTP integration
-- **Slack**: Webhook notifications
-- **Telegram**: Bot integration
-- **SMS**: Twilio integration
-- **Webhook**: Custom endpoints
-
-### Alert Types
-- Low stock warnings
-- Critical stock alerts
-- High demand notifications
-- Restock reminders
-- System errors
+- ✅ Database connectivity and operations
+- ✅ Shopify authentication and webhooks
+- ✅ API endpoints and responses
+- ✅ Frontend component rendering
+- ✅ AI integration and responses
+- ✅ Notification system
+- ✅ Error handling and edge cases
 
 ## 🚀 Deployment
 
@@ -264,97 +230,147 @@ const aiResponse = await generateAIResponse({
 
 1. Connect your repository to Vercel
 2. Configure environment variables
-3. Deploy with automatic builds
+3. Set build command: `npm run vercel-build`
+4. Deploy automatically on push to main branch
 
-```bash
-# Deploy command
-npm run deploy
-```
+### Environment Variables
 
-### Environment Variables for Production
+Ensure all required environment variables are set in your Vercel project:
 
-Ensure all required environment variables are set in Vercel:
-- `DATABASE_URL`
 - `SHOPIFY_API_KEY`
 - `SHOPIFY_API_SECRET`
-- `SHOPIFY_APP_URL`
+- `DATABASE_URL`
 - `GOOGLE_AI_API_KEY`
+- `SESSION_SECRET`
+- `APP_URL`
 
-## 🔍 Monitoring and Debugging
+### Database Migration
+
+The application automatically runs database migrations during deployment. Ensure your database is accessible and has the necessary permissions.
+
+## 📊 Monitoring & Analytics
 
 ### Health Checks
 
-```bash
-# Database health check
-npm run db:test
+- Database connectivity monitoring
+- Shopify API status checks
+- AI service availability
+- Webhook delivery tracking
 
-# App health check
-curl https://your-app-url.vercel.app/api/warmup
-```
+### Performance Metrics
+
+- Response time monitoring
+- Database query optimization
+- Memory usage tracking
+- Error rate monitoring
 
 ### Logging
 
-The app includes comprehensive logging for:
-- Database operations
-- Shopify API calls
-- AI service interactions
-- Error tracking
+- Structured logging throughout the application
+- Error tracking and alerting
 - Performance monitoring
+- User activity tracking
 
-### Debug Mode
+## 🔒 Security
 
-Enable debug mode for detailed logging:
+### Authentication
 
-```bash
-NODE_ENV=development npm run dev
-```
+- Shopify OAuth 2.0 implementation
+- Session management with secure cookies
+- CSRF protection
+- Rate limiting
+
+### Data Protection
+
+- Encrypted sensitive data storage
+- Secure API communication
+- Database connection security
+- Environment variable protection
+
+### Compliance
+
+- GDPR compliance for data handling
+- Shopify App Store guidelines
+- Security best practices
+- Regular security audits
 
 ## 🤝 Contributing
+
+### Development Workflow
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `npm run test:full`
-5. Submit a pull request
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
 
-## 📄 License
+### Code Standards
 
-This project is licensed under the MIT License.
+- TypeScript for type safety
+- ESLint for code quality
+- Prettier for code formatting
+- Conventional commits for version control
+
+### Testing Requirements
+
+- Unit tests for business logic
+- Integration tests for API endpoints
+- E2E tests for critical user flows
+- Performance testing for scalability
+
+## 📈 Performance Optimization
+
+### Build Optimization
+
+- Vite for fast development and builds
+- Code splitting for optimal loading
+- Tree shaking for bundle size reduction
+- Asset optimization and compression
+
+### Runtime Optimization
+
+- Database query optimization
+- Caching strategies
+- Lazy loading of components
+- Memory leak prevention
+
+### Monitoring
+
+- Real-time performance monitoring
+- Error tracking and alerting
+- User experience metrics
+- Resource usage optimization
 
 ## 🆘 Support
 
-For support and questions:
-1. Check the documentation
-2. Run the test suite: `npm run test:full`
-3. Review error logs
-4. Contact the development team
+### Documentation
 
-## 🔄 Updates and Maintenance
+- [API Documentation](./docs/api.md)
+- [Deployment Guide](./docs/deployment.md)
+- [Troubleshooting Guide](./docs/troubleshooting.md)
+- [Contributing Guidelines](./docs/contributing.md)
 
-### Regular Maintenance Tasks
+### Contact
 
-```bash
-# Update dependencies
-npm update
+- **Email**: support@planetbeauty.com
+- **GitHub Issues**: [Create an issue](https://github.com/planet-beauty/inventory-ai/issues)
+- **Documentation**: [Full documentation](https://docs.planetbeauty.com)
 
-# Regenerate Prisma client
-npx prisma generate
+## 📄 License
 
-# Run database migrations
-npx prisma migrate deploy
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# Run full test suite
-npm run test:full
-```
+## 🙏 Acknowledgments
 
-### Monitoring Checklist
-
-- [ ] Database connection health
-- [ ] Shopify API rate limits
-- [ ] AI service availability
-- [ ] Notification delivery rates
-- [ ] App performance metrics
+- Shopify for the excellent platform and tools
+- Remix team for the amazing framework
+- Vercel for seamless deployment
+- Neon for serverless PostgreSQL
+- Google for AI capabilities
 
 ---
 
-**Built with ❤️ for Planet Beauty**
+**Built with ❤️ by the Planet Beauty team**
+
+*Empowering beauty retailers with intelligent inventory management*
