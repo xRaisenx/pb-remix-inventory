@@ -43,10 +43,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     } catch (authError) {
       console.error("[LOADER ERROR] Authentication failed:", authError);
       
-      // Check if this is a 302 redirect response (not an error)
+      // Check if this is a 302 redirect response (authentication required)
       if (authError instanceof Response && authError.status === 302) {
-        console.log("[LOADER] Received expected auth redirect");
-        throw authError; // Re-throw the redirect
+        console.log("[LOADER] Received auth redirect - user needs to authenticate");
+        
+        // Extract the location header to see where Shopify wants to redirect
+        const location = authError.headers.get('location');
+        console.log("[LOADER] Shopify redirect location:", location);
+        
+        // If redirecting to admin/apps, it means we need to re-authenticate
+        if (location && location.includes('/apps/')) {
+          console.log("[LOADER] Session expired or invalid - redirecting to login");
+          const loginParams = new URLSearchParams();
+          loginParams.set('shop', shop);
+          if (host) loginParams.set('host', host);
+          
+          const loginUrl = `/auth/login?${loginParams.toString()}`;
+          console.log("[LOADER] Redirecting to login:", loginUrl);
+          throw redirect(loginUrl);
+        } else {
+          // For other redirects, let them pass through
+          console.log("[LOADER] Allowing redirect to pass through");
+          throw authError;
+        }
       }
       
       // For other authentication errors, redirect to login with proper parameters

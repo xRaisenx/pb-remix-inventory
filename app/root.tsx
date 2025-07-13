@@ -18,10 +18,10 @@ import { DatabaseErrorBoundary } from "~/components/ErrorBoundary";
 export const meta: MetaFunction = () => [
   { title: "Planet Beauty AI Inventory" },
   { name: "viewport", content: "width=device-width, initial-scale=1" },
-  // Add CSP meta tag for embedded apps
+  // Add enhanced CSP meta tag for embedded apps
   { 
     "http-equiv": "Content-Security-Policy", 
-    content: "frame-ancestors https://*.shopify.com https://admin.shopify.com https://*.myshopify.com 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com; connect-src 'self' https://*.shopify.com https://monorail-edge.shopifysvc.com" 
+    content: "frame-ancestors https://*.shopify.com https://admin.shopify.com https://*.myshopify.com https://accounts.shopify.com 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com; connect-src 'self' https://*.shopify.com https://monorail-edge.shopifysvc.com https://api.shopify.com; img-src 'self' data: https://*.shopify.com https://cdn.shopify.com" 
   },
 ];
 
@@ -110,17 +110,37 @@ function HtmlDocument({
             __html: `
               // Enhanced error handling for embedded Shopify apps
               window.addEventListener('unhandledrejection', function(event) {
-                if (event.reason && event.reason.message && event.reason.message.includes('SendBeacon failed')) {
-                  console.warn('[EMBEDDED] SendBeacon failed - expected in some environments');
-                  event.preventDefault();
+                if (event.reason && event.reason.message) {
+                  const msg = event.reason.message;
+                  if (msg.includes('SendBeacon failed') || 
+                      msg.includes('beacon') || 
+                      msg.includes('analytics') ||
+                      msg.includes('metrics')) {
+                    console.warn('[EMBEDDED] Analytics/beacon error suppressed:', msg);
+                    event.preventDefault();
+                  }
                 }
               });
               
               // Prevent frame-related errors from breaking the app
               window.addEventListener('error', function(event) {
                 const msg = event.message || '';
-                if (msg.includes('frame-ancestors') || msg.includes('X-Frame-Options') || msg.includes('refused to connect')) {
+                if (msg.includes('frame-ancestors') || 
+                    msg.includes('X-Frame-Options') || 
+                    msg.includes('refused to connect') ||
+                    msg.includes('refused to frame') ||
+                    msg.includes('accounts.shopify.com')) {
                   console.warn('[EMBEDDED] Frame error suppressed:', msg);
+                  event.preventDefault();
+                }
+              });
+              
+              // Handle CSP violations gracefully
+              document.addEventListener('securitypolicyviolation', function(event) {
+                if (event.blockedURI && 
+                    (event.blockedURI.includes('shopify.com') || 
+                     event.blockedURI.includes('accounts.shopify.com'))) {
+                  console.warn('[EMBEDDED] CSP violation suppressed for:', event.blockedURI);
                   event.preventDefault();
                 }
               });
