@@ -57,7 +57,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const { id: shopId, NotificationSettings } = shopRecord;
-  const notificationSettings = NotificationSettings?.[0];
+  const notificationSettings = NotificationSettings;
 
   const currentLowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
   const highSalesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 30;

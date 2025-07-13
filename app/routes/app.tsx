@@ -1,5 +1,4 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, redirect, type LoaderFunctionArgs } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 // Provider as AppBridgeProvider from "@shopify/app-bridge-react" is no longer needed
@@ -7,7 +6,6 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
-import { redirect } from "@remix-run/node";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 

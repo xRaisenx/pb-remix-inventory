@@ -198,7 +198,7 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
                 await prisma.inventory.upsert({
                   where: { productId_warehouseId: { productId: productRecord.id, warehouseId: prismaWarehouseId } },
                   update: { availableQuantity: availableQty },
-                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, availableQuantity: availableQty },
+                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, quantity: availableQty },
                 });
               } else {
                 console.warn(`[Sync][${shopDomain}] Shopify Location GID ${invLevel.location.id} not found in local warehouse map for product ${sp.title}, variant ${v.sku}. Inventory for this location not synced.`);

@@ -206,7 +206,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         if (productToUpdate) {
-          const notificationSetting = productToUpdate.shop.NotificationSettings?.[0];
+          const notificationSetting = productToUpdate.shop.NotificationSettings;
           const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
           const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
           const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;

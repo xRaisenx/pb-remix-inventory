@@ -8,7 +8,7 @@
 import { PrismaClient } from '@prisma/client';
 import fetch from 'node-fetch';
 import fs from 'fs';
-import path from 'path';
+import _path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -48,7 +48,7 @@ const log = (message, type = 'info') => {
   console.log(`${timestamp} ${prefix} ${message}`);
 };
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const runTest = async (testName, testFn, category = 'general') => {
   testResults.total++;
@@ -81,12 +81,12 @@ const testSessionTable = async () => {
 };
 
 const testShopTable = async () => {
-  const shopCount = await prisma.shop.count();
+  const _shopCount = await prisma.shop.count();
   // Shop table should exist even if empty
 };
 
 const testProductTable = async () => {
-  const productCount = await prisma.product.count();
+  const _productCount = await prisma.product.count();
   // Product table should exist even if empty
 };
 
@@ -282,7 +282,7 @@ const testProductSync = async () => {
   });
   
   // Test that we can query products for this shop
-  const products = await prisma.product.findMany({
+  const _products = await prisma.product.findMany({
     where: { shopId: testShop.id },
     take: 1
   });

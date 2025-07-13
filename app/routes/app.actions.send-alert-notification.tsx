@@ -80,7 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Check if notifications are configured
-    const notificationSettings = shopRecord.NotificationSettings?.[0];
+    const notificationSettings = shopRecord.NotificationSettings;
     if (!notificationSettings) {
       return json({ 
         success: false,
@@ -92,8 +92,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const hasEnabledChannels = notificationSettings.email || 
                               notificationSettings.slack || 
                               notificationSettings.telegram || 
-                              notificationSettings.sms || 
-                              notificationSettings.webhook;
+                              notificationSettings.mobilePush;
 
     if (!hasEnabledChannels) {
       return json({ 
@@ -205,10 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             productTitle: (await request.formData()).get("productTitle") as string || undefined,
             alertType: (await request.formData()).get("alertType") as string || undefined,
             errorMessage: error instanceof Error ? error.message : String(error),
-            metadata: {
-              errorCode,
-              stackTrace: error instanceof Error ? error.stack : undefined
-            }
+            // metadata field removed as it's not in the schema
           },
         });
       }

@@ -264,7 +264,7 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
         id: true,
         title: true,
         status: true,
-        quantity: true,
+        // quantity field removed as it's calculated from variants
         variants: {
           select: {
             inventoryQuantity: true,
@@ -272,7 +272,7 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
           }
         }
       },
-      orderBy: { quantity: 'asc' },
+      orderBy: { status: 'asc' },
       take: 10
     });
 
@@ -561,7 +561,7 @@ async function handleTrendingQuery(entities: any, shopId: string): Promise<Parti
       },
       include: {
         analyticsData: {
-          orderBy: { recordedAt: 'desc' },
+          orderBy: { date: 'desc' },
           take: 7 // Last 7 days
         }
       },

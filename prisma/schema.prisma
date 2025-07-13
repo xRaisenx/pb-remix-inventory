@@ -76,6 +76,8 @@ model Product {
   lastRestockedDate  DateTime?
   category           String?
   tags               String[]
+  quantity           Int?             @default(0)
+  handle             String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   shopId             String
@@ -83,6 +85,8 @@ model Product {
   inventory          Inventory[]
   shop               Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants           Variant[]
+  analyticsData      AnalyticsData[]
+  productAlerts      ProductAlert[]
 
   @@index([shopId])
 }
@@ -105,14 +109,15 @@ model Variant {
 }
 
 model Inventory {
-  id          String    @id @default(cuid())
-  quantity    Int
-  warehouseId String
-  productId   String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  quantity          Int
+  availableQuantity Int?
+  warehouseId       String
+  productId         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   @@unique([productId, warehouseId])
 }
@@ -143,12 +148,43 @@ model DemandForecast {
   @@index([productId])
 }
 
+model AnalyticsData {
+  id          String   @id @default(cuid())
+  productId   String
+  date        DateTime
+  unitsSold   Int?
+  revenue     Float?
+  orders      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([date])
+}
+
+model ProductAlert {
+  id          String   @id @default(cuid())
+  productId   String
+  alertType   String
+  message     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([isActive])
+}
+
 model NotificationLog {
   id           String              @id @default(cuid())
   shopId       String
   channel      NotificationChannel
   recipient    String?
   message      String
+  subject      String?
+  errorMessage String?
   status       NotificationStatus
   productId    String?
   productTitle String?
@@ -165,6 +201,7 @@ enum ProductStatus {
   OK
   Low
   Critical
+  OutOfStock
 }
 
 enum NotificationChannel {
@@ -173,6 +210,8 @@ enum NotificationChannel {
   Telegram
   MobilePush
   System
+  SMS
+  Webhook
 }
 
 enum NotificationStatus {

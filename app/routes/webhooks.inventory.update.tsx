@@ -95,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Recalculate product metrics with new inventory levels
-      const notificationSettings = shopRecord.NotificationSettings?.[0];
+      const notificationSettings = shopRecord.NotificationSettings;
       const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
       const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
       const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
@@ -135,34 +135,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           (metrics.status === 'Low' || metrics.status === 'Critical')) {
         
         const alertType = metrics.status === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK';
-        const severity = metrics.status === 'Critical' ? 'CRITICAL' : 'MEDIUM';
+        const _severity = metrics.status === 'Critical' ? 'CRITICAL' : 'MEDIUM';
         
-        // Check if similar alert already exists and is unresolved
+        // Check if similar alert already exists and is active
         const existingAlert = await tx.productAlert.findFirst({
           where: {
             productId: variant.product.id,
-            type: alertType,
-            resolved: false,
+            alertType: alertType,
+            isActive: true,
           }
         });
 
         if (!existingAlert) {
           await tx.productAlert.create({
             data: {
-              shopId: shopRecord.id,
               productId: variant.product.id,
-              type: alertType,
-              severity: severity,
-              title: `${variant.product.title} - ${metrics.status} Stock Alert`,
+              alertType: alertType,
               message: `${variant.product.title} stock level is now ${metrics.status.toLowerCase()}. Current inventory: ${inventoryData.available} units.`,
-              resolved: false,
-              metadata: {
-                previousQuantity: variant.inventoryQuantity,
-                newQuantity: inventoryData.available,
-                locationId: inventoryData.location_id,
-                automated: true,
-                webhookTriggered: true,
-              }
+              isActive: true,
             }
           });
           

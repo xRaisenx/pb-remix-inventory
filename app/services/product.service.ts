@@ -79,7 +79,7 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
   }
 
   // Determine thresholds: use notification settings if available, else shop defaults, else app defaults
-  const notificationSetting = shop.NotificationSettings?.[0]; // Assuming one setting per shop
+  const notificationSetting = shop.NotificationSettings; // Assuming one setting per shop
   const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10; // App default: 10
 
   const shopSettings: ShopSettingsForMetrics = {

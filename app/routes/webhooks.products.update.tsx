@@ -153,7 +153,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Recalculate product metrics for updated product
-        const notificationSettings = shopRecord.NotificationSettings?.[0];
+        const notificationSettings = shopRecord.NotificationSettings;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
         const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;

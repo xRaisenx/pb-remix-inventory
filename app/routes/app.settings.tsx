@@ -74,8 +74,8 @@ function validateSettings(settings: NotificationSettingsType): Record<string, st
 async function logSettingsChange(
   userId: string | null, 
   shopId: string, 
-  oldSettings: Partial<NotificationSettingsType>, 
-  newSettings: NotificationSettingsType
+  _oldSettings: Partial<NotificationSettingsType>, 
+  _newSettings: NotificationSettingsType
 ) {
   try {
     await prisma.notificationLog.create({
@@ -86,12 +86,7 @@ async function logSettingsChange(
         message: `Settings modified by user ${userId || 'unknown'}`,
         subject: 'Settings Change',
         status: 'Sent',
-        metadata: JSON.stringify({
-          action: "SETTINGS_MODIFIED",
-          oldValues: oldSettings,
-          newValues: newSettings,
-          userId: userId
-        })
+        // metadata field removed as it's not in the schema
       }
     });
   } catch (error) {

@@ -222,7 +222,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
       };
     }
 
-    const session = await prisma.session.findFirst({ where: { shop: shop.shop, isOnline: false } });
+    const session = await prisma.session.findFirst({ where: { Shop: { shop: shop.shop }, isOnline: false } });
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
@@ -349,7 +349,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 7: Recalculate product metrics
-        const notificationSettings = product.shop.NotificationSettings?.[0];
+        const notificationSettings = product.shop.NotificationSettings;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? product.shop.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 
@@ -379,28 +379,18 @@ export async function updateInventoryQuantityInShopifyAndDB(
           const existingAlert = await tx.productAlert.findFirst({
             where: {
               productId: product.id,
-              type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
-              resolved: false,
+              alertType: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
+              isActive: true,
             }
           });
 
           if (!existingAlert) {
             await tx.productAlert.create({
               data: {
-                shopId: product.shopId,
                 productId: product.id,
-                type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
-                severity: newStatus === 'Critical' ? 'CRITICAL' : 'MEDIUM',
-                title: `${product.title} - ${newStatus} Stock Alert`,
+                alertType: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
                 message: `${product.title} stock level updated to ${newQuantity} units. This is considered ${newStatus.toLowerCase()} stock.`,
-                resolved: false,
-                metadata: {
-                  previousQuantity,
-                  newQuantity,
-                  reason: context.reason || 'inventory_update',
-                  automated: context.automated || false,
-                  userId: context.userId,
-                }
+                isActive: true,
               }
             });
             alertGenerated = true;
@@ -423,7 +413,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
           product: {
             id: product.id,
             title: product.title,
-            handle: product.handle || product.title.toLowerCase().replace(/\s+/g, '-')
+            handle: product.title.toLowerCase().replace(/\s+/g, '-')
           } as any,
           alertGenerated,
           suggestedRestock
@@ -585,8 +575,13 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
       where: { id: productId },
       include: {
         analyticsData: {
-          orderBy: { recordedAt: 'desc' },
+          orderBy: { date: 'desc' },
           take: 30
+        },
+        variants: {
+          select: {
+            inventoryQuantity: true
+          }
         }
       }
     });
@@ -613,7 +608,8 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
       trend = 'decreasing';
     }
 
-    const daysOfStock = currentVelocity > 0 ? product.quantity / currentVelocity : 999;
+    const totalQuantity = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+    const daysOfStock = currentVelocity > 0 ? totalQuantity / currentVelocity : 999;
     const reorderPoint = Math.max(currentVelocity * 7, 10); // 7 days buffer
     const suggestedOrderQuantity = Math.ceil(currentVelocity * 21); // 3 weeks supply
 

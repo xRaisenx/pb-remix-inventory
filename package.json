@@ -24,7 +24,7 @@
     "env": "shopify app env",
     "start": "remix-serve ./build/server/index.js",
     "docker-start": "npm run setup && npm run start",
-    "setup": "npm run db:init",
+    "setup:db": "npm run db:init",
     "postbuild": "echo 'Build completed'",
     "vercel-build": "npm run db:setup && remix vite:build",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",

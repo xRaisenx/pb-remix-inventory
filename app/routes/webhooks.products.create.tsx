@@ -50,7 +50,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: {
           shopifyId: productData.id,
           title: productData.title,
-          vendor: productData.vendor,
+          vendor: productData.vendor || 'Unknown',
           productType: productData.product_type,
           tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : [],
           shopId: shopRecord.id,
@@ -78,7 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Calculate initial product metrics
-        const notificationSettings = shopRecord.NotificationSettings?.[0];
+        const notificationSettings = shopRecord.NotificationSettings;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
         const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
