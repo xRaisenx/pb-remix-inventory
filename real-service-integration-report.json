@@ -1,0 +1,48 @@
+{
+  "configuration": {
+    "sms": {
+      "twilio": {
+        "available": false,
+        "accountSid": "missing",
+        "authToken": "missing",
+        "phoneNumber": "missing"
+      },
+      "awsSns": {
+        "available": false,
+        "region": "missing",
+        "accessKeyId": "missing",
+        "secretAccessKey": "missing"
+      }
+    },
+    "webhook": {
+      "testUrl": "https://webhook.site/test",
+      "timeout": 10000
+    },
+    "environment": {
+      "nodeEnv": "development",
+      "databaseUrl": "missing"
+    }
+  },
+  "sms": {
+    "success": true,
+    "provider": "mock",
+    "messageId": "mock-1752440973352",
+    "cost": 0.01,
+    "deliveryStatus": "simulated"
+  },
+  "webhook": {
+    "success": true,
+    "statusCode": 200,
+    "duration": 123,
+    "response": {
+      "status": "mock_success"
+    },
+    "note": "Mock webhook test"
+  },
+  "summary": {
+    "totalTests": 3,
+    "passed": 3,
+    "failed": 0,
+    "duration": 3
+  }
+}

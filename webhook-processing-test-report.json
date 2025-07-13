@@ -1,0 +1,337 @@
+{
+  "validation": {
+    "totalTests": 4,
+    "passed": 3,
+    "failed": 1,
+    "results": [
+      {
+        "name": "Valid signature",
+        "expected": true,
+        "actual": true,
+        "success": true,
+        "signature": "tIIM7Ice/1MoXt+/nnzQCB6OXMp1n6OwRT2QI0iUIaM="
+      },
+      {
+        "name": "Invalid signature",
+        "expected": false,
+        "actual": false,
+        "success": true,
+        "signature": "ko0HvWxrpPc+9Jv3Xd7ciXFgvfC7imMurDPw0NpXnDk="
+      },
+      {
+        "name": "Missing signature",
+        "expected": false,
+        "actual": null,
+        "success": false,
+        "signature": null
+      },
+      {
+        "name": "Malformed payload",
+        "expected": false,
+        "actual": false,
+        "success": true,
+        "signature": "Si/QZK1Iw0yVKGQU4d8y3bcx1MOr2luQGi5PxwCO2wo="
+      }
+    ]
+  },
+  "webhookTests": [
+    {
+      "success": true,
+      "webhookType": "products/create",
+      "processed": true,
+      "timestamp": "2025-07-13T21:15:02.722Z",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Shopify-Topic": "products/create",
+        "X-Shopify-Hmac-Sha256": "7ImIP9JMduqscAkrZAXFz5KhMA+zy5kCVjqkij8AyHI=",
+        "X-Shopify-Shop-Domain": "test-webhook.myshopify.com",
+        "X-Shopify-Webhook-Id": "webhook-1752441302722",
+        "User-Agent": "Planet-Beauty-Webhook-Test/1.0"
+      },
+      "payload": {
+        "id": 123456789,
+        "title": "Test Product for Webhook",
+        "body_html": "<p>Test product created by webhook</p>",
+        "vendor": "Planet Beauty",
+        "product_type": "Beauty",
+        "created_at": "2025-01-13T21:00:00Z",
+        "updated_at": "2025-01-13T21:00:00Z",
+        "published_at": "2025-01-13T21:00:00Z",
+        "handle": "test-product-webhook",
+        "tags": "webhook,test",
+        "status": "active",
+        "variants": [
+          {
+            "id": 987654321,
+            "product_id": 123456789,
+            "title": "Default Title",
+            "price": "29.99",
+            "sku": "TEST-WEBHOOK-001",
+            "inventory_quantity": 100,
+            "inventory_management": "shopify",
+            "fulfillment_service": "manual",
+            "inventory_policy": "deny",
+            "compare_at_price": null,
+            "created_at": "2025-01-13T21:00:00Z",
+            "updated_at": "2025-01-13T21:00:00Z"
+          }
+        ]
+      },
+      "processing": {
+        "validation": true,
+        "authentication": true,
+        "dataProcessing": true,
+        "databaseUpdate": true,
+        "alertsTriggered": false,
+        "actions": [
+          "Product created in database",
+          "Initial inventory set",
+          "Warehouse assignment completed",
+          "Monitoring thresholds configured"
+        ],
+        "duration": 76
+      }
+    },
+    {
+      "success": true,
+      "webhookType": "products/update",
+      "processed": true,
+      "timestamp": "2025-07-13T21:15:02.790Z",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Shopify-Topic": "products/update",
+        "X-Shopify-Hmac-Sha256": "gKJVYgwF8afmMkeuC6t7jTQ07GOxA6yreDJmV4MKEug=",
+        "X-Shopify-Shop-Domain": "test-webhook.myshopify.com",
+        "X-Shopify-Webhook-Id": "webhook-1752441302790",
+        "User-Agent": "Planet-Beauty-Webhook-Test/1.0"
+      },
+      "payload": {
+        "id": 123456789,
+        "title": "Updated Test Product for Webhook",
+        "body_html": "<p>Test product updated by webhook</p>",
+        "vendor": "Planet Beauty",
+        "product_type": "Beauty",
+        "created_at": "2025-01-13T21:00:00Z",
+        "updated_at": "2025-01-13T21:05:00Z",
+        "published_at": "2025-01-13T21:00:00Z",
+        "handle": "test-product-webhook",
+        "tags": "webhook,test,updated",
+        "status": "active",
+        "variants": [
+          {
+            "id": 987654321,
+            "product_id": 123456789,
+            "title": "Default Title",
+            "price": "34.99",
+            "sku": "TEST-WEBHOOK-001",
+            "inventory_quantity": 85,
+            "inventory_management": "shopify",
+            "fulfillment_service": "manual",
+            "inventory_policy": "deny",
+            "compare_at_price": "39.99",
+            "created_at": "2025-01-13T21:00:00Z",
+            "updated_at": "2025-01-13T21:05:00Z"
+          }
+        ]
+      },
+      "processing": {
+        "validation": true,
+        "authentication": true,
+        "dataProcessing": true,
+        "databaseUpdate": true,
+        "alertsTriggered": true,
+        "actions": [
+          "Product updated in database",
+          "Price changes detected",
+          "Inventory quantities updated",
+          "Variant information synced"
+        ],
+        "alerts": [
+          {
+            "type": "LOW_STOCK",
+            "product": "Updated Test Product for Webhook",
+            "quantity": 85,
+            "threshold": 90,
+            "severity": "medium"
+          }
+        ],
+        "duration": 87
+      }
+    },
+    {
+      "success": true,
+      "webhookType": "orders/create",
+      "processed": true,
+      "timestamp": "2025-07-13T21:15:02.934Z",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Shopify-Topic": "orders/create",
+        "X-Shopify-Hmac-Sha256": "RyVM23iwKLH4yT963E8rpVx1nemWb8IomFalpY/gDEo=",
+        "X-Shopify-Shop-Domain": "test-webhook.myshopify.com",
+        "X-Shopify-Webhook-Id": "webhook-1752441302934",
+        "User-Agent": "Planet-Beauty-Webhook-Test/1.0"
+      },
+      "payload": {
+        "id": 456789123,
+        "order_number": "#WH1001",
+        "name": "#WH1001",
+        "email": "customer@example.com",
+        "created_at": "2025-01-13T21:00:00Z",
+        "updated_at": "2025-01-13T21:00:00Z",
+        "cancelled_at": null,
+        "closed_at": null,
+        "processed_at": "2025-01-13T21:00:00Z",
+        "customer": {
+          "id": 123123123,
+          "email": "customer@example.com",
+          "first_name": "Test",
+          "last_name": "Customer",
+          "created_at": "2025-01-13T20:00:00Z"
+        },
+        "line_items": [
+          {
+            "id": 789789789,
+            "product_id": 123456789,
+            "variant_id": 987654321,
+            "title": "Test Product for Webhook",
+            "quantity": 2,
+            "price": "29.99",
+            "total_discount": "0.00",
+            "fulfillment_status": null,
+            "fulfillment_service": "manual",
+            "sku": "TEST-WEBHOOK-001"
+          }
+        ],
+        "shipping_address": {
+          "first_name": "Test",
+          "last_name": "Customer",
+          "address1": "123 Test St",
+          "city": "Test City",
+          "province": "CA",
+          "country": "United States",
+          "zip": "12345"
+        },
+        "total_price": "65.98",
+        "subtotal_price": "59.98",
+        "total_tax": "6.00",
+        "financial_status": "pending",
+        "fulfillment_status": null
+      },
+      "processing": {
+        "validation": true,
+        "authentication": true,
+        "dataProcessing": true,
+        "databaseUpdate": true,
+        "alertsTriggered": false,
+        "actions": [
+          "Order created in system",
+          "Customer information updated",
+          "Inventory reservation attempted",
+          "Fulfillment workflow initiated"
+        ],
+        "inventoryImpact": {
+          "itemsReserved": 2,
+          "estimatedNewQuantity": 73
+        },
+        "duration": 53
+      }
+    },
+    {
+      "success": true,
+      "webhookType": "orders/paid",
+      "processed": true,
+      "timestamp": "2025-07-13T21:15:03.046Z",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Shopify-Topic": "orders/paid",
+        "X-Shopify-Hmac-Sha256": "3qt7YhwnNsXZSWTkv09DIAAVaOCQKUG6dUKjVULRqfk=",
+        "X-Shopify-Shop-Domain": "test-webhook.myshopify.com",
+        "X-Shopify-Webhook-Id": "webhook-1752441303046",
+        "User-Agent": "Planet-Beauty-Webhook-Test/1.0"
+      },
+      "payload": {
+        "id": 456789123,
+        "order_number": "#WH1001",
+        "name": "#WH1001",
+        "email": "customer@example.com",
+        "created_at": "2025-01-13T21:00:00Z",
+        "updated_at": "2025-01-13T21:05:00Z",
+        "cancelled_at": null,
+        "closed_at": null,
+        "processed_at": "2025-01-13T21:00:00Z",
+        "financial_status": "paid",
+        "fulfillment_status": null,
+        "total_price": "65.98",
+        "subtotal_price": "59.98",
+        "total_tax": "6.00",
+        "line_items": [
+          {
+            "id": 789789789,
+            "product_id": 123456789,
+            "variant_id": 987654321,
+            "title": "Test Product for Webhook",
+            "quantity": 2,
+            "price": "29.99",
+            "total_discount": "0.00",
+            "fulfillment_status": null,
+            "fulfillment_service": "manual",
+            "sku": "TEST-WEBHOOK-001"
+          }
+        ]
+      },
+      "processing": {
+        "validation": true,
+        "authentication": true,
+        "dataProcessing": true,
+        "databaseUpdate": true,
+        "alertsTriggered": false,
+        "actions": [
+          "Payment confirmation processed",
+          "Inventory quantities updated",
+          "Fulfillment status updated",
+          "Analytics data updated"
+        ],
+        "duration": 95
+      }
+    },
+    {
+      "success": true,
+      "webhookType": "inventory/update",
+      "processed": true,
+      "timestamp": "2025-07-13T21:15:03.168Z",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Shopify-Topic": "inventory/update",
+        "X-Shopify-Hmac-Sha256": "mOZckjb47zSLUsR6eyB1KlHWR4rYd/b6OZYwVZQTeeQ=",
+        "X-Shopify-Shop-Domain": "test-webhook.myshopify.com",
+        "X-Shopify-Webhook-Id": "webhook-1752441303168",
+        "User-Agent": "Planet-Beauty-Webhook-Test/1.0"
+      },
+      "payload": {
+        "inventory_item_id": 987654321,
+        "location_id": 123123123,
+        "available": 75,
+        "updated_at": "2025-01-13T21:05:00Z"
+      },
+      "processing": {
+        "validation": true,
+        "authentication": true,
+        "dataProcessing": true,
+        "databaseUpdate": true,
+        "alertsTriggered": false,
+        "actions": [
+          "Inventory levels updated",
+          "Threshold monitoring activated",
+          "Reorder calculations performed"
+        ],
+        "duration": 134
+      }
+    }
+  ],
+  "summary": {
+    "totalTests": 9,
+    "passed": 8,
+    "failed": 1,
+    "duration": 518
+  }
+}
