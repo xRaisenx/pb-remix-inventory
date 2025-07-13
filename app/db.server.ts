@@ -18,11 +18,12 @@ const createPrismaClient = () => {
   // Ensure proper connection pooling parameters for Neon serverless
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    // Optimized settings for Neon serverless:
-    // - Increased connection_limit from 2 to 10 for better concurrency
+    // Optimized settings for Neon serverless with better performance:
+    // - Increased connection_limit for better concurrency
     // - Reduced timeouts for faster failure detection
     // - Added proper pooling configuration
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=10&connect_timeout=10&pool_timeout=15&idle_timeout=30&max_lifetime=300&prepared_statements=false`;
+    // - Added statement_cache_size for better performance
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=15&connect_timeout=5&pool_timeout=10&idle_timeout=20&max_lifetime=300&prepared_statements=false&statement_cache_size=100`;
   }
 
   return new PrismaClient({
@@ -33,6 +34,15 @@ const createPrismaClient = () => {
       },
     },
     errorFormat: 'minimal',
+    // Add connection pooling configuration
+    __internal: {
+      engine: {
+        transactionOptions: {
+          maxWait: 5000,
+          timeout: 10000,
+        },
+      },
+    },
   });
 };
 
@@ -49,58 +59,49 @@ if (process.env.NODE_ENV === "production") {
   prisma = global.prisma;
 }
 
-// Enhanced middleware with better error handling and connection management
+// Enhanced middleware with better error handling and performance monitoring
 prisma.$use(async (params: any, next: any) => {
   const start = Date.now();
   let retries = 0;
-  const maxRetries = 3;
+  const maxRetries = 2; // Reduced retries for faster failure
   
   while (retries <= maxRetries) {
-  try {
-    const result = await next(params);
-    const duration = Date.now() - start;
-    
-    if (process.env.NODE_ENV !== "production" || duration > 2000) {
-      console.log(`[DB PERF] Query ${params.model}.${params.action} took ${duration}ms`);
+    try {
+      const result = await next(params);
+      const duration = Date.now() - start;
       
-      if (duration > 5000) {
-        console.warn(`[DB WARNING] Slow query detected: ${params.model}.${params.action} (${duration}ms)`);
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    const duration = Date.now() - start;
-      console.error(`[DB ERROR] ${params.model}.${params.action} failed after ${duration}ms (attempt ${retries + 1}/${maxRetries + 1}):`, error);
-    
-    // Enhanced error logging for Neon connection issues
-    if (error instanceof Error) {
-      if (error.message.includes("Can't reach database server")) {
-        console.error("[DB NEON] Database server unreachable - check Neon instance status");
-      } else if (error.message.includes("connection pool")) {
-        console.error("[DB NEON] Connection pool issue - retrying with backoff");
-        } else if (error.message.includes("connection") && error.message.includes("closed")) {
-          console.error("[DB NEON] Connection closed unexpectedly - attempting reconnection");
-  }
+      // Log slow queries for performance monitoring
+      if (duration > 1000) {
+        console.log(`[DB PERF] Query ${params.model}.${params.action} took ${duration}ms`);
+        if (duration > 5000) {
+          console.log(`[DB WARNING] Slow query detected: ${params.model}.${params.action} (${duration}ms)`);
+        }
       }
       
-      // Retry logic for connection-related errors
-      if (retries < maxRetries && error instanceof Error) {
-        const isConnectionError = 
-          error.message.includes("connection") ||
-          error.message.includes("pool") ||
-          error.message.includes("timeout") ||
-          error.message.includes("closed");
-        
-        if (isConnectionError) {
-          retries++;
-          const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
-          console.log(`[DB NEON] Retrying connection in ${Math.round(delay)}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-  }
-}
+      return result;
+    } catch (error: any) {
+      const duration = Date.now() - start;
+      retries++;
       
+      console.error(`[DB ERROR] Query ${params.model}.${params.action} failed (attempt ${retries}/${maxRetries + 1}):`, error.message);
+      
+      // Check for connection errors that should trigger retry
+      const isConnectionError = error.message?.includes('connect') || 
+                               error.message?.includes('timeout') ||
+                               error.message?.includes('connection') ||
+                               error.code === 'P1001' ||
+                               error.code === 'P1008' ||
+                               error.code === 'P1017';
+      
+      if (retries <= maxRetries && isConnectionError) {
+        const delay = Math.min(1000 * Math.pow(2, retries - 1), 3000); // Reduced max delay
+        console.log(`[DB RETRY] Retrying query in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // For non-retryable errors or max retries exceeded
+      console.error(`[DB ERROR] Query ${params.model}.${params.action} failed after ${retries} attempts (${duration}ms):`, error);
       throw error;
     }
   }
