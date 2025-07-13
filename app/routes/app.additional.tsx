@@ -1,11 +1,8 @@
 import {
   Card,
   Layout,
-  Link,
-  List,
   Page,
-  Text,
-  BlockStack
+  Text
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 

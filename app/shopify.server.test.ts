@@ -26,8 +26,8 @@ vi.mock('./shopify.server', async (importOriginal) => {
 });
 
 
-// Mock Request object
-const mockRequest = new Request("http://localhost:8787/test") as any;
+// Mock Request object for testing (commented out as it's not currently used)
+// const mockRequest = new Request("http://localhost:8787/test") as any;
 
 describe('getProductById', () => {
   let mockAdminGraphQL: ReturnType<typeof vi.fn>;
