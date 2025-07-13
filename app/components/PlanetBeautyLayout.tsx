@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { Page, Layout, Card, Text, Badge } from '@shopify/polaris';
+import { Page, Layout, Card } from '@shopify/polaris';
 
 interface PlanetBeautyLayoutProps {
   children: ReactNode;
