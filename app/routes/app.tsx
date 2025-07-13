@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 // Provider as AppBridgeProvider from "@shopify/app-bridge-react" is no longer needed
@@ -7,7 +7,6 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
-import { redirect } from "@remix-run/node";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -92,8 +91,7 @@ export default function App() {
   // when it receives the host and apiKey.
   if (!apiKey || !host) {
     return (
-      <PolarisAppProvider
-      i18n={enTranslations}
+      <PolarisAppProvider i18n={enTranslations}>
         <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
           <h2>Configuration Error</h2>
           <p>Missing Shopify API Key or Host. Please check your environment variables and app setup.</p>
@@ -104,8 +102,7 @@ export default function App() {
 
   // Wrap the app in Polaris AppProvider with apiKey and host for embedded context
   return (
-    <PolarisAppProvider
-      i18n={enTranslations}
+    <PolarisAppProvider i18n={enTranslations}>
       <AppLayout>
         <Outlet />
       </AppLayout>

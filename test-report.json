@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "total": 11,
+    "passed": 10,
+    "failed": 1,
+    "skipped": 0,
+    "successRate": "90.91%",
+    "duration": "1275ms"
+  },
+  "errors": [
+    {
+      "test": "Database CRUD Operations",
+      "error": "\nInvalid `prisma.shop.create()` invocation:\n\n\nThe column `criticalStockThreshold` does not exist in the current database.",
+      "category": "database"
+    }
+  ],
+  "timestamp": "2025-07-13T19:19:08.057Z"
+}

@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { ProductStatus, type PrismaClient } from "@prisma/client";
+import { ProductStatus } from "@prisma/client";
 import { calculateProductMetrics } from "~/services/product.service";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
