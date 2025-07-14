@@ -16,38 +16,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     console.log("[LOADER] /app._index starting authentication...");
     
-    // Try to authenticate, but handle redirects gracefully
-    let session;
-    try {
-      const result = await authenticate.admin(request);
-      session = result.session;
-      console.log("[LOADER] /app._index authentication successful");
-    } catch (authError) {
-      console.error("[LOADER ERROR] /app._index authentication failed:", authError);
-      
-      // If authentication fails, redirect to the parent app route to handle it
-      if (authError instanceof Response && authError.status === 302) {
-        console.log("[LOADER] /app._index redirecting to parent app route for authentication");
-        const url = new URL(request.url);
-        const shop = url.searchParams.get("shop");
-        const host = url.searchParams.get("host");
-        
-        let redirectUrl = "/app";
-        if (shop || host) {
-          const params = new URLSearchParams();
-          if (shop) params.set('shop', shop);
-          if (host) params.set('host', host);
-          redirectUrl += `?${params.toString()}`;
-        }
-        
-        throw redirect(redirectUrl);
-      }
-      
-      // For other errors, re-throw
-      throw authError;
-    }
-    
+    const { session } = await authenticate.admin(request);
+    console.log("[LOADER] /app._index authentication successful");
     console.log("[LOADER] /app._index session:", session);
+    
     const shopDomain = session.shop;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shopRecord) throw new Response("Shop not found", { status: 404 });

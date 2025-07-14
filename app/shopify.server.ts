@@ -1,9 +1,9 @@
-import "@shopify/shopify-app-remix/adapters/node";
-// --- END DIAGNOSTIC LOGGING ---
+import "@shopify/shopify-app-remix/adapters/vercel";
 
 import {
   AppDistribution,
   DeliveryMethod,
+  LATEST_API_VERSION,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -101,7 +101,7 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
         this.errorCount = 0;
       }
       
-      throw error;
+      return null; // Return null instead of throwing to prevent auth loops
     }
   }
 
@@ -124,7 +124,7 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       return result;
     } catch (error) {
       console.error(`[SESSION] Session deletion error for ${id}:`, error);
-      throw error;
+      return false;
     }
   }
   
@@ -190,7 +190,7 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: "2024-07" as any,
+  apiVersion: LATEST_API_VERSION,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -253,21 +253,8 @@ const shopify = shopifyApp({
         // Don't throw to prevent auth loop, but log the error
       }
       
-      // Get host from the request context for embedded app redirect
-      // The host parameter is crucial for App Bridge to work properly
-      const host = (rest as any)?.host || (session as any)?.host || "";
-      
-      if (!host) {
-        console.error("Missing host parameter in afterAuth - this will cause embedded app issues");
-        // Fallback: try to construct host from shop domain
-        const fallbackHost = `${session.shop.replace('.myshopify.com', '')}.myshopify.com`;
-        console.log("Using fallback host:", fallbackHost);
-        throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
-      }
-      
-      console.log("Redirecting to embedded app with host:", host);
-      // IMPORTANT: Use relative URL to stay within the embedded context
-      throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
+      // No redirect needed with new embedded auth strategy
+      console.log("Auth completed successfully for shop:", session.shop);
     },
   },
   future: {
@@ -280,7 +267,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = "2024-07";
+export const apiVersion = LATEST_API_VERSION;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

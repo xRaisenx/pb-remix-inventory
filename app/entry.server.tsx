@@ -6,21 +6,9 @@ import {
   type EntryContext,
 } from "@remix-run/node";
 import { isbot } from "isbot";
-import { addDocumentResponseHeaders } from "./shopify.server";
-
-// The cron import below is no longer needed and should be removed.
-// import "~/cron/dailyAnalysis";
+import shopify from "./shopify.server";
 
 const ABORT_DELAY = 5000;
-
-function getShopFromRequest(request: Request) {
-  try {
-    const url = new URL(request.url);
-    return url.searchParams.get("shop");
-  } catch {
-    return null;
-  }
-}
 
 export default function handleRequest(
   request: Request,
@@ -28,27 +16,9 @@ export default function handleRequest(
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
-  // Set proper CSP headers for Shopify embedded app
-  // This allows the app to be embedded in Shopify admin
-  const shop = getShopFromRequest(request) || '';
+  // Use Shopify's built-in document response headers
+  shopify.addDocumentResponseHeaders(request, responseHeaders);
   
-  // Enhanced CSP for Shopify embedded apps
-  const cspDirectives = [
-    "frame-ancestors https://admin.shopify.com https://*.myshopify.com",
-    shop ? `https://${shop}` : '',
-  ].filter(Boolean).join(' ');
-  
-  responseHeaders.set("Content-Security-Policy", `frame-ancestors ${cspDirectives};`);
-  
-  // Remove X-Frame-Options as it conflicts with CSP frame-ancestors
-  // and can cause issues with embedding
-  responseHeaders.delete("X-Frame-Options");
-  
-  // Add security headers for embedded app
-  responseHeaders.set("X-Content-Type-Options", "nosniff");
-  responseHeaders.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  
-  addDocumentResponseHeaders(request, responseHeaders);
   const callbackName = isbot(request.headers.get("user-agent"))
     ? "onAllReady"
     : "onShellReady";
