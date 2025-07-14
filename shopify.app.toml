@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "919e88ca96685994550e0a9bc9236584"
-name = "focused-policy-app"
+name = "Planet Beauty Inventory AI"
 handle = "focused-policy-app-6"
 application_url = "https://pb-inventory-ai-olive.vercel.app/"
 embedded = true
