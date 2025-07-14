@@ -1,11 +1,12 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Outlet, useLoaderData } from "@remix-run/react";
+import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
 import { authenticate } from "~/shopify.server";
+import { boundary } from "@shopify/shopify-app-remix/server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
@@ -117,3 +118,15 @@ export default function App() {
     </AppProvider>
   );
 }
+
+// Error boundary for embedded app
+export function ErrorBoundary() {
+  const error = useRouteError();
+  console.error("[APP] Error boundary triggered:", error);
+  return boundary.error(error);
+}
+
+// Headers boundary for embedded app iframe compatibility
+export const headers = (headersArgs: any) => {
+  return boundary.headers(headersArgs);
+};

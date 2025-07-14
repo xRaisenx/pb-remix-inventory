@@ -9,6 +9,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "~/db.server";
 import { redirect } from "@remix-run/node";
+import { logEnvironmentStatus, validateEnvironmentVariables } from "~/utils/env-validation";
 
 // --- BEGIN DIAGNOSTIC LOGGING ---
 console.log("[DIAGNOSTIC] SHOPIFY_API_KEY:", process.env.SHOPIFY_API_KEY, "| TYPE:", typeof process.env.SHOPIFY_API_KEY);
@@ -16,6 +17,14 @@ console.log("[DIAGNOSTIC] SHOPIFY_API_SECRET:", process.env.SHOPIFY_API_SECRET ?
 console.log("[DIAGNOSTIC] SCOPES:", process.env.SCOPES, "| TYPE:", typeof process.env.SCOPES);
 console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYPE:", typeof process.env.SHOPIFY_APP_URL);
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
+
+// --- ENVIRONMENT VALIDATION ---
+logEnvironmentStatus();
+const envValidation = validateEnvironmentVariables();
+if (!envValidation.isValid) {
+  console.error("🚨 [STARTUP ERROR] Cannot start app with invalid environment configuration");
+  console.error("Fix the above environment variable issues before proceeding");
+}
 
 // Enhanced session storage with error handling and performance optimization
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
@@ -253,20 +262,22 @@ const shopify = shopifyApp({
         // Don't throw to prevent auth loop, but log the error
       }
       
-      // Get host from the request context for embedded app redirect
-      // The host parameter is crucial for App Bridge to work properly
+      // Enhanced redirect strategy for embedded apps to prevent iframe issues
+      const request = (rest as any)?.request;
       const host = (rest as any)?.host || (session as any)?.host || "";
       
+      // Check if this is an embedded context (has shop and host parameters)
       if (!host) {
-        console.error("Missing host parameter in afterAuth - this will cause embedded app issues");
-        // Fallback: try to construct host from shop domain
-        const fallbackHost = `${session.shop.replace('.myshopify.com', '')}.myshopify.com`;
-        console.log("Using fallback host:", fallbackHost);
+        console.warn("Missing host parameter in afterAuth - using embedded-safe fallback");
+        // For embedded apps, construct a safe host value
+        const fallbackHost = Buffer.from(`admin.shopify.com/store/${session.shop.replace('.myshopify.com', '')}`).toString('base64');
+        console.log("Using base64 encoded fallback host for embedded context");
         throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
       }
       
       console.log("Redirecting to embedded app with host:", host);
-      // IMPORTANT: Use relative URL to stay within the embedded context
+      // CRITICAL: Always use relative URLs to prevent breaking out of iframe
+      // This prevents X-Frame-Options errors by staying within the embedded context
       throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
     },
   },
