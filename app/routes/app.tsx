@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
+import { AppProvider } from "@shopify/app-bridge-react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
@@ -107,10 +108,18 @@ export default function App() {
   }
 
   return (
-    <PolarisAppProvider i18n={enTranslations}>
-      <AppLayout>
-        <Outlet />
-      </AppLayout>
-    </PolarisAppProvider>
+    <AppProvider
+      config={{
+        apiKey: apiKey,
+        host: host,
+        forceRedirect: true,
+      }}
+    >
+      <PolarisAppProvider i18n={enTranslations}>
+        <AppLayout>
+          <Outlet />
+        </AppLayout>
+      </PolarisAppProvider>
+    </AppProvider>
   );
 }
