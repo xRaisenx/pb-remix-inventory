@@ -14,8 +14,14 @@ import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
+    console.log("[LOADER] /app._index starting authentication...");
+    console.log("[LOADER] /app._index request URL:", request.url);
+    console.log("[LOADER] /app._index request headers:", Object.fromEntries(request.headers.entries()));
+    
     const { session } = await authenticate.admin(request);
     console.log("[LOADER] /app._index session:", session);
+    console.log("[LOADER] /app._index shop param:", session.shop);
+    
     const shopDomain = session.shop;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shopRecord) throw new Response("Shop not found", { status: 404 });
@@ -77,6 +83,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json(loaderData);
   } catch (error) {
     console.error("[LOADER ERROR] /app._index loader failed:", error);
+    
+    // Check if this is an authentication error
+    if (error instanceof Response && error.status === 302) {
+      console.log("[LOADER] Received expected auth redirect");
+      throw error;
+    }
+    
+    // Log additional error details
+    console.error("[LOADER ERROR] Error details:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      status: error instanceof Response ? error.status : undefined,
+      headers: error instanceof Response ? Object.fromEntries(error.headers.entries()) : undefined
+    });
+    
     throw error;
   }
 };
@@ -100,6 +121,8 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   return json({ error: "Invalid action" }, { status: 400 });
 }
+
+
 
 export default function DashboardIndex() {
   // Fix loaderData type for useLoaderData

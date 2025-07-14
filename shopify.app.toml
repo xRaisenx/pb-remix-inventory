@@ -47,7 +47,8 @@ scopes = "write_products,read_products,write_inventory,read_inventory,read_locat
 
 [auth]
 redirect_urls = [
-  "https://pb-inventory-ai-olive.vercel.app/auth/callback"
+  "https://pb-inventory-ai-olive.vercel.app/auth/callback",
+  "https://pb-inventory-ai-olive.vercel.app/auth/callback/"
 ]
 
 [pos]

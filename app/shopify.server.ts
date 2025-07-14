@@ -16,6 +16,8 @@ console.log("[DIAGNOSTIC] SHOPIFY_API_SECRET:", process.env.SHOPIFY_API_SECRET ?
 console.log("[DIAGNOSTIC] SCOPES:", process.env.SCOPES, "| TYPE:", typeof process.env.SCOPES);
 console.log("[DIAGNOSTIC] SHOPIFY_APP_URL:", process.env.SHOPIFY_APP_URL, "| TYPE:", typeof process.env.SHOPIFY_APP_URL);
 console.log("[DIAGNOSTIC] SHOP_CUSTOM_DOMAIN:", process.env.SHOP_CUSTOM_DOMAIN, "| TYPE:", typeof process.env.SHOP_CUSTOM_DOMAIN);
+console.log("[DIAGNOSTIC] NODE_ENV:", process.env.NODE_ENV, "| TYPE:", typeof process.env.NODE_ENV);
+console.log("[DIAGNOSTIC] DATABASE_URL:", process.env.DATABASE_URL ? "SET" : "NOT SET", "| TYPE:", typeof process.env.DATABASE_URL);
 
 // Enhanced session storage with error handling and performance optimization
 class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
@@ -257,12 +259,16 @@ const shopify = shopifyApp({
       // The host parameter is crucial for App Bridge to work properly
       const host = (rest as any)?.host || (session as any)?.host || "";
       
+      console.log("AfterAuth - Session shop:", session.shop);
+      console.log("AfterAuth - Host parameter:", host);
+      console.log("AfterAuth - Rest context:", rest);
+      
       if (!host) {
         console.error("Missing host parameter in afterAuth - this will cause embedded app issues");
-        // Fallback: try to construct host from shop domain
-        const fallbackHost = `${session.shop.replace('.myshopify.com', '')}.myshopify.com`;
-        console.log("Using fallback host:", fallbackHost);
-        throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
+        // For embedded apps, we need to redirect to the admin with proper parameters
+        const adminUrl = `https://admin.shopify.com/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}&scope=${process.env.SCOPES}&redirect_uri=${encodeURIComponent(process.env.SHOPIFY_APP_URL + 'auth/callback')}&state=${session.shop}`;
+        console.log("Redirecting to admin URL:", adminUrl);
+        throw redirect(adminUrl);
       }
       
       console.log("Redirecting to embedded app with host:", host);
