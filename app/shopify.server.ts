@@ -20,7 +20,7 @@ import {
 import { redirect } from "@remix-run/node";
 
 // Import our modular components
-import prisma from "~/db.server";
+import prisma from "~/lib/database";
 import { EnhancedPrismaSessionStorage } from "~/lib/session-storage";
 
 // --- BEGIN DIAGNOSTIC LOGGING ---

@@ -237,7 +237,7 @@ export class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
     }
   }
 
-  async getSessionCount(): Promise<number> {
+    async getSessionCount(): Promise<number> {
     try {
       // Use cached count if recent (more aggressive caching for serverless)
       if (this.sessionCountCache.lastUpdated && 
@@ -251,7 +251,7 @@ export class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       });
       
       const count = await Promise.race([
-        prisma.session.count(),
+        prismaInstance.session.count(),
         timeoutPromise
       ]);
       
