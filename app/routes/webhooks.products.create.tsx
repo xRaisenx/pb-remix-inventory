@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -50,7 +50,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: {
           shopifyId: productData.id,
           title: productData.title,
-          vendor: productData.vendor,
+          vendor: productData.vendor || 'Unknown',
           productType: productData.product_type,
           tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : [],
           shopId: shopRecord.id,
@@ -66,6 +66,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         for (const variantData of productData.variants) {
           await tx.variant.create({
             data: {
+              id: variantData.id,
               shopifyId: `gid://shopify/ProductVariant/${variantData.id}`,
               productId: product.id,
               title: variantData.title || 'Default',
@@ -73,12 +74,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               price: variantData.price ? parseFloat(variantData.price) : 0,
               inventoryQuantity: variantData.inventory_quantity || 0,
               inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             },
           });
         }
 
         // Calculate initial product metrics
-        const notificationSettings = shopRecord.NotificationSettings?.[0];
+        const notificationSettings = shopRecord.NotificationSetting;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
         const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;

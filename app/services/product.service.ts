@@ -71,7 +71,7 @@ export function calculateProductMetrics(
 export async function updateAllProductMetricsForShop(shopId: string): Promise<{ success: boolean; message: string; updatedCount: number }> {
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
-    include: { NotificationSettings: true } // Include to get shop-specific thresholds
+    include: { NotificationSetting: true } // Include to get shop-specific thresholds
   });
 
   if (!shop) {
@@ -79,7 +79,7 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
   }
 
   // Determine thresholds: use notification settings if available, else shop defaults, else app defaults
-  const notificationSetting = shop.NotificationSettings?.[0]; // Assuming one setting per shop
+  const notificationSetting = shop.NotificationSetting; // Assuming one setting per shop
   const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10; // App default: 10
 
   const shopSettings: ShopSettingsForMetrics = {

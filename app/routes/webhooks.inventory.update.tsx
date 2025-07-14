@@ -17,7 +17,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -94,7 +94,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Recalculate product metrics with new inventory levels
-      const notificationSettings = shopRecord.NotificationSettings?.[0];
+      const notificationSettings = shopRecord.NotificationSetting;
       const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
       const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
       const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;

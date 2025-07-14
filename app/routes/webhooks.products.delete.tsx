@@ -38,7 +38,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const productToDelete = await tx.product.findUnique({
         where: { shopifyId: productGid },
         include: {
-          variants: true,
+          Variant: true,
           inventory: true,
         }
       });
@@ -51,11 +51,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Delete related data in correct order (to respect foreign key constraints)
       
       // 1. Delete inventory records
-      if (productToDelete.inventory.length > 0) {
+      if (productToDelete.Inventory.length > 0) {
         await tx.inventory.deleteMany({
           where: { productId: productToDelete.id }
         });
-        console.log(`🗑️ Deleted ${productToDelete.inventory.length} inventory records`);
+        console.log(`🗑️ Deleted ${productToDelete.Inventory.length} inventory records`);
       }
 
       // 2. Delete product alerts
@@ -83,11 +83,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // 5. Delete variants
-      if (productToDelete.variants.length > 0) {
+      if (productToDelete.Variant.length > 0) {
         await tx.variant.deleteMany({
           where: { productId: productToDelete.id }
         });
-        console.log(`🗑️ Deleted ${productToDelete.variants.length} variants`);
+        console.log(`🗑️ Deleted ${productToDelete.Variant.length} variants`);
       }
 
       // 6. Finally delete the product

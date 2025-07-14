@@ -178,14 +178,13 @@ class SMSService {
           productId: message.productId,
           productTitle: message.productTitle,
           alertType: message.alertType,
-          alertId: message.alertId,
+          // alertId field doesn't exist in NotificationLog model
           errorMessage: error,
           sentAt: status === NotificationStatus.Sent ? new Date() : undefined,
           deliveredAt: status === NotificationStatus.Delivered ? new Date() : undefined,
-          metadata: {
-            messageId,
-            provider: this.config.provider,
-          },
+          // metadata field doesn't exist in NotificationLog model
+          // messageId,
+          // provider: this.config.provider,
         },
       });
     } catch (logError) {
@@ -211,10 +210,9 @@ class SMSService {
     try {
       const log = await prisma.notificationLog.findFirst({
         where: {
-          metadata: {
-            path: ['messageId'],
-            equals: messageId,
-          },
+          // metadata field doesn't exist in NotificationLog model
+          // path: ['messageId'],
+          // equals: messageId,
         },
       });
       

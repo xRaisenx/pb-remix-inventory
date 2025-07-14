@@ -75,12 +75,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         where: { id: updatedVariant.productId },
         include: {
           variants: { select: { inventoryQuantity: true } },
-          shop: { include: { NotificationSettings: true } }
+          shop: { include: { NotificationSetting: true } }
         }
       });
 
       if (productToUpdate) {
-        const notificationSetting = productToUpdate.shop.NotificationSettings?.[0];
+        const notificationSetting = productToUpdate.shop.NotificationSetting;
         const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
         const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
         const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;

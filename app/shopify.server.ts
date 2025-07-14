@@ -243,6 +243,7 @@ const shopify = shopifyApp({
           where: { shop: session.shop },
           update: { updatedAt: new Date() },
           create: { 
+            id: session.shop, // Use shop as the ID
             shop: session.shop,
             createdAt: new Date(),
             updatedAt: new Date()

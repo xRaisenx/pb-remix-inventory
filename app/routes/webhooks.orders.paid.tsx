@@ -17,7 +17,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -43,7 +43,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Process paid order to update trending status
     await prisma.$transaction(async (tx) => {
-      const notificationSettings = shopRecord.NotificationSettings?.[0];
+      const notificationSettings = shopRecord.NotificationSetting;
       const salesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 25.0;
 
       // Process each line item to check for trending products
@@ -77,29 +77,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   const existingTrendAlert = await tx.productAlert.findFirst({
                     where: {
                       productId: product.id,
-                      type: 'SALES_SPIKE',
-                      resolved: false,
+                      alertType: 'SALES_SPIKE',
+                      isActive: true,
                     }
                   });
 
                   if (!existingTrendAlert) {
                     await tx.productAlert.create({
                       data: {
-                        shopId: shopRecord.id,
+                        id: `${product.id}-sales-spike-${Date.now()}`,
                         productId: product.id,
-                        type: 'SALES_SPIKE',
-                        severity: 'MEDIUM',
-                        title: `${product.title} - Sales Spike Detected`,
+                        alertType: 'SALES_SPIKE',
                         message: `${product.title} is experiencing high demand with a sales velocity of ${product.salesVelocityFloat?.toFixed(1)} units/day.`,
-                        resolved: false,
-                        metadata: {
-                          orderId: orderData.id,
-                          orderName: orderData.name,
-                          salesVelocity: product.salesVelocityFloat,
-                          threshold: salesVelocityThreshold,
-                          automated: true,
-                          paidOrderTriggered: true,
-                        }
+                        isActive: true,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
                       }
                     });
 

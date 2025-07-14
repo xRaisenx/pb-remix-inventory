@@ -265,7 +265,7 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
         title: true,
         status: true,
         quantity: true,
-        variants: {
+        Variant: {
           select: {
             inventoryQuantity: true,
             sku: true
@@ -291,9 +291,9 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
 
     const stockInfo = products.map((product: any) => ({
       title: product.title,
-      quantity: product.variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+              quantity: product.Variant.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
       status: product.status,
-      sku: product.variants[0]?.sku || 'N/A'
+              sku: product.Variant[0]?.sku || 'N/A'
     }));
 
     const totalProducts = stockInfo.length;
@@ -350,7 +350,7 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
         id: true,
         title: true,
         status: true,
-        variants: {
+        Variant: {
           select: {
             inventoryQuantity: true,
             sku: true
@@ -387,7 +387,7 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
     message += `\n**Products needing attention**:\n\n`;
 
     lowStockProducts.slice(0, 10).forEach((product: any) => {
-      const totalQuantity = product.variants.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0);
+      const totalQuantity = product.Variant.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0);
       const statusEmoji = {
         'Critical': '🔴',
         'Low': '⚠️',
@@ -421,7 +421,7 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
         products: lowStockProducts.map((p: any) => ({
           id: p.id,
           title: p.title,
-          quantity: p.variants.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0),
+          quantity: p.Variant.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0),
           status: p.status
         }))
       },
@@ -476,7 +476,7 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
         ]
       },
       include: {
-        variants: {
+        Variant: {
           select: {
             inventoryQuantity: true,
             price: true,
@@ -502,9 +502,9 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
     let message = `🔍 Found ${products.length} product${products.length !== 1 ? 's' : ''} matching your search:\n\n`;
 
     products.forEach(product => {
-      const totalQuantity = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
-      const avgPrice = product.variants.length > 0 
-        ? product.variants.reduce((sum, v) => sum + Number(v.price || 0), 0) / product.variants.length
+      const totalQuantity = product.Variant.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+      const avgPrice = product.Variant.length > 0 
+        ? product.Variant.reduce((sum: any, v: any) => sum + Number(v.price || 0), 0) / product.Variant.length
         : 0;
       
       const statusEmoji = {
@@ -527,10 +527,10 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
         id: p.id,
         title: p.title,
         vendor: p.vendor,
-        quantity: p.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0),
+        quantity: p.Variant.reduce((sum: any, v: any) => sum + (v.inventoryQuantity || 0), 0),
         status: p.status,
-        avgPrice: p.variants.length > 0 
-          ? p.variants.reduce((sum, v) => sum + Number(v.price || 0), 0) / p.variants.length
+        avgPrice: p.Variant.length > 0 
+          ? p.Variant.reduce((sum: any, v: any) => sum + Number(v.price || 0), 0) / p.Variant.length
           : 0
       })),
       suggestions: [

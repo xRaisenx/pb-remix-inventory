@@ -41,7 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shopRecord = await prisma.shop.findUnique({
     where: { shop: session.shop },
-    include: { NotificationSettings: true }
+          include: { NotificationSetting: true }
   });
 
   if (!shopRecord) {
@@ -56,8 +56,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     } as LoaderData, { status: 404 });
   }
 
-  const { id: shopId, NotificationSettings } = shopRecord;
-  const notificationSettings = NotificationSettings?.[0];
+      const { id: shopId, NotificationSetting } = shopRecord;
+    const notificationSettings = NotificationSetting;
 
   const currentLowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
   const highSalesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 30;

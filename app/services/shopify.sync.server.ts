@@ -86,7 +86,15 @@ async function getOrSyncLocations(client: any, shopId: string, shopDomain: strin
         const warehouse = await prisma.warehouse.upsert({
           where: { shopifyLocationGid: loc.id }, // Assumes shopifyLocationGid is unique
           update: { name: loc.name },
-          create: { name: loc.name, shopifyLocationGid: loc.id, shopId: shopId, location: loc.name }, // Ensure shopId is linked
+          create: { 
+            id: loc.id, // Use location ID as warehouse ID
+            name: loc.name, 
+            shopifyLocationGid: loc.id, 
+            shopId: shopId, 
+            location: loc.name,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }, // Ensure shopId is linked
         });
         locationsMap.set(loc.id, warehouse.id); // Map Shopify GID to Prisma Warehouse ID
       } catch (e: any) {
@@ -169,9 +177,12 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
           where: { shopifyId: sp.id }, // Assumes shopifyId is unique on Product model
           update: { title: sp.title, vendor: sp.vendor || 'Unknown', productType: sp.productType, tags: sp.tags },
           create: {
+            id: sp.id, // Use product ID as the primary key
             shopifyId: sp.id, title: sp.title, vendor: sp.vendor || 'Unknown',
             productType: sp.productType, tags: sp.tags, shopId: shopId,
             status: 'Unknown', trending: false, // Default status/trending
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         });
         totalProductsSynced++;
@@ -182,8 +193,11 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
             where: { shopifyId: v.id }, // Assumes shopifyId is unique on Variant model
             update: { title: v.title, sku: v.sku, price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id },
             create: {
+              id: v.id, // Use variant ID as the primary key
               shopifyId: v.id, productId: productRecord.id, title: v.title, sku: v.sku,
               price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             },
           });
 
@@ -198,7 +212,15 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
                 await prisma.inventory.upsert({
                   where: { productId_warehouseId: { productId: productRecord.id, warehouseId: prismaWarehouseId } },
                   update: { availableQuantity: availableQty },
-                  create: { productId: productRecord.id, warehouseId: prismaWarehouseId, availableQuantity: availableQty },
+                  create: { 
+                    id: `${productRecord.id}-${prismaWarehouseId}`, // Composite ID
+                    productId: productRecord.id, 
+                    warehouseId: prismaWarehouseId, 
+                    quantity: availableQty, // Use quantity instead of availableQuantity
+                    availableQuantity: availableQty,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  },
                 });
               } else {
                 console.warn(`[Sync][${shopDomain}] Shopify Location GID ${invLevel.location.id} not found in local warehouse map for product ${sp.title}, variant ${v.sku}. Inventory for this location not synced.`);

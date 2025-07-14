@@ -79,7 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             await tx.analyticsData.create({
               data: {
                 productId: product.id,
-                salesVelocity: newSalesVelocity,
+                // salesVelocity field doesn't exist in AnalyticsData model
                 stockLevel: variant.inventoryQuantity || 0,
                 daysUntilStockout: newSalesVelocity > 0 ? (variant.inventoryQuantity || 0) / newSalesVelocity : 999,
                 reorderPoint: Math.max(newSalesVelocity * 7, 10), // 7 days buffer
