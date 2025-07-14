@@ -192,7 +192,7 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: "2024-07" as any,
+  apiVersion: "2025-04" as any,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -286,7 +286,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = "2024-07";
+export const apiVersion = "2025-04";
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

@@ -7,7 +7,7 @@ application_url = "https://pb-inventory-ai-olive.vercel.app/"
 embedded = true
 
 [webhooks]
-api_version = "2024-07"
+api_version = "2025-04"
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
