@@ -108,7 +108,11 @@ export default function App() {
   }
 
   return (
-    <AppProvider apiKey={apiKey} isEmbeddedApp>
+    <AppProvider 
+      apiKey={apiKey} 
+      host={host}
+      embedded={true}
+    >
       <PolarisAppProvider i18n={enTranslations}>
         <AppLayout>
           <Outlet />

@@ -60,6 +60,19 @@ export default function App() {
       };
       
       handleEmbeddedAppErrors();
+      
+      // Enhanced App Bridge detection and initialization
+      if (window.top !== window.self) {
+        console.log('[EMBEDDED] App is running in embedded context');
+        // Add App Bridge ready handler
+        window.addEventListener('message', function(event) {
+          if (event.origin === 'https://admin.shopify.com' || event.origin.includes('.shopify.com')) {
+            console.log('[EMBEDDED] Received message from Shopify Admin:', event.data);
+          }
+        });
+      } else {
+        console.log('[EMBEDDED] App is running in non-embedded context');
+      }
     }
   }, []);
 
