@@ -9,7 +9,7 @@
  */
 
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
-import prisma from "./database";
+import prismaInstance from "./database";
 
 // Vercel serverless optimized session storage
 export class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
@@ -18,7 +18,7 @@ export class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private sessionCountCache = { count: 0, lastUpdated: 0 };
   private readonly CACHE_TTL = 3 * 60 * 1000; // Reduced to 3 minutes for serverless
   
-  constructor(prismaClient: typeof prisma) {
+  constructor(prismaClient: typeof prismaInstance) {
     super(prismaClient);
     console.log('[SESSION] Enhanced Prisma session storage initialized for Vercel serverless');
     
