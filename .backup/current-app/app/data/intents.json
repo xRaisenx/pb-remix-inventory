@@ -1,0 +1,84 @@
+{
+  "intents": [
+    {
+      "query": "Show me trending products",
+      "response": "The top trending products are: Anastasia Beverly Hills Clear Brow Gel (Sales Velocity: 15 units/day), EltaMD UV Physical SPF40 (Sales Velocity: 40 units/day), Mario Badescu Facial Spray (Sales Velocity: 50 units/day), T3 Featherweight Hair Dryer (Sales Velocity: 35 units/day)."
+    },
+    {
+      "query": "What are the products with low inventory?",
+      "response": "Products with low inventory: EltaMD UV Physical SPF40 (10 units), Mario Badescu Facial Spray (15 units), T3 Featherweight Hair Dryer (5 units)."
+    },
+    {
+      "query": "Give me restocking recommendations for EltaMD UV Physical SPF40",
+      "response": "Recommended restock quantity for EltaMD UV Physical SPF40: 200 units (based on a sales velocity of 40 units/day and a 5-day lead time)."
+    },
+    {
+      "query": "What's the total inventory value?",
+      "response": "The total inventory value across all products is $4,354.95."
+    },
+    {
+      "query": "Which products are out of stock?",
+      "response": "Currently, there are no products completely out of stock."
+    },
+    {
+      "query": "Show me products with a sales velocity over 30",
+      "response": "Products with a sales velocity over 30 units/day: EltaMD UV Physical SPF40 (40 units/day), Mario Badescu Facial Spray (50 units/day), T3 Featherweight Hair Dryer (35 units/day)."
+    },
+    {
+      "query": "What's the average stockout time for low inventory items?",
+      "response": "The average stockout time for low inventory items is 0.23 days."
+    },
+    {
+      "query": "List all skincare products",
+      "response": "Skincare products in your inventory: EltaMD UV Physical SPF40, Mario Badescu Facial Spray, Borghese Energia Retinol Serum."
+    },
+    {
+      "query": "What's the sales trend for Anastasia Beverly Hills Clear Brow Gel?",
+      "response": "Anastasia Beverly Hills Clear Brow Gel has a stable sales trend with a velocity of 15 units/day."
+    },
+    {
+      "query": "Alert me when EltaMD UV Physical SPF40 stock drops below 20",
+      "response": "I have set up a low stock alert for EltaMD UV Physical SPF40. You will be notified when the stock drops below 20 units."
+    },
+    {
+      "query": "Show me the most expensive product",
+      "response": "The most expensive product is T3 Featherweight Hair Dryer at $199.99."
+    },
+    {
+      "query": "What's the total quantity of haircare products?",
+      "response": "The total quantity of haircare products in stock is 30 units."
+    },
+    {
+      "query": "Recommend a product to promote",
+      "response": "Based on current trends, I recommend promoting Mario Badescu Facial Spray."
+    },
+    {
+      "query": "What's the stockout risk for T3 Featherweight Hair Dryer?",
+      "response": "The T3 Featherweight Hair Dryer has a high stockout risk, estimated to stockout in 0.14 days."
+    },
+    {
+      "query": "List all products from Mario Badescu",
+      "response": "Products from Mario Badescu: Mario Badescu Facial Spray."
+    },
+    {
+      "query": "What's the revenue generated from EltaMD UV Physical SPF40 last week?",
+      "response": "Revenue generated from EltaMD UV Physical SPF40 last week: $975.00."
+    },
+    {
+      "query": "Show me products with a stockout time less than 1 day",
+      "response": "Products with a stockout time less than 1 day: EltaMD UV Physical SPF40 (0.25 days), Mario Badescu Facial Spray (0.3 days), T3 Featherweight Hair Dryer (0.14 days)."
+    },
+    {
+      "query": "What's the average price of skincare products?",
+      "response": "The average price of skincare products is $43.33."
+    },
+    {
+      "query": "Give me a summary of today's inventory status",
+      "response": "Today's inventory status: Low stock for EltaMD UV Physical SPF40, Mario Badescu Facial Spray, and T3 Featherweight Hair Dryer. High sales velocity for Mario Badescu Facial Spray, EltaMD UV Physical SPF40, and T3 Featherweight Hair Dryer."
+    },
+    {
+      "query": "What are the top 3 products by sales velocity?",
+      "response": "Top 3 products by sales velocity: Mario Badescu Facial Spray (50 units/day), EltaMD UV Physical SPF40 (40 units/day), T3 Featherweight Hair Dryer (35 units/day)."
+    }
+  ]
+}
