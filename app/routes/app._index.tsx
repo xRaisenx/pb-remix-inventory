@@ -33,7 +33,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
 
     const variants: Array<{ inventoryQuantity: number | null }> = await prisma.variant.findMany({
-      where: { product: { shopId } },
+      where: { Product: { shopId } },
       select: { inventoryQuantity: true },
     });
     const totalInventoryUnits = variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
@@ -43,17 +43,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 3,
       select: {
         id: true, title: true, vendor: true, shopifyId: true, salesVelocityFloat: true, status: true, trending: true,
-        variants: { select: { sku: true, price: true }, take: 1 },
+        Variant: { select: { sku: true, price: true }, take: 1 },
       },
-    })).map((p: any) => ({...p, variants: p.variants.map((v: any) => ({...v, price: v.price?.toString() || "0"}))})) as DashboardTrendingProduct[];
+    })).map((p: any) => ({...p, variants: p.Variant.map((v: any) => ({...v, price: v.price?.toString() || "0"}))})) as DashboardTrendingProduct[];
 
     const lowStockProductsForAlerts = await prisma.product.findMany({
       where: { shopId, status: { in: ["Low", "Critical"] } },
-      select: { id: true, title: true, status: true, variants: { select: { inventoryQuantity: true } } },
+      select: { id: true, title: true, status: true, Variant: { select: { inventoryQuantity: true } } },
       take: 3,
     }).then((products: any[]) => products.map((p: any) => ({
       ...p,
-      inventory: p.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0)
+      inventory: p.Variant.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0)
     }))) as DashboardAlertProduct[];
 
     const highSalesTrendProducts = await prisma.product.findMany({

@@ -187,11 +187,22 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   }
 }
 
+// Define required scopes for the app
+const requiredScopes = [
+  "read_products",
+  "write_products", 
+  "read_inventory",
+  "write_inventory",
+  "read_orders",
+  "read_customers",
+  "read_analytics"
+];
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY || "",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: "2024-07" as any,
-  scopes: process.env.SCOPES?.split(","),
+  apiVersion: "2025-04" as any,
+  scopes: process.env.SCOPES?.split(",") || requiredScopes,
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new EnhancedPrismaSessionStorage(prisma) as any,
@@ -241,6 +252,7 @@ const shopify = shopifyApp({
           where: { shop: session.shop },
           update: { updatedAt: new Date() },
           create: { 
+            id: session.shop, // Use shop domain as ID
             shop: session.shop,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -280,7 +292,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = "2024-07";
+export const apiVersion = "2025-04";
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

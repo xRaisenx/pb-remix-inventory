@@ -17,12 +17,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const productFromDB = await prisma.product.findUnique({
       where: { shopifyId: shopifyProductId },
       include: {
-        variants: {
+        Variant: {
           orderBy: { createdAt: 'asc' },
           select: { id: true, shopifyId: true, title: true, sku: true, price: true, inventoryQuantity: true, inventoryItemId: true }
         },
-        inventory: {
-          select: { quantity: true, warehouseId: true, warehouse: { select: { shopifyLocationGid: true } } }
+        Inventory: {
+          select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } }
         },
         // Assuming shop relation is not needed here as authenticate.admin(request) handles shop context
         // If shop-specific settings are needed (e.g. for metric calculation context not done here), include shop.
@@ -35,17 +35,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
     // Construct the full ProductForTable object, similar to the app.products loader
     // This logic should ideally be shared or kept consistent with how ProductForTable is constructed elsewhere.
-    const totalInventory = productFromDB.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
-    const firstVariant = productFromDB.variants?.[0];
+    const totalInventory = productFromDB.Inventory.reduce((sum: number, inv: any) => sum + inv.quantity, 0);
+    const firstVariant = productFromDB.Variant?.[0];
 
-    const inventoryByLocation = productFromDB.inventory.reduce((acc, inv) => {
+    const inventoryByLocation = productFromDB.Inventory.reduce((acc: any, inv: any) => {
       // Ensure warehouse and shopifyLocationGid exist to prevent runtime errors
-      if (inv.warehouse && inv.warehouse.shopifyLocationGid) {
+      if (inv.Warehouse && inv.Warehouse.shopifyLocationGid) {
         acc[inv.warehouseId] = {
           quantity: inv.quantity,
-          shopifyLocationGid: inv.warehouse.shopifyLocationGid
+          shopifyLocationGid: inv.Warehouse.shopifyLocationGid
         };
-      } else if (inv.warehouse) { // Local warehouse without Shopify link
+      } else if (inv.Warehouse) { // Local warehouse without Shopify link
          acc[inv.warehouseId] = {
            quantity: inv.quantity,
            shopifyLocationGid: null // Explicitly null
@@ -66,7 +66,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       salesVelocity: productFromDB.salesVelocityFloat, // From Prisma model
       stockoutDays: productFromDB.stockoutDays,       // From Prisma model
       status: productFromDB.status,                   // From Prisma model
-      variantsForModal: productFromDB.variants.map(v => ({
+      variantsForModal: productFromDB.Variant.map((v: any) => ({
         id: v.id, // Prisma Variant ID
         shopifyVariantId: v.shopifyId ?? '', // Shopify Variant GID
         title: v.title ?? v.sku ?? 'Variant', // Fallback for variant title
