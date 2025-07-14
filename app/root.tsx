@@ -1,5 +1,6 @@
 import { cssBundleHref } from "@remix-run/css-bundle";
-import type { LinksFunction, MetaFunction } from "@remix-run/node";
+import type { LinksFunction, MetaFunction, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -7,6 +8,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "@remix-run/react";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { DatabaseErrorBoundary } from "~/components/ErrorBoundary";
@@ -21,7 +23,15 @@ export const links: LinksFunction = () => [
   ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
 ];
 
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  return json({
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+  });
+};
+
 export default function App() {
+  const { apiKey } = useLoaderData<typeof loader>();
+
   return (
     <html lang="en">
       <head>
@@ -31,7 +41,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <AppProvider isEmbeddedApp>
+        <AppProvider apiKey={apiKey} isEmbeddedApp>
           <Outlet />
         </AppProvider>
         <ScrollRestoration />
@@ -48,9 +58,7 @@ export function ErrorBoundary() {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Error - Planet Beauty AI Inventory</title>
-        <Meta />
-        <Links />
+        <title>Error</title>
       </head>
       <body>
         <DatabaseErrorBoundary />

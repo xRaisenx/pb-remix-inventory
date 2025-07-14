@@ -22,21 +22,20 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private errorCount = 0;
   private cache = new Map<string, any>();
   private sessionCountCache = { count: 0, lastUpdated: 0 };
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+  private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes cache TTL (reduced from 5)
+  private readonly MAX_RETRIES = 2; // Reduced from 3
   
   constructor(prismaClient: typeof prisma) {
     super(prismaClient);
     console.log('Enhanced Prisma session storage initialized');
     
-    // Start cache cleanup interval
-    setInterval(() => this.cleanupCache(), 10 * 60 * 1000); // Cleanup every 10 minutes
+    // Start cache cleanup interval - less frequent
+    setInterval(() => this.cleanupCache(), 15 * 60 * 1000); // Cleanup every 15 minutes
   }
 
   async storeSession(session: any): Promise<boolean> {
     try {
       console.log(`[SESSION] Storing session: ${session.id}`);
-      console.log(`[SESSION] Session shop: ${session.shop}`);
-      console.log(`[SESSION] Session state: ${session.state}`);
       
       // Cache the session for faster access
       this.cache.set(session.id, {
@@ -48,36 +47,36 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       console.log(`[SESSION] Session stored successfully: ${result}`);
       
       // Update session count cache
-      if (result) {
-        this.sessionCountCache.count++;
-        this.sessionCountCache.lastUpdated = Date.now();
-      }
+      this.sessionCountCache = { count: -1, lastUpdated: 0 }; // Invalidate cache
+      this.errorCount = 0; // Reset error count on success
       
       return result;
     } catch (error) {
-      console.error(`[SESSION] Session storage error for ${session.id}:`, error);
-      throw new Error("Failed to store session. Please ensure database is properly configured.");
+      this.errorCount++;
+      console.error(`[SESSION ERROR] Failed to store session (attempt ${this.errorCount}):`, error);
+      
+      // If database fails, at least keep it in cache temporarily
+      this.cache.set(session.id, {
+        session,
+        timestamp: Date.now()
+      });
+      
+      // Don't throw on session storage errors to prevent auth loops
+      return false;
     }
   }
 
   async loadSession(id: string): Promise<any> {
     try {
-      console.log(`[SESSION] Attempting to load session: ${id}`);
-      
       // Check cache first
       const cached = this.cache.get(id);
       if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
-        console.log(`[SESSION] Session loaded from cache: ${id}`);
+        console.log(`[SESSION] Loading session from cache: ${id}`);
         return cached.session;
       }
-      
-      const startTime = Date.now();
+
+      console.log(`[SESSION] Loading session from database: ${id}`);
       const session = await super.loadSession(id);
-      const loadTime = Date.now() - startTime;
-      
-      if (loadTime > 1000) {
-        console.log(`[SESSION PERF] Slow session load: ${id} took ${loadTime}ms`);
-      }
       
       if (session) {
         // Update cache
@@ -85,23 +84,21 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
           session,
           timestamp: Date.now()
         });
-        console.log(`[SESSION] Session loaded from database: ${id}`);
-      } else {
-        console.log(`[SESSION] Session not found: ${id}`);
       }
       
+      console.log(`[SESSION] Session loaded: ${session ? 'found' : 'not found'}`);
       return session;
     } catch (error) {
-      console.error(`[SESSION] Session load error for ${id}:`, error);
-      this.errorCount++;
+      console.error(`[SESSION ERROR] Failed to load session ${id}:`, error);
       
-      if (this.errorCount > 10) {
-        console.error("[SESSION] Too many session errors - clearing cache");
-        this.clearCache();
-        this.errorCount = 0;
+      // Try to return from cache as fallback
+      const cached = this.cache.get(id);
+      if (cached) {
+        console.log(`[SESSION] Returning cached session as fallback: ${id}`);
+        return cached.session;
       }
       
-      return null; // Return null instead of throwing to prevent auth loops
+      return undefined;
     }
   }
 
@@ -109,60 +106,71 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
     try {
       console.log(`[SESSION] Deleting session: ${id}`);
       
-      // Remove from cache
+      // Remove from cache first
       this.cache.delete(id);
       
       const result = await super.deleteSession(id);
       console.log(`[SESSION] Session deleted: ${result}`);
       
       // Update session count cache
-      if (result) {
-        this.sessionCountCache.count = Math.max(0, this.sessionCountCache.count - 1);
-        this.sessionCountCache.lastUpdated = Date.now();
-      }
+      this.sessionCountCache = { count: -1, lastUpdated: 0 }; // Invalidate cache
       
       return result;
     } catch (error) {
-      console.error(`[SESSION] Session deletion error for ${id}:`, error);
+      console.error(`[SESSION ERROR] Failed to delete session ${id}:`, error);
+      
+      // Remove from cache even if database fails
+      this.cache.delete(id);
+      
+      // Don't throw on session deletion errors
       return false;
     }
   }
-  
-  // Optimize session count queries with caching
+
   async getSessionCount(): Promise<number> {
-    try {
-      // Return cached count if recent
-      if (this.sessionCountCache.lastUpdated && 
-          (Date.now() - this.sessionCountCache.lastUpdated) < this.CACHE_TTL) {
-        return this.sessionCountCache.count;
-      }
-      
-      // Use efficient count query with timeout
-      const startTime = Date.now();
-      const count = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "Session"` as any[];
-      const queryTime = Date.now() - startTime;
-      
-      if (queryTime > 5000) {
-        console.log(`[SESSION PERF] Slow session count query: ${queryTime}ms`);
-      }
-      
-      const sessionCount = parseInt(count[0]?.count || '0');
-      
-      // Update cache
-      this.sessionCountCache = {
-        count: sessionCount,
-        lastUpdated: Date.now()
-      };
-      
-      return sessionCount;
-    } catch (error) {
-      console.error('[SESSION] Session count error:', error);
-      // Return cached value if available, otherwise 0
-      return this.sessionCountCache.count || 0;
+    const now = Date.now();
+    
+    // Return cached count if still valid
+    if (this.sessionCountCache.count >= 0 && 
+        (now - this.sessionCountCache.lastUpdated) < this.CACHE_TTL) {
+      return this.sessionCountCache.count;
     }
+
+    // Try to get count with retries and timeout
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[DB INFO] Attempting to count sessions (attempt ${attempt}/${this.MAX_RETRIES})`);
+        
+        // Use a timeout for the query
+        const countPromise = prisma.session.count();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), 8000) // 8 second timeout
+        );
+        
+        const count = await Promise.race([countPromise, timeoutPromise]) as number;
+        
+        // Update cache
+        this.sessionCountCache = { count, lastUpdated: now };
+        console.log(`[DB INFO] Session count: ${count}`);
+        return count;
+      } catch (error) {
+        console.log(`[DB ERROR] Query Session.count failed (attempt ${attempt}/${this.MAX_RETRIES}):`, error);
+        
+        if (attempt < this.MAX_RETRIES) {
+          console.log(`[DB RETRY] Retrying query in ${attempt * 500}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        }
+      }
+    }
+
+    // Fallback: return cache count or estimate from cache size
+    const fallbackCount = this.sessionCountCache.count >= 0 ? 
+      this.sessionCountCache.count : this.cache.size;
+    
+    console.log(`[DB FALLBACK] Using fallback session count: ${fallbackCount}`);
+    return fallbackCount;
   }
-  
-  // Clean up old cache entries
+
   private cleanupCache() {
     const now = Date.now();
     let cleaned = 0;
@@ -175,15 +183,14 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
     }
     
     if (cleaned > 0) {
-      console.log(`[SESSION] Cache cleanup: removed ${cleaned} expired entries`);
+      console.log(`[CACHE] Cleaned up ${cleaned} expired entries`);
     }
   }
-  
-  // Clear cache periodically to prevent memory leaks
+
   clearCache() {
     this.cache.clear();
-    this.sessionCountCache = { count: 0, lastUpdated: 0 };
-    console.log("[SESSION] Cache cleared");
+    this.sessionCountCache = { count: -1, lastUpdated: 0 };
+    console.log('[CACHE] Cache cleared');
   }
 }
 
