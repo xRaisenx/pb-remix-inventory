@@ -1,11 +1,12 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Outlet, useLoaderData } from "@remix-run/react";
-import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
-import enTranslations from "@shopify/polaris/locales/en.json";
-import { AppLayout } from "~/components/AppLayout";
-import { authenticate } from "~/shopify.server";
+import { json } from "@remix-run/node";
+import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { AppProvider } from "@shopify/shopify-app-remix/react";
+import { NavMenu } from "@shopify/app-bridge-react";
+import { boundary } from "@shopify/shopify-app-remix/server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+
+import { authenticate } from "~/shopify.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -13,7 +14,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     console.log("[LOADER] /app starting authentication...");
     console.log("[LOADER] /app request URL:", request.url);
-    console.log("[LOADER] /app request headers:", Object.fromEntries(request.headers.entries()));
     
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
@@ -22,95 +22,92 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log("[LOADER] /app shop param:", shop);
     console.log("[LOADER] /app host param:", host);
     
-    if (!shop) {
-      console.error("[LOADER ERROR] No shop parameter found");
-      throw new Response("Missing shop parameter", { status: 400 });
-    }
-
-    // Validate shop domain format
-    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
-      console.error("[LOADER ERROR] Invalid shop domain format:", shop);
-      throw new Response("Invalid shop domain", { status: 400 });
-    }
+    // For embedded apps, authenticate using the Shopify app remix method
+    // This will handle embedded auth flow automatically
+    await authenticate.admin(request);
     
-    // Try to authenticate with enhanced error handling
-    let session;
-    try {
-      session = await authenticate.admin(request);
-      console.log("[LOADER] /app authentication successful");
-      console.log("[LOADER] /app session shop:", session.shop);
-      console.log("[LOADER] /app session id:", session.id);
-    } catch (authError) {
-      console.error("[LOADER ERROR] Authentication failed:", authError);
-      
-      // Check if this is a 302 redirect response (not an error)
-      if (authError instanceof Response && authError.status === 302) {
-        console.log("[LOADER] Received expected auth redirect");
-        throw authError; // Re-throw the redirect
-      }
-      
-      // For other authentication errors, redirect to login with proper parameters
-      const loginParams = new URLSearchParams();
-      loginParams.set('shop', shop);
-      if (host) loginParams.set('host', host);
-      
-      const loginUrl = `/auth/login?${loginParams.toString()}`;
-      console.log("[LOADER] Redirecting to login:", loginUrl);
-      throw redirect(loginUrl);
-    }
+    console.log("[LOADER] /app authentication successful");
     
-    // Ensure we have a proper host parameter for App Bridge
-    let validHost = host;
-    if (!validHost && session?.shop) {
-      // Generate a proper host parameter from the shop domain
-      const shopDomain = session.shop.replace('.myshopify.com', '');
-      validHost = btoa(`admin.shopify.com/store/${shopDomain}`);
-      console.log("[LOADER] Generated host parameter:", validHost);
-    }
-    
-    if (!validHost) {
-      console.error("[LOADER ERROR] Unable to determine valid host parameter");
-      throw new Response("Missing host parameter for embedded app", { status: 400 });
-    }
-
     return json({
-      shop: session.shop,
-      host: validHost,
-      sessionId: session.id,
-      apiKey: process.env.SHOPIFY_API_KEY,
+      polarisTranslations: require("@shopify/polaris/locales/en.json"),
+      apiKey: process.env.SHOPIFY_API_KEY || "",
     });
+    
   } catch (error) {
+    console.error("[LOADER ERROR] /app._index loader failed:", error);
+    
+    // If it's a Response (redirect), let it pass through
+    // This is normal for embedded auth flow
     if (error instanceof Response) {
-      throw error; // Re-throw Response objects (redirects, etc.)
+      console.log("[LOADER] Received auth redirect response");
+      throw error;
     }
     
-    console.error("[LOADER ERROR] /app loader failed:", error);
-    throw error;
+    // For other errors, return a meaningful error response
+    console.error("[LOADER ERROR] Unexpected error in app loader:", error);
+    throw new Response("App initialization failed", { status: 500 });
   }
 };
 
 export default function App() {
-  const { apiKey, host, shop } = useLoaderData<typeof loader>();
-
-  // Configuration validation
-  if (!apiKey || !host) {
-    return (
-      <PolarisAppProvider i18n={enTranslations}>
-        <div style={{ padding: '2rem', color: 'red', textAlign: 'center' }}>
-          <h2>Configuration Error</h2>
-          <p>Missing Shopify API Key or Host. Please check your environment variables and app setup.</p>
-          <p>API Key: {apiKey ? 'Present' : 'Missing'}</p>
-          <p>Host: {host ? 'Present' : 'Missing'}</p>
-        </div>
-      </PolarisAppProvider>
-    );
-  }
+  const { apiKey, polarisTranslations } = useLoaderData<typeof loader>();
 
   return (
-    <PolarisAppProvider i18n={enTranslations}>
-      <AppLayout>
-        <Outlet />
-      </AppLayout>
-    </PolarisAppProvider>
+    <AppProvider
+      isEmbeddedApp
+      apiKey={apiKey}
+      i18n={polarisTranslations}
+    >
+      <NavMenu>
+        <Link to="/app" rel="home">
+          Home
+        </Link>
+        <Link to="/app/products">
+          Products
+        </Link>
+        <Link to="/app/inventory">
+          Inventory
+        </Link>
+        <Link to="/app/settings">
+          Settings
+        </Link>
+        <Link to="/app/reports">
+          Reports
+        </Link>
+        <Link to="/app/alerts">
+          Alerts
+        </Link>
+        <Link to="/app/warehouses">
+          Warehouses
+        </Link>
+      </NavMenu>
+      <Outlet />
+    </AppProvider>
   );
 }
+
+// Shopify embedded apps must maintain the same domain
+export const headers = () => ({
+  "X-Shopify-API-Request-Failure-Reauthorize": "1",
+  "X-Shopify-API-Request-Failure-Reauthorize-Url": "/auth",
+});
+
+export const ErrorBoundary = boundary.error(({ error }) => {
+  console.error("[APP ERROR BOUNDARY]", error);
+  return (
+    <div style={{ padding: "20px", textAlign: "center" }}>
+      <h1>Something went wrong</h1>
+      <p>Please try refreshing the page or contact support if the problem persists.</p>
+      <pre style={{ 
+        background: "#f5f5f5", 
+        padding: "10px", 
+        borderRadius: "4px",
+        fontSize: "12px",
+        textAlign: "left",
+        overflow: "auto"
+      }}>
+        {error?.message || "Unknown error"}
+      </pre>
+    </div>
+  );
+});
