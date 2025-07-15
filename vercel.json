@@ -17,10 +17,6 @@
         {
           "key": "Content-Security-Policy",
           "value": "frame-ancestors https://*.shopify.com https://admin.shopify.com https://*.myshopify.com 'self'"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "ALLOWALL"
         }
       ]
     },
@@ -30,10 +26,6 @@
         {
           "key": "Content-Security-Policy",
           "value": "frame-ancestors https://*.shopify.com https://admin.shopify.com https://*.myshopify.com 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com; connect-src 'self' https://*.shopify.com https://monorail-edge.shopifysvc.com"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "ALLOWALL"
         }
       ]
     }
