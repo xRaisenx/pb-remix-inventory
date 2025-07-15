@@ -218,6 +218,7 @@ class WebhookService {
     try {
       await prisma.notificationLog.create({
         data: {
+          id: message.productId || new Date().toISOString(),
           shopId: message.shopId,
           channel: NotificationChannel.Webhook,
           recipient: message.url,
@@ -229,6 +230,7 @@ class WebhookService {
           alertId: message.alertId,
           errorMessage: error,
           retryCount: retryCount || 0,
+          updatedAt: new Date(),
           sentAt: status === NotificationStatus.Sent ? new Date() : undefined,
           deliveredAt: status === NotificationStatus.Delivered ? new Date() : undefined,
           metadata: {

@@ -48,9 +48,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Create product
       const product = await tx.product.create({
         data: {
+          id: productData.id,
           shopifyId: productData.id,
           title: productData.title,
-          vendor: productData.vendor,
+          vendor: productData.vendor || 'Unknown',
           productType: productData.product_type,
           tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : [],
           shopId: shopRecord.id,
@@ -58,6 +59,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           trending: false,
           salesVelocityFloat: 0,
           stockoutDays: null,
+          updatedAt: new Date(),
         },
       });
 
@@ -66,6 +68,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         for (const variantData of productData.variants) {
           await tx.variant.create({
             data: {
+              id: `gid://shopify/ProductVariant/${variantData.id}`,
               shopifyId: `gid://shopify/ProductVariant/${variantData.id}`,
               productId: product.id,
               title: variantData.title || 'Default',
@@ -73,6 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               price: variantData.price ? parseFloat(variantData.price) : 0,
               inventoryQuantity: variantData.inventory_quantity || 0,
               inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+              updatedAt: new Date(),
             },
           });
         }
@@ -91,12 +95,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const productWithVariants = {
           ...product,
-          variants: productData.variants.map(v => ({ 
+          Variant: productData.variants.map(v => ({
             inventoryQuantity: v.inventory_quantity || 0 
           })),
         };
 
-        const metrics = calculateProductMetrics(productWithVariants, shopSettings);
+        const metrics = calculateProductMetrics(productWithVariants as any, shopSettings);
         
         // Update product with calculated metrics
         await tx.product.update({

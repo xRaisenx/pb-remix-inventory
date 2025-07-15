@@ -27,7 +27,7 @@ export async function runDailyTasks() {
 
     // Fetch a valid offline session to perform API calls
     const offlineSessionRecord = await prisma.session.findFirst({
-      where: { shop: shop.shop, isOnline: false, accessToken: { not: "" } },
+      where: { shopId: shop.id, isOnline: false },
       orderBy: { expires: 'desc' },
     });
 

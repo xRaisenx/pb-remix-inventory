@@ -97,14 +97,14 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         where: { shopId: shopRecord.id },
         orderBy: { title: 'asc' },
         include: {
-          variants: {
+          Variant: {
             orderBy: { createdAt: 'asc' },
             select: {
               id: true, shopifyId: true, title: true, sku: true, price: true, inventoryQuantity: true, inventoryItemId: true,
             }
           },
-          inventory: {
-            select: { quantity: true, warehouseId: true, warehouse: { select: { shopifyLocationGid: true } } }
+          Inventory: {
+            select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } }
           },
         },
         take: PRODUCTS_PER_PAGE,
@@ -118,11 +118,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
     ]);
 
     const productsForTable = productsFromDB.map((p): ProductForTable => {
-      const totalInventory = p.inventory.reduce((sum: number, inv: { quantity: number }) => sum + inv.quantity, 0);
-      const firstVariant = p.variants?.[0];
+      const totalInventory = p.Inventory.reduce((sum: number, inv: { quantity: number }) => sum + inv.quantity, 0);
+      const firstVariant = p.Variant?.[0];
 
-      const inventoryByLocation = p.inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv) => {
-        acc[inv.warehouseId] = { quantity: inv.quantity, shopifyLocationGid: inv.warehouse.shopifyLocationGid };
+      const inventoryByLocation = p.Inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv) => {
+        acc[inv.warehouseId] = { quantity: inv.quantity, shopifyLocationGid: inv.Warehouse.shopifyLocationGid };
         return acc;
       }, {} as ProductForTable['inventoryByLocation']);
 
@@ -137,7 +137,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         salesVelocity: p.salesVelocityFloat,
         stockoutDays: p.stockoutDays,
         status: p.status,
-        variantsForModal: p.variants.map(v => ({
+        variantsForModal: p.Variant.map(v => ({
           id: v.id,
           shopifyVariantId: v.shopifyId ?? '',
           title: v.title ?? v.sku ?? 'Variant',
@@ -200,14 +200,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const productToUpdate = await prisma.product.findUnique({
           where: { id: updatedVariant.productId },
           include: {
-            variants: { select: { inventoryQuantity: true } },
-            shop: { include: { NotificationSettings: true } }
+            Variant: { select: { inventoryQuantity: true } },
+            Shop: { include: { NotificationSettings: true } }
           }
         });
 
         if (productToUpdate) {
-          const notificationSetting = productToUpdate.shop.NotificationSettings?.[0];
-          const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
+          const notificationSetting = productToUpdate.Shop.NotificationSettings?.[0];
+          const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.Shop.lowStockThreshold ?? 10;
           const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
           const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
           const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
@@ -215,7 +215,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
           const productWithVariantsForCalc = {
             ...productToUpdate,
-            variants: productToUpdate.variants.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
+            variants: productToUpdate.Variant.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
           };
 
           const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);

@@ -18,7 +18,7 @@ interface ReportProductSummary {
   trending: boolean | null;
   stockoutDays: number | null;
   salesVelocityFloat: number | null;
-  variants: Array<{
+  Variant: Array<{
     price: Prisma.Decimal | null;
     inventoryQuantity: number | null;
   }>;
@@ -59,14 +59,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         trending: true,
         stockoutDays: true,
         salesVelocityFloat: true,
-        variants: {
+        Variant: {
           select: {
             price: true,
             inventoryQuantity: true,
           }
         }
       }
-    });
+    }) as ReportProductSummary[];
 
     let totalInventoryValue = 0;
     let lowStockCount = 0;
@@ -78,7 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const inventoryByCategoryMap = new Map<string, number>();
 
     productsForSummary.forEach((p: ReportProductSummary) => {
-      p.variants.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => {
+      p.Variant.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => {
         if (v.price && v.inventoryQuantity) {
           totalInventoryValue += Number(v.price) * v.inventoryQuantity;
         }
@@ -148,11 +148,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         stockoutDays: true,
         salesVelocityFloat: true,
         lastRestockedDate: true,
-        variants: {
+        Variant: {
           select: { sku: true, price: true, inventoryQuantity: true }
         },
-        inventory: {
-          select: { warehouse: { select: { name: true } }, quantity: true }
+        Inventory: {
+          select: { Warehouse: { select: { name: true } }, quantity: true }
         }
       },
       orderBy: { title: 'asc' }
@@ -166,12 +166,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ];
 
     const csvRows = products.map(product => {
-      const totalInventory = product.variants.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
-      const warehouseNames = [...new Set(product.inventory
-        .filter((inv: { quantity: number; warehouse: { name: string } }) => inv.quantity > 0)
-        .map((inv: { warehouse: { name: string } }) => inv.warehouse.name))]
+      const totalInventory = product.Variant.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
+      const warehouseNames = [...new Set(product.Inventory
+        .filter((inv: { quantity: number; Warehouse: { name: string } }) => inv.quantity > 0)
+        .map((inv: { Warehouse: { name: string } }) => inv.Warehouse.name))]
         .join(', ') || 'N/A';
-      const firstVariant = product.variants?.[0];
+      const firstVariant = product.Variant?.[0];
 
       return [
         product.title,

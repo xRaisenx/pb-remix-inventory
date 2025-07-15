@@ -50,7 +50,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Find existing product
       const existingProduct = await tx.product.findUnique({
         where: { shopifyId: productGid },
-        include: { variants: true }
+        include: { Variant: true }
       });
 
       if (!existingProduct) {
@@ -59,6 +59,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Create new product if it doesn't exist
         const product = await tx.product.create({
           data: {
+            id: productGid,
             shopifyId: productGid,
             title: productData.title,
             vendor: productData.vendor || 'Unknown',
@@ -69,6 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             trending: false,
             salesVelocityFloat: 0,
             stockoutDays: null,
+            updatedAt: new Date(),
           },
         });
 
@@ -77,6 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           for (const variantData of productData.variants) {
             await tx.variant.create({
               data: {
+                id: `gid://shopify/ProductVariant/${variantData.id}`,
                 shopifyId: `gid://shopify/ProductVariant/${variantData.id}`,
                 productId: product.id,
                 title: variantData.title || 'Default',
@@ -84,6 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 price: variantData.price ? parseFloat(variantData.price) : 0,
                 inventoryQuantity: variantData.inventory_quantity || 0,
                 inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+                updatedAt: new Date(),
               },
             });
           }
@@ -103,7 +107,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Handle variant updates
         if (productData.variants && productData.variants.length > 0) {
-          const existingVariantIds = existingProduct.variants.map(v => v.shopifyId);
+          const existingVariantIds = existingProduct.Variant.map(v => v.shopifyId);
           const incomingVariantIds = productData.variants.map(v => `gid://shopify/ProductVariant/${v.id}`);
 
           // Delete variants that no longer exist
@@ -119,7 +123,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Update or create variants
           for (const variantData of productData.variants) {
             const variantGid = `gid://shopify/ProductVariant/${variantData.id}`;
-            const existingVariant = existingProduct.variants.find(v => v.shopifyId === variantGid);
+            const existingVariant = existingProduct.Variant.find(v => v.shopifyId === variantGid);
 
             if (existingVariant) {
               // Update existing variant
@@ -139,6 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               // Create new variant
               await tx.variant.create({
                 data: {
+                  id: variantGid,
                   shopifyId: variantGid,
                   productId: existingProduct.id,
                   title: variantData.title || 'Default',
@@ -146,6 +151,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   price: variantData.price ? parseFloat(variantData.price) : 0,
                   inventoryQuantity: variantData.inventory_quantity || 0,
                   inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+                  updatedAt: new Date(),
                 },
               });
             }

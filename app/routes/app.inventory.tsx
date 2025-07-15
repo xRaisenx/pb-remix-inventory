@@ -74,14 +74,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const productToUpdate = await prisma.product.findUnique({
         where: { id: updatedVariant.productId },
         include: {
-          variants: { select: { inventoryQuantity: true } },
-          shop: { include: { NotificationSettings: true } }
+          Variant: { select: { inventoryQuantity: true } },
+          Shop: { include: { NotificationSettings: true } }
         }
       });
 
       if (productToUpdate) {
-        const notificationSetting = productToUpdate.shop.NotificationSettings?.[0];
-        const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.shop.lowStockThreshold ?? 10;
+        const notificationSetting = productToUpdate.Shop.NotificationSettings?.[0];
+        const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.Shop.lowStockThreshold ?? 10;
         const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
         const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
         const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
@@ -89,7 +89,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
         const productWithVariantsForCalc = {
           ...productToUpdate,
-          variants: productToUpdate.variants.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
+          variants: productToUpdate.Variant.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
         };
 
         const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);
@@ -122,38 +122,38 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
 
     const [inventoryRecordsFromDB, warehousesFromDB] = await Promise.all([
       prisma.inventory.findMany({
-        where: { warehouse: { shopId: shop.id } },
+        where: { Warehouse: { shopId: shop.id } },
         include: {
-          product: {
+          Product: {
             select: {
               id: true,
               title: true,
               shopifyId: true,
-              variants: {
+              Variant: {
                 select: { id: true, shopifyId: true, inventoryItemId: true, sku: true, title: true, price: true, inventoryQuantity: true },
                 orderBy: { createdAt: 'asc' },
                 take: 1
               }
             }
           },
-          warehouse: { select: { id: true, name: true, shopifyLocationGid: true } },
+          Warehouse: { select: { id: true, name: true, shopifyLocationGid: true } },
         },
-        orderBy: [{ product: { title: 'asc' } }, { warehouse: { name: 'asc' } }]
+        orderBy: [{ Product: { title: 'asc' } }, { Warehouse: { name: 'asc' } }]
       }),
       prisma.warehouse.findMany({ where: { shopId: shop.id }, select: { id: true, name: true, shopifyLocationGid: true } })
     ]);
 
     const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map(inv => ({
       id: inv.id,
-      warehouseId: inv.warehouse.id,
-      warehouseName: inv.warehouse.name,
-      warehouseShopifyLocationGid: inv.warehouse.shopifyLocationGid,
-      productId: inv.product.id,
-      productTitle: inv.product.title,
+      warehouseId: inv.Warehouse.id,
+      warehouseName: inv.Warehouse.name,
+      warehouseShopifyLocationGid: inv.Warehouse.shopifyLocationGid,
+      productId: inv.Product.id,
+      productTitle: inv.Product.title,
       quantity: inv.quantity,
-      productShopifyId: inv.product.shopifyId,
-      variantShopifyId: inv.product.variants?.[0]?.shopifyId ?? '',
-      inventoryItemId: inv.product.variants?.[0]?.inventoryItemId ?? null,
+      productShopifyId: inv.Product.shopifyId,
+      variantShopifyId: inv.Product.Variant?.[0]?.shopifyId ?? '',
+      inventoryItemId: inv.Product.Variant?.[0]?.inventoryItemId ?? null,
     }));
 
     return json({ inventoryList, warehouses: warehousesFromDB, lowStockThreshold: shop.lowStockThreshold });

@@ -170,6 +170,7 @@ class SMSService {
     try {
       await prisma.notificationLog.create({
         data: {
+          id: message.productId || new Date().toISOString(),
           shopId: message.shopId,
           channel: NotificationChannel.SMS,
           recipient: message.to,
@@ -180,6 +181,7 @@ class SMSService {
           alertType: message.alertType,
           alertId: message.alertId,
           errorMessage: error,
+          updatedAt: new Date(),
           sentAt: status === NotificationStatus.Sent ? new Date() : undefined,
           deliveredAt: status === NotificationStatus.Delivered ? new Date() : undefined,
           metadata: {

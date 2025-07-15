@@ -10,15 +10,16 @@ datasource db {
 }
 
 model AnalyticsData {
-  id        String   @id
-  productId String
-  date      DateTime
-  unitsSold Int?
-  revenue   Float?
-  orders    Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-  Product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id            String   @id
+  productId     String
+  date          DateTime
+  unitsSold     Int?
+  revenue       Float?
+  orders        Int?
+  salesVelocity Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  Product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([date])
   @@index([productId])
@@ -76,7 +77,7 @@ model NotificationLog {
 
 model NotificationSetting {
   id                          String   @id
-  shopId                      String   @unique
+  shopId                      String
   email                       Boolean  @default(false)
   slack                       Boolean  @default(false)
   telegram                    Boolean  @default(false)
@@ -136,7 +137,7 @@ model Product {
 model ProductAlert {
   id        String   @id
   productId String
-  alertType String
+  type      String
   message   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -162,21 +163,21 @@ model Session {
 }
 
 model Shop {
-  id                         String               @id
-  shop                       String               @unique
+  id                         String                @id
+  shop                       String                @unique
   emailForNotifications      String?
   slackWebhookUrl            String?
   telegramBotToken           String?
   telegramChatId             String?
   whatsAppApiCredentialsJson String?
-  lowStockThreshold          Int?                 @default(10)
-  initialSyncCompleted       Boolean              @default(false)
-  createdAt                  DateTime             @default(now())
+  lowStockThreshold          Int?                  @default(10)
+  initialSyncCompleted       Boolean               @default(false)
+  createdAt                  DateTime              @default(now())
   updatedAt                  DateTime
-  criticalStockThreshold     Int?                 @default(5)
-  highDemandThreshold        Float?               @default(50.0)
+  criticalStockThreshold     Int?                  @default(5)
+  highDemandThreshold        Float?                @default(50.0)
   NotificationLog            NotificationLog[]
-  NotificationSetting        NotificationSetting?
+  NotificationSettings       NotificationSetting[]
   Product                    Product[]
   Session                    Session[]
   Warehouse                  Warehouse[]

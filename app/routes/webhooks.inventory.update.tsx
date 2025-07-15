@@ -42,9 +42,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const variant = await tx.variant.findFirst({
         where: { inventoryItemId: inventoryItemGid },
         include: {
-          product: {
+          Product: {
             include: {
-              variants: { select: { inventoryQuantity: true } }
+              Variant: { select: { inventoryQuantity: true } }
             }
           }
         }
@@ -78,7 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await tx.inventory.upsert({
         where: {
           productId_warehouseId: {
-            productId: variant.product.id,
+            productId: variant.Product.id,
             warehouseId: warehouse.id,
           }
         },
@@ -87,9 +87,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           updatedAt: new Date(inventoryData.updated_at),
         },
         create: {
-          productId: variant.product.id,
+          id: variant.Product.id,
+          productId: variant.Product.id,
           warehouseId: warehouse.id,
           quantity: inventoryData.available,
+          updatedAt: new Date(inventoryData.updated_at),
         }
       });
 
@@ -107,21 +109,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Get all variants for this product to calculate total inventory
       const allVariants = await tx.variant.findMany({
-        where: { productId: variant.product.id },
+        where: { productId: variant.Product.id },
         select: { inventoryQuantity: true }
       });
 
       const productWithUpdatedVariants = {
-        ...variant.product,
+        ...variant.Product,
         variants: allVariants,
       };
 
       const metrics = calculateProductMetrics(productWithUpdatedVariants, shopSettings);
-      const previousStatus = variant.product.status;
+      const previousStatus = variant.Product.status;
       
       // Update product with new metrics
       await tx.product.update({
-        where: { id: variant.product.id },
+        where: { id: variant.Product.id },
         data: {
           status: metrics.status,
           stockoutDays: metrics.stockoutDays,
@@ -134,42 +136,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           (metrics.status === 'Low' || metrics.status === 'Critical')) {
         
         const alertType = metrics.status === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK';
-        const severity = metrics.status === 'Critical' ? 'CRITICAL' : 'MEDIUM';
         
         // Check if similar alert already exists and is unresolved
         const existingAlert = await tx.productAlert.findFirst({
           where: {
-            productId: variant.product.id,
+            productId: variant.Product.id,
             type: alertType,
-            resolved: false,
+            isActive: true,
           }
         });
 
         if (!existingAlert) {
           await tx.productAlert.create({
             data: {
-              shopId: shopRecord.id,
-              productId: variant.product.id,
+              id: variant.Product.id,
+              productId: variant.Product.id,
               type: alertType,
-              severity: severity,
-              title: `${variant.product.title} - ${metrics.status} Stock Alert`,
-              message: `${variant.product.title} stock level is now ${metrics.status.toLowerCase()}. Current inventory: ${inventoryData.available} units.`,
-              resolved: false,
-              metadata: {
-                previousQuantity: variant.inventoryQuantity,
-                newQuantity: inventoryData.available,
-                locationId: inventoryData.location_id,
-                automated: true,
-                webhookTriggered: true,
-              }
+              message: `${variant.Product.title} stock level is now ${metrics.status.toLowerCase()}. Current inventory: ${inventoryData.available} units.`,
+              updatedAt: new Date(),
             }
           });
           
-          console.log(`🚨 Created ${alertType} alert for product: ${variant.product.title}`);
+          console.log(`🚨 Created ${alertType} alert for product: ${variant.Product.title}`);
         }
       }
 
-      console.log(`✅ Successfully updated inventory for ${variant.product.title}: ${inventoryData.available} units at location ${locationGid}`);
+      console.log(`✅ Successfully updated inventory for ${variant.Product.title}: ${inventoryData.available} units at location ${locationGid}`);
     });
 
     return new Response(null, { status: 200 });

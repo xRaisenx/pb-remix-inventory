@@ -91,9 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Check if any notification channels are enabled
     const hasEnabledChannels = notificationSettings.email || 
                               notificationSettings.slack || 
-                              notificationSettings.telegram || 
-                              notificationSettings.sms || 
-                              notificationSettings.webhook;
+                              notificationSettings.telegram
 
     if (!hasEnabledChannels) {
       return json({ 
@@ -197,6 +195,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (shopRecord) {
         await prisma.notificationLog.create({
           data: {
+            id: (await request.formData()).get("productId") as string || new Date().toISOString(),
             shopId: shopRecord.id,
             channel: 'System',
             message: `Error processing notification: ${error instanceof Error ? error.message : String(error)}`,
@@ -205,6 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             productTitle: (await request.formData()).get("productTitle") as string || undefined,
             alertType: (await request.formData()).get("alertType") as string || undefined,
             errorMessage: error instanceof Error ? error.message : String(error),
+            updatedAt: new Date(),
             metadata: {
               errorCode,
               stackTrace: error instanceof Error ? error.stack : undefined

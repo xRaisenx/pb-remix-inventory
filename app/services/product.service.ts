@@ -5,7 +5,7 @@ import { ProductStatus, type Product, type Variant } from '@prisma/client';
 // Interface for product data passed to calculateProductMetrics
 // Ensure salesVelocityFloat is part of the Product model or added if it's calculated elsewhere before this step.
 interface ProductWithVariantsAndSalesVelocity extends Product {
-  variants: Pick<Variant, 'inventoryQuantity'>[];
+  Variant: Pick<Variant, 'inventoryQuantity'>[];
   // salesVelocityFloat is expected by the original code, ensure it's on the Product model
   // or explicitly add it here if it's derived before calling calculateProductMetrics.
   // salesVelocityFloat?: number | null;
@@ -28,7 +28,7 @@ export function calculateProductMetrics(
   product: ProductWithVariantsAndSalesVelocity, // Type for the product input
   shopSettings: ShopSettingsForMetrics // Type for shop settings
 ): ProductMetrics {
-  const currentTotalInventory = product.variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+  const currentTotalInventory = product.Variant.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
   const salesVelocity = product.salesVelocityFloat ?? 0; // Use salesVelocityFloat from Product model
 
   let stockoutDays: number | null = null;
@@ -99,11 +99,11 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
   while (hasMoreProducts) {
     const productsInBatch: ProductWithVariantsAndSalesVelocity[] = await prisma.product.findMany({
       where: { shopId },
-      include: { variants: { select: { inventoryQuantity: true } } }, // Only need inventoryQuantity from variants
+      include: { Variant: { select: { inventoryQuantity: true } } }, // Only need inventoryQuantity from variants
       take: BATCH_SIZE,
       skip: skip,
       orderBy: { id: 'asc' } // Consistent ordering for batching
-    });
+    }) as ProductWithVariantsAndSalesVelocity[];
 
     if (productsInBatch.length === 0) {
       hasMoreProducts = false;
