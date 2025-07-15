@@ -1,4 +1,5 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
+import type { PrismaClient } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 
@@ -33,7 +34,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const productGid = `gid://shopify/Product/${productData.id}`;
 
     // Delete product and all related data with transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaClient) => {
       // Find the product to be deleted
       const productToDelete = await tx.product.findUnique({
         where: { shopifyId: productGid },
