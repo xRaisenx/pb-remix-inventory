@@ -132,6 +132,9 @@ model Product {
   Variant                Variant[]
 
   @@index([shopId])
+  @@index([status], name: "Product_status_idx")
+  @@index([trending], name: "Product_trending_idx")
+  @@index([salesVelocityFloat], name: "Product_salesVelocityFloat_idx")
 }
 
 model ProductAlert {
@@ -160,6 +163,10 @@ model Session {
   Shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId])
+  @@index([shopId], name: "Session_shop_idx")
+  @@index([state], name: "Session_state_idx")
+  @@index([expires], name: "Session_expires_idx")
+  @@index([isOnline], name: "Session_isOnline_idx")
 }
 
 model Shop {
@@ -240,4 +247,25 @@ enum ProductStatus {
   Low
   Critical
   OutOfStock
+}
+
+enum AlertType {
+  LowStock
+  OutOfStock
+  SalesSpike
+  SalesDrop
+  NewProduct
+  Restock
+}
+
+enum AlertSeverity {
+  Info
+  Warning
+  Critical
+}
+
+enum TrendDirection {
+  Up
+  Down
+  Stable
 }
