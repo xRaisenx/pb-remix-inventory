@@ -1,6 +1,4 @@
 import "@shopify/shopify-app-remix/adapters/node";
-// --- END DIAGNOSTIC LOGGING ---
-
 import {
   AppDistribution,
   DeliveryMethod,
@@ -32,11 +30,11 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   private cache = new Map<string, any>();
   private sessionCountCache = { count: 0, lastUpdated: 0 };
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
-  
+
   constructor(prismaClient: typeof prisma) {
     super(prismaClient);
     console.log('Enhanced Prisma session storage initialized');
-    
+
     // Start cache cleanup interval
     setInterval(() => this.cleanupCache(), 10 * 60 * 1000); // Cleanup every 10 minutes
   }
@@ -46,22 +44,22 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       console.log(`[SESSION] Storing session: ${session.id}`);
       console.log(`[SESSION] Session shop: ${session.shop}`);
       console.log(`[SESSION] Session state: ${session.state}`);
-      
+
       // Cache the session for faster access
       this.cache.set(session.id, {
         session,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
-      
+
       const result = await super.storeSession(session);
       console.log(`[SESSION] Session stored successfully: ${result}`);
-      
+
       // Update session count cache
       if (result) {
         this.sessionCountCache.count++;
         this.sessionCountCache.lastUpdated = Date.now();
       }
-      
+
       return result;
     } catch (error) {
       console.error(`[SESSION] Session storage error for ${session.id}:`, error);
@@ -72,44 +70,44 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   async loadSession(id: string): Promise<any> {
     try {
       console.log(`[SESSION] Attempting to load session: ${id}`);
-      
+
       // Check cache first
       const cached = this.cache.get(id);
       if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
         console.log(`[SESSION] Session loaded from cache: ${id}`);
         return cached.session;
       }
-      
+
       const startTime = Date.now();
       const session = await super.loadSession(id);
       const loadTime = Date.now() - startTime;
-      
+
       if (loadTime > 1000) {
         console.log(`[SESSION PERF] Slow session load: ${id} took ${loadTime}ms`);
       }
-      
+
       if (session) {
         // Update cache
         this.cache.set(id, {
           session,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         console.log(`[SESSION] Session loaded from database: ${id}`);
       } else {
         console.log(`[SESSION] Session not found: ${id}`);
       }
-      
+
       return session;
     } catch (error) {
       console.error(`[SESSION] Session load error for ${id}:`, error);
       this.errorCount++;
-      
+
       if (this.errorCount > 10) {
         console.error("[SESSION] Too many session errors - clearing cache");
         this.clearCache();
         this.errorCount = 0;
       }
-      
+
       throw error;
     }
   }
@@ -117,26 +115,26 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
   async deleteSession(id: string): Promise<boolean> {
     try {
       console.log(`[SESSION] Deleting session: ${id}`);
-      
+
       // Remove from cache
       this.cache.delete(id);
-      
+
       const result = await super.deleteSession(id);
       console.log(`[SESSION] Session deleted: ${result}`);
-      
+
       // Update session count cache
       if (result) {
         this.sessionCountCache.count = Math.max(0, this.sessionCountCache.count - 1);
         this.sessionCountCache.lastUpdated = Date.now();
       }
-      
+
       return result;
     } catch (error) {
       console.error(`[SESSION] Session deletion error for ${id}:`, error);
       throw error;
     }
   }
-  
+
   // Optimize session count queries with caching
   async getSessionCount(): Promise<number> {
     try {
@@ -145,24 +143,24 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
           (Date.now() - this.sessionCountCache.lastUpdated) < this.CACHE_TTL) {
         return this.sessionCountCache.count;
       }
-      
+
       // Use efficient count query with timeout
       const startTime = Date.now();
       const count = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "Session"` as any[];
       const queryTime = Date.now() - startTime;
-      
+
       if (queryTime > 5000) {
         console.log(`[SESSION PERF] Slow session count query: ${queryTime}ms`);
       }
-      
+
       const sessionCount = parseInt(count[0]?.count || '0');
-      
+
       // Update cache
       this.sessionCountCache = {
         count: sessionCount,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       };
-      
+
       return sessionCount;
     } catch (error) {
       console.error('[SESSION] Session count error:', error);
@@ -170,24 +168,24 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       return this.sessionCountCache.count || 0;
     }
   }
-  
+
   // Clean up old cache entries
   private cleanupCache() {
     const now = Date.now();
     let cleaned = 0;
-    
+
     for (const [key, value] of this.cache.entries()) {
       if (now - value.timestamp > this.CACHE_TTL) {
         this.cache.delete(key);
         cleaned++;
       }
     }
-    
+
     if (cleaned > 0) {
       console.log(`[SESSION] Cache cleanup: removed ${cleaned} expired entries`);
     }
   }
-  
+
   // Clear cache periodically to prevent memory leaks
   clearCache() {
     this.cache.clear();
@@ -220,7 +218,7 @@ const shopify = shopifyApp({
     },
     PRODUCTS_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/products/update", 
+      callbackUrl: "/webhooks/products/update",
     },
     PRODUCTS_DELETE: {
       deliveryMethod: DeliveryMethod.Http,
@@ -244,40 +242,37 @@ const shopify = shopifyApp({
       try {
         console.log("Registering webhooks for shop:", session.shop);
         await shopify.registerWebhooks({ session });
-        
+
         console.log("Upserting shop record for:", session.shop);
         await prisma.shop.upsert({
           where: { shop: session.shop },
           update: { updatedAt: new Date() },
-          create: { 
+          create: {
             shop: session.shop,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
         });
-        
+
         console.log("Shop setup completed for:", session.shop);
       } catch (error) {
         console.error("Error in afterAuth hook:", error);
         // Don't throw to prevent auth loop, but log the error
       }
-      
+
       // Enhanced redirect strategy for embedded apps to prevent iframe issues
       const request = (rest as any)?.request;
       const host = (rest as any)?.host || (session as any)?.host || "";
-      
+
       // Check if this is an embedded context (has shop and host parameters)
       if (!host) {
         console.warn("Missing host parameter in afterAuth - using embedded-safe fallback");
-        // For embedded apps, construct a safe host value
         const fallbackHost = Buffer.from(`admin.shopify.com/store/${session.shop.replace('.myshopify.com', '')}`).toString('base64');
         console.log("Using base64 encoded fallback host for embedded context");
         throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
       }
-      
+
       console.log("Redirecting to embedded app with host:", host);
-      // CRITICAL: Always use relative URLs to prevent breaking out of iframe
-      // This prevents X-Frame-Options errors by staying within the embedded context
       throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
     },
   },
@@ -285,7 +280,6 @@ const shopify = shopifyApp({
     unstable_newEmbeddedAuthStrategy: true,
   },
   isEmbeddedApp: true,
-  // CRITICAL: Add embedded app configuration to prevent iframe issues
   embedded: true,
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }

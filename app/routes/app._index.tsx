@@ -1,6 +1,6 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
-import { authenticate } from "~/shopify.server";
+import { sessionStorage } from '~/shopify.server';
 import prisma from "~/db.server";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
@@ -14,7 +14,10 @@ import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { session } = await authenticate.admin(request);
+    const session = await sessionStorage.loadSessionFromRequest(request);
+    if (!session || !session.shop) {
+      throw redirect("/auth/login");
+    }
     console.log("[LOADER] /app._index session:", session);
     const shopDomain = session.shop;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
@@ -82,7 +85,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const session = await sessionStorage.loadSessionFromRequest(request);
+  if (!session || !session.shop) {
+    throw redirect("/auth/login");
+  }
   const formData = await request.formData();
 
   if (formData.get("intent") === "start_initial_sync") {
@@ -102,7 +108,6 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function DashboardIndex() {
-  // Fix loaderData type for useLoaderData
   const loaderData = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
 
@@ -144,7 +149,6 @@ export default function DashboardIndex() {
     );
   }
 
-  // Add type guard for dashboard data
   const isDashboardData = (data: any): data is {
     initialSyncCompleted: boolean;
     totalProducts: number;
@@ -157,7 +161,6 @@ export default function DashboardIndex() {
   } => data && data.initialSyncCompleted === true && typeof data.totalProducts === 'number';
 
   if (!isDashboardData(loaderData)) {
-    // Fallback for incomplete loaderData
     return null;
   }
 
