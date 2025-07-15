@@ -222,7 +222,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
       };
     }
 
-    const session = await prisma.session.findFirst({ where: { shop: shop.shop, isOnline: false } });
+    const session = await prisma.session.findFirst({ where: { shopId: shop.id, isOnline: false } });
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
@@ -231,10 +231,10 @@ export async function updateInventoryQuantityInShopifyAndDB(
         const variant = await tx.variant.findUnique({
           where: { id: variantId },
           include: {
-            product: {
+            Product: {
               include: {
                 variants: { select: { inventoryQuantity: true } },
-                shop: { include: { NotificationSettings: true } }
+                shop: { include: { NotificationSetting: true } }
               }
             }
           }
@@ -249,7 +249,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         const previousQuantity = variant.inventoryQuantity || 0;
-        const product = variant.product;
+        const product = variant.Product;
 
         // Step 4: Update inventory in Shopify first
         const client = new (shopify as any).clients.Graphql({ 
@@ -341,15 +341,18 @@ export async function updateInventoryQuantityInShopifyAndDB(
               updatedAt: new Date(),
             },
             create: {
+              id: `${product.id}-${warehouse.id}`,
               productId: product.id,
               warehouseId: warehouse.id,
               quantity: newQuantity,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             }
           });
         }
 
         // Step 7: Recalculate product metrics
-        const notificationSettings = product.shop.NotificationSettings?.[0];
+        const notificationSettings = product.shop.NotificationSetting;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? product.shop.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 
@@ -379,28 +382,21 @@ export async function updateInventoryQuantityInShopifyAndDB(
           const existingAlert = await tx.productAlert.findFirst({
             where: {
               productId: product.id,
-              type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
-              resolved: false,
+              alertType: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
+              isActive: true,
             }
           });
 
           if (!existingAlert) {
             await tx.productAlert.create({
               data: {
-                shopId: product.shopId,
+                id: `${product.id}-${newStatus}-${Date.now()}`,
                 productId: product.id,
-                type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
-                severity: newStatus === 'Critical' ? 'CRITICAL' : 'MEDIUM',
-                title: `${product.title} - ${newStatus} Stock Alert`,
+                alertType: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
                 message: `${product.title} stock level updated to ${newQuantity} units. This is considered ${newStatus.toLowerCase()} stock.`,
-                resolved: false,
-                metadata: {
-                  previousQuantity,
-                  newQuantity,
-                  reason: context.reason || 'inventory_update',
-                  automated: context.automated || false,
-                  userId: context.userId,
-                }
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
               }
             });
             alertGenerated = true;
@@ -507,7 +503,7 @@ export async function bulkUpdateInventory(
   try {
     // Get default location if not provided
     const defaultLocation = await prisma.warehouse.findFirst({
-      where: { shop: { shop: shopDomain } }
+      where: { Shop: { shop: shopDomain } }
     });
 
     // Process updates in batches of 10 for performance and rate limiting
@@ -584,7 +580,7 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        analyticsData: {
+        AnalyticsData: {
           orderBy: { recordedAt: 'desc' },
           take: 30
         }
@@ -593,7 +589,7 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
 
     if (!product) return null;
 
-    const analytics = product.analyticsData;
+    const analytics = product.AnalyticsData;
     const recentVelocity = analytics.slice(0, 7); // Last 7 days
     const olderVelocity = analytics.slice(7, 14); // Previous 7 days
 
@@ -613,7 +609,7 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
       trend = 'decreasing';
     }
 
-    const daysOfStock = currentVelocity > 0 ? product.quantity / currentVelocity : 999;
+    const daysOfStock = currentVelocity > 0 ? (product.quantity || 0) / currentVelocity : 999;
     const reorderPoint = Math.max(currentVelocity * 7, 10); // 7 days buffer
     const suggestedOrderQuantity = Math.ceil(currentVelocity * 21); // 3 weeks supply
 

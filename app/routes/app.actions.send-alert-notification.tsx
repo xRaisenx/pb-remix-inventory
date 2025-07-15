@@ -69,7 +69,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Get shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: session.shop },
-      include: { NotificationSettings: true },
+              include: { NotificationSetting: true },
     });
 
     if (!shopRecord) {
@@ -80,7 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Check if notifications are configured
-    const notificationSettings = shopRecord.NotificationSettings?.[0];
+          const notificationSettings = shopRecord.NotificationSetting;
     if (!notificationSettings) {
       return json({ 
         success: false,

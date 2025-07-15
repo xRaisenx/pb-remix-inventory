@@ -528,10 +528,10 @@ export async function sendNotification(
     // Get shop notification settings
     const shop = await prisma.shop.findUnique({
       where: { id: shopId },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
-    if (!shop || !shop.NotificationSettings?.[0]) {
+    if (!shop || !shop.NotificationSetting) {
       return [{
         success: false,
         channel: NotificationChannel.System,
@@ -540,7 +540,7 @@ export async function sendNotification(
       }];
     }
 
-    const settings = shop.NotificationSettings[0];
+    const settings = shop.NotificationSetting;
     const results: NotificationResult[] = [];
 
     // Build notification config from settings
@@ -628,11 +628,10 @@ export async function sendNotification(
             productTitle: payload.productTitle,
             alertType: payload.alertType,
             errorMessage: result.error,
-            metadata: {
-              severity: payload.severity,
-              deliveryId: result.deliveryId,
-              ...payload.metadata
-            }
+            // metadata field doesn't exist in NotificationLog model
+            // severity: payload.severity,
+            // deliveryId: result.deliveryId,
+            // ...payload.metadata
           }
         })
       )

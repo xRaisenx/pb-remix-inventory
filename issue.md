@@ -79,7 +79,7 @@ The Shopify app for inventory monitoring with AI-based demand prediction is buil
 *   **File:** `app/shopify.server.ts`
 *   **Description:** The main Shopify API client uses `apiVersion: LATEST_API_VERSION`.
 *   **Impact:** Potential for unexpected breaking changes if Shopify updates the latest API version.
-*   **Recommendation:** Pin the `apiVersion` to a specific stable version (e.g., "2024-07") consistent with webhook versions.
+*   **Recommendation:** Pin the `apiVersion` to a specific stable version (e.g., "2025-04") consistent with webhook versions.
 
 ### 3.3. Lack of Robust API Rate Limit Handling
 *   **Files:** Throughout services making Shopify API calls (e.g., `app/services/inventory.service.ts`, `app/dailyAnalysis.ts`).

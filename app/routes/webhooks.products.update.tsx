@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -50,7 +50,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Find existing product
       const existingProduct = await tx.product.findUnique({
         where: { shopifyId: productGid },
-        include: { variants: true }
+        include: { Variant: true }
       });
 
       if (!existingProduct) {
@@ -59,6 +59,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Create new product if it doesn't exist
         const product = await tx.product.create({
           data: {
+            id: productData.id,
             shopifyId: productGid,
             title: productData.title,
             vendor: productData.vendor || 'Unknown',
@@ -69,6 +70,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             trending: false,
             salesVelocityFloat: 0,
             stockoutDays: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         });
 
@@ -103,11 +106,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Handle variant updates
         if (productData.variants && productData.variants.length > 0) {
-          const existingVariantIds = existingProduct.variants.map(v => v.shopifyId);
+                      const existingVariantIds = existingProduct.Variant.map((v: any) => v.shopifyId);
           const incomingVariantIds = productData.variants.map(v => `gid://shopify/ProductVariant/${v.id}`);
 
           // Delete variants that no longer exist
-          const variantsToDelete = existingVariantIds.filter(id => !incomingVariantIds.includes(id));
+                      const variantsToDelete = existingVariantIds.filter((id: any) => !incomingVariantIds.includes(id));
           if (variantsToDelete.length > 0) {
             await tx.variant.deleteMany({
               where: {
@@ -119,7 +122,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Update or create variants
           for (const variantData of productData.variants) {
             const variantGid = `gid://shopify/ProductVariant/${variantData.id}`;
-            const existingVariant = existingProduct.variants.find(v => v.shopifyId === variantGid);
+            const existingVariant = existingProduct.Variant.find((v: any) => v.shopifyId === variantGid);
 
             if (existingVariant) {
               // Update existing variant
@@ -138,22 +141,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             } else {
               // Create new variant
               await tx.variant.create({
-                data: {
-                  shopifyId: variantGid,
-                  productId: existingProduct.id,
-                  title: variantData.title || 'Default',
-                  sku: variantData.sku || null,
-                  price: variantData.price ? parseFloat(variantData.price) : 0,
-                  inventoryQuantity: variantData.inventory_quantity || 0,
-                  inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
-                },
+                              data: {
+                id: variantData.id,
+                shopifyId: variantGid,
+                productId: existingProduct.id,
+                title: variantData.title || 'Default',
+                sku: variantData.sku || null,
+                price: variantData.price ? parseFloat(variantData.price) : 0,
+                inventoryQuantity: variantData.inventory_quantity || 0,
+                inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
               });
             }
           }
         }
 
         // Recalculate product metrics for updated product
-        const notificationSettings = shopRecord.NotificationSettings?.[0];
+        const notificationSettings = shopRecord.NotificationSetting;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
         const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;

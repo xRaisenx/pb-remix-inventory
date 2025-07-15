@@ -29,7 +29,7 @@ const MOCK_SHOP_CONFIG = {
   accessToken: 'mock-access-token-shpat_123456789',
   shopId: 'gid://shopify/Shop/123456789',
   locationId: 'gid://shopify/Location/987654321',
-  apiVersion: '2024-07',
+  apiVersion: '2025-04',
   scopes: ['read_products', 'write_products', 'read_inventory', 'write_inventory'],
 };
 
