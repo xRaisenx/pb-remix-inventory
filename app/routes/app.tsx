@@ -5,7 +5,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
-import { authenticate } from "~/shopify.server";
+import { authenticate, login } from "~/shopify.server";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
@@ -15,7 +15,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     console.log("[LOADER] /app starting authentication...");
     console.log("[LOADER] /app request URL:", request.url);
-    console.log("[LOADER] /app request headers:", Object.fromEntries(request.headers.entries()));
     
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
@@ -48,7 +47,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Check if this is a 302 redirect response (not an error)
       if (authError instanceof Response && authError.status === 302) {
         console.log("[LOADER] Received expected auth redirect");
-        throw authError; // Re-throw the redirect
+        
+        // CRITICAL FIX: Instead of re-throwing the redirect (which breaks iframe),
+        // we need to initiate a proper OAuth flow that stays within the iframe
+        const redirectUrl = authError.headers.get('location');
+        console.log("[LOADER] Redirect URL from Shopify:", redirectUrl);
+        
+        if (redirectUrl && redirectUrl.includes('admin.shopify.com')) {
+          console.log("[LOADER] Shopify is trying to redirect to admin - initiating iframe-safe OAuth");
+          
+          // Use the login function which handles embedded OAuth properly
+          const loginParams = new URLSearchParams();
+          loginParams.set('shop', shop);
+          if (host) loginParams.set('host', host);
+          
+          // This will initiate the OAuth flow within the iframe
+          throw login(request, shop, host);
+        }
+        
+        // If it's not a Shopify admin redirect, re-throw the original redirect
+        throw authError;
       }
       
       // For other authentication errors, redirect to login with proper parameters

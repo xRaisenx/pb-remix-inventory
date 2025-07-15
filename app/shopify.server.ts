@@ -285,6 +285,8 @@ const shopify = shopifyApp({
     unstable_newEmbeddedAuthStrategy: true,
   },
   isEmbeddedApp: true,
+  // CRITICAL: Add embedded app configuration to prevent iframe issues
+  embedded: true,
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
