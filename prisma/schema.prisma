@@ -65,6 +65,11 @@ model NotificationLog {
   errorMessage String?
   subject      String?
   Shop         Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  alertId      String?
+  retryCount   Int?
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  metadata     Json?
 
   @@index([shopId])
 }
