@@ -64,10 +64,12 @@ export async function syncShopifyProductsForShop(shopDomain: string, session: Se
         await prisma.product.upsert({
           where: { shopifyId: sp.id },
           create: {
+            id: sp.id,
             shopifyId: sp.id,
             title: sp.title,
             vendor: sp.vendor ?? 'Unknown Vendor', // Handle potential null vendor
             shopId: shopId,
+            updatedAt: new Date(),
             // Initialize other fields as needed, e.g., status, trending
             // status: 'Unknown',
             // trending: false,

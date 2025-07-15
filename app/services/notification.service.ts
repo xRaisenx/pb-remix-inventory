@@ -558,14 +558,13 @@ export async function sendNotification(
         botToken: settings.telegramBotToken || '',
         chatId: settings.telegramChatId || ''
       } : undefined,
-      sms: settings.sms ? {
-        enabled: settings.sms,
-        phoneNumber: settings.smsNumber || '',
-        provider: 'twilio'
+      sms: settings.email ? {
+        enabled: settings.email,
+        phoneNumber: ''
       } : undefined,
-      webhook: settings.webhook ? {
-        enabled: settings.webhook,
-        url: settings.webhookUrl || ''
+      webhook: settings.slack ? {
+        enabled: settings.slack,
+        url: ''
       } : undefined
     };
 
@@ -618,6 +617,7 @@ export async function sendNotification(
       results.map(result => 
         prisma.notificationLog.create({
           data: {
+            id: payload.productId || new Date().toISOString(),
             shopId: shopId,
             channel: result.channel,
             recipient: getRecipientForChannel(result.channel, config),
@@ -628,6 +628,7 @@ export async function sendNotification(
             productTitle: payload.productTitle,
             alertType: payload.alertType,
             errorMessage: result.error,
+            updatedAt: new Date(),
             metadata: {
               severity: payload.severity,
               deliveryId: result.deliveryId,

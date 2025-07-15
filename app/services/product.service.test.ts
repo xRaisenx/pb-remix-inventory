@@ -53,7 +53,7 @@ const createMockProduct = (overrides: any = {}) => ({
   createdAt: new Date(),
   updatedAt: new Date(),
   shopId: 'test-shop',
-  variants: [
+  Variant: [
     { inventoryQuantity: 100 },
     { inventoryQuantity: 50 },
   ],
@@ -70,7 +70,7 @@ describe('Product Service', () => {
     it('should calculate metrics for product with good stock', () => {
       const product = createMockProduct({
         salesVelocityFloat: 2.5,
-        variants: [
+        Variant: [
           { inventoryQuantity: 100 },
           { inventoryQuantity: 50 },
         ],
@@ -92,7 +92,7 @@ describe('Product Service', () => {
     it('should calculate metrics for product with low stock', () => {
       const product = createMockProduct({
         salesVelocityFloat: 10,
-        variants: [
+        Variant: [
           { inventoryQuantity: 15 },
         ],
       });
@@ -113,7 +113,7 @@ describe('Product Service', () => {
     it('should calculate metrics for product with critical stock', () => {
       const product = createMockProduct({
         salesVelocityFloat: 5,
-        variants: [
+        Variant: [
           { inventoryQuantity: 5 },
         ],
       });
@@ -134,7 +134,7 @@ describe('Product Service', () => {
     it('should handle zero inventory', () => {
       const product = createMockProduct({
         salesVelocityFloat: 5,
-        variants: [
+        Variant: [
           { inventoryQuantity: 0 },
         ],
       });
@@ -176,7 +176,7 @@ describe('Product Service', () => {
     it('should handle null sales velocity', () => {
       const product = createMockProduct({
         salesVelocityFloat: null,
-        variants: [
+        Variant: [
           { inventoryQuantity: 50 },
         ],
       });
@@ -217,12 +217,12 @@ describe('Product Service', () => {
         createMockProduct({
           id: '1',
           salesVelocityFloat: 2.5,
-          variants: [{ inventoryQuantity: 100 }],
+          Variant: [{ inventoryQuantity: 100 }],
         }),
         createMockProduct({
           id: '2',
           salesVelocityFloat: 1.0,
-          variants: [{ inventoryQuantity: 5 }],
+          Variant: [{ inventoryQuantity: 5 }],
         }),
       ];
 
@@ -241,10 +241,14 @@ describe('Product Service', () => {
       expect(result.updatedCount).toBeGreaterThan(0);
       expect(prisma.shop.findUnique).toHaveBeenCalledWith({
         where: { id: 'test-shop' },
+        include: { NotificationSettings: true },
       });
       expect(prisma.product.findMany).toHaveBeenCalledWith({
         where: { shopId: 'test-shop' },
-        include: { variants: true },
+        include: { Variant: { select: { inventoryQuantity: true } } },
+        take: 100,
+        skip: 0,
+        orderBy: { id: 'asc' },
       });
     });
 
@@ -254,7 +258,7 @@ describe('Product Service', () => {
       const result = await updateAllProductMetricsForShop('non-existent-shop');
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Shop not found');
+      expect(result.message).toContain('Shop with ID non-existent-shop not found.');
       expect(result.updatedCount).toBe(0);
     });
 
@@ -263,11 +267,9 @@ describe('Product Service', () => {
         new Error('Database connection failed')
       );
 
-      const result = await updateAllProductMetricsForShop('test-shop');
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Database connection failed');
-      expect(result.updatedCount).toBe(0);
+      await expect(updateAllProductMetricsForShop('test-shop')).rejects.toThrow(
+        'Database connection failed'
+      );
     });
   });
 });

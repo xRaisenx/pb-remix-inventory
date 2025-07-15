@@ -78,28 +78,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     where: {
                       productId: product.id,
                       type: 'SALES_SPIKE',
-                      resolved: false,
+                      isActive: true,
                     }
                   });
 
                   if (!existingTrendAlert) {
                     await tx.productAlert.create({
                       data: {
-                        shopId: shopRecord.id,
+                        id: product.id,
                         productId: product.id,
                         type: 'SALES_SPIKE',
-                        severity: 'MEDIUM',
-                        title: `${product.title} - Sales Spike Detected`,
                         message: `${product.title} is experiencing high demand with a sales velocity of ${product.salesVelocityFloat?.toFixed(1)} units/day.`,
-                        resolved: false,
-                        metadata: {
-                          orderId: orderData.id,
-                          orderName: orderData.name,
-                          salesVelocity: product.salesVelocityFloat,
-                          threshold: salesVelocityThreshold,
-                          automated: true,
-                          paidOrderTriggered: true,
-                        }
+                        updatedAt: new Date(),
                       }
                     });
 
@@ -112,12 +102,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             // Update analytics with confirmed sale data
             await tx.analyticsData.create({
               data: {
+                id: product.id,
                 productId: product.id,
                 salesVelocity: product.salesVelocityFloat || 0,
                 unitsSold: lineItem.quantity,
                 revenue: lineItem.quantity * parseFloat(lineItem.price),
-                recordedAt: new Date(orderData.created_at),
-                trend: shouldBeTrending ? 'INCREASING' : 'STABLE',
+                date: new Date(orderData.created_at),
+                updatedAt: new Date(),
               } as any,
             });
 

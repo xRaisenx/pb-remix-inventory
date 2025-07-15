@@ -82,11 +82,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const criticalStatusProducts = await prisma.product.findMany({
       where: { shopId, status: ProductStatus.Critical },
-      select: { id: true, title: true, variants: { select: { inventoryQuantity: true } } },
+      select: { id: true, title: true, Variant: { select: { inventoryQuantity: true } } },
       take: 10,
     });
-    criticalStatusProducts.forEach((p: { id: string; title: string; variants: Array<{ inventoryQuantity: number | null }> }) => {
-      const totalInventory = p.variants.reduce((sum: number, v) => sum + (v.inventoryQuantity || 0), 0);
+    criticalStatusProducts.forEach((p: { id: string; title: string; Variant: Array<{ inventoryQuantity: number | null }> }) => {
+      const totalInventory = p.Variant.reduce((sum: number, v) => sum + (v.inventoryQuantity || 0), 0);
       allAlertItems.push({
         id: `critical-${p.id}`,
         title: `CRITICAL STOCK: ${p.title}`,
@@ -99,11 +99,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const lowStatusProducts = await prisma.product.findMany({
       where: { shopId, status: ProductStatus.Low },
-      select: { id: true, title: true, variants: { select: { inventoryQuantity: true } } },
+      select: { id: true, title: true, Variant: { select: { inventoryQuantity: true } } },
       take: 10,
     });
-    lowStatusProducts.forEach((p: { id: string; title: string; variants: Array<{ inventoryQuantity: number | null }> }) => {
-      const totalInventory = p.variants.reduce((sum: number, v) => sum + (v.inventoryQuantity || 0), 0);
+    lowStatusProducts.forEach((p: { id: string; title: string; Variant: Array<{ inventoryQuantity: number | null }> }) => {
+      const totalInventory = p.Variant.reduce((sum: number, v) => sum + (v.inventoryQuantity || 0), 0);
       allAlertItems.push({
         id: `low-${p.id}`,
         title: `Low Stock: ${p.title}`,

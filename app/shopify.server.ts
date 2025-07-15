@@ -248,6 +248,7 @@ const shopify = shopifyApp({
           where: { shop: session.shop },
           update: { updatedAt: new Date() },
           create: {
+            id: session.shop,
             shop: session.shop,
             createdAt: new Date(),
             updatedAt: new Date(),

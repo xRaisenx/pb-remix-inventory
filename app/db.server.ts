@@ -33,16 +33,7 @@ const createPrismaClient = () => {
         url: connectionUrl,
       },
     },
-    errorFormat: 'minimal',
-    // Add connection pooling configuration
-    __internal: {
-      engine: {
-        transactionOptions: {
-          maxWait: 5000,
-          timeout: 10000,
-        },
-      },
-    },
+    errorFormat: 'minimal'
   });
 };
 

@@ -80,12 +80,14 @@ async function logSettingsChange(
   try {
     await prisma.notificationLog.create({
       data: {
+        id: userId || 'system',
         shopId,
         channel: 'System',
         recipient: userId || 'system',
         message: `Settings modified by user ${userId || 'unknown'}`,
         subject: 'Settings Change',
         status: 'Sent',
+        updatedAt: new Date(),
         metadata: JSON.stringify({
           action: "SETTINGS_MODIFIED",
           oldValues: oldSettings,
@@ -174,7 +176,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
              // Get current settings for audit logging
-       const currentSettings = await prisma.notificationSetting.findUnique({
+       const currentSettings = await prisma.notificationSetting.findFirst({
          where: { shopId: shopRecord.id },
        });
 
@@ -193,8 +195,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
          // Upsert NotificationSettings with encrypted sensitive data
          await tx.notificationSetting.upsert({
-          where: { shopId: shopRecord.id },
+          where: { id: shopRecord.id },
           create: {
+            id: shopRecord.id,
             shopId: shopRecord.id,
             email: settingsData.email.enabled,
             emailAddress: settingsData.email.address,
@@ -210,7 +213,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             frequency: settingsData.notificationFrequency,
             syncEnabled: settingsData.syncEnabled,
             lowStockThreshold: settingsData.stockoutThreshold,
-            criticalStockThresholdUnits: 5 // Default value
+            criticalStockThresholdUnits: 5, // Default value
+            updatedAt: new Date(),
           },
           update: {
             email: settingsData.email.enabled,

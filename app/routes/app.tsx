@@ -35,49 +35,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
     
     // Try to authenticate with enhanced error handling
-    let session;
-    try {
-      session = await authenticate.admin(request);
-      console.log("[LOADER] /app authentication successful");
-      console.log("[LOADER] /app session shop:", session.shop);
-      console.log("[LOADER] /app session id:", session.id);
-    } catch (authError) {
-      console.error("[LOADER ERROR] Authentication failed:", authError);
-      
-      // Check if this is a 302 redirect response (not an error)
-      if (authError instanceof Response && authError.status === 302) {
-        console.log("[LOADER] Received expected auth redirect");
-        
-        // CRITICAL FIX: Instead of re-throwing the redirect (which breaks iframe),
-        // we need to initiate a proper OAuth flow that stays within the iframe
-        const redirectUrl = authError.headers.get('location');
-        console.log("[LOADER] Redirect URL from Shopify:", redirectUrl);
-        
-        if (redirectUrl && redirectUrl.includes('admin.shopify.com')) {
-          console.log("[LOADER] Shopify is trying to redirect to admin - initiating iframe-safe OAuth");
-          
-          // Use the login function which handles embedded OAuth properly
-          const loginParams = new URLSearchParams();
-          loginParams.set('shop', shop);
-          if (host) loginParams.set('host', host);
-          
-          // This will initiate the OAuth flow within the iframe
-          throw login(request, shop, host);
-        }
-        
-        // If it's not a Shopify admin redirect, re-throw the original redirect
-        throw authError;
-      }
-      
-      // For other authentication errors, redirect to login with proper parameters
-      const loginParams = new URLSearchParams();
-      loginParams.set('shop', shop);
-      if (host) loginParams.set('host', host);
-      
-      const loginUrl = `/auth/login?${loginParams.toString()}`;
-      console.log("[LOADER] Redirecting to login:", loginUrl);
-      throw redirect(loginUrl);
-    }
+    let {admin, session} = await authenticate.admin(request);
     
     // Ensure we have a proper host parameter for App Bridge
     let validHost = host;
@@ -127,10 +85,9 @@ export default function App() {
   }
 
   return (
-    <AppProvider 
-      apiKey={apiKey} 
-      host={host}
-      embedded={true}
+    <AppProvider
+      apiKey={apiKey}
+      isEmbeddedApp
     >
       <PolarisAppProvider i18n={enTranslations}>
         <AppLayout>

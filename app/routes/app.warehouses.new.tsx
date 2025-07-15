@@ -105,10 +105,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     await prisma.warehouse.create({
       data: {
+        id: validatedName,
         shopId: shop.id,
         name: validatedName,
         location: validatedLocation,
         shopifyLocationGid: validatedShopifyLocationGid === "" ? null : validatedShopifyLocationGid,
+        updatedAt: new Date(),
       },
     });
     return redirect("/app/warehouses");
