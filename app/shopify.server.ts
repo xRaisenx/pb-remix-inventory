@@ -262,7 +262,7 @@ const shopify = shopifyApp({
       }
 
       // Enhanced redirect strategy for embedded apps to prevent iframe issues
-      const request = (rest as any)?.request;
+      // const request = (rest as any)?.request;
       const host = (rest as any)?.host || (session as any)?.host || "";
 
       // Check if this is an embedded context (has shop and host parameters)

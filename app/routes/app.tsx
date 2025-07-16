@@ -5,7 +5,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "~/components/AppLayout";
-import { authenticate, login } from "~/shopify.server";
+import { authenticate } from "~/shopify.server";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
@@ -29,13 +29,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Validate shop domain format
-    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/)) {
       console.error("[LOADER ERROR] Invalid shop domain format:", shop);
       throw new Response("Invalid shop domain", { status: 400 });
     }
     
-    // Try to authenticate with enhanced error handling
-    let {admin, session} = await authenticate.admin(request);
+    let { session } = await authenticate.admin(request);
     
     // Ensure we have a proper host parameter for App Bridge
     let validHost = host;
