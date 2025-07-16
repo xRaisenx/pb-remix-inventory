@@ -1,6 +1,6 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
-import { sessionStorage } from '~/shopify.server';
+import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
@@ -14,12 +14,8 @@ import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const session = await sessionStorage.loadSessionFromRequest(request);
-    if (!session || !session.shop) {
-      throw redirect("/auth/login");
-    }
-    console.log("[LOADER] /app._index session:", session);
-    const shopDomain = session.shop;
+    const { session } = await authenticate.admin(request);
+    const { shop: shopDomain } = session;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
@@ -85,17 +81,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export async function action({ request }: ActionFunctionArgs) {
-  const session = await sessionStorage.loadSessionFromRequest(request);
-  if (!session || !session.shop) {
-    throw redirect("/auth/login");
-  }
+  const { session } = await authenticate.admin(request);
+  const { shop } = session;
   const formData = await request.formData();
 
   if (formData.get("intent") === "start_initial_sync") {
     try {
-      await syncProductsAndInventory(session.shop, session);
+      await syncProductsAndInventory(shop, session);
       await prisma.shop.update({
-        where: { shop: session.shop },
+        where: { shop: shop },
         data: { initialSyncCompleted: true },
       });
       return redirect("/app");
