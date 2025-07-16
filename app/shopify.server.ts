@@ -87,6 +87,12 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
       }
 
       if (session) {
+        // Ensure both 'shop' and 'shopId' fields are present
+        if (!session.shop && session.shopId) {
+          session.shop = session.shopId;
+        } else if (!session.shopId && session.shop) {
+          session.shopId = session.shop;
+        }
         // Update cache
         this.cache.set(id, {
           session,
