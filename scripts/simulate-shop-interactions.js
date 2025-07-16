@@ -26,7 +26,7 @@ const prisma = new PrismaClient();
 
 // Mock shop configuration
 const MOCK_SHOP_CONFIG = {
-  shopDomain: 'planet-beauty-demo.myshopify.com',
+  shopDomain: 'josedevai.myshopify.com',
   accessToken: 'mock-access-token-shpat_123456789',
   shopId: 'gid://shopify/Shop/123456789',
   locationId: 'gid://shopify/Location/987654321',
@@ -171,6 +171,21 @@ async function simulateShopSetup() {
     shop = await prisma.shop.update({
       where: { shop: MOCK_SHOP_CONFIG.shopDomain },
       data: shopData,
+    });
+  }
+
+  // Seed a session for this shop
+  let session = await prisma.session.findFirst({ where: { shopId: shop.id } });
+  if (!session) {
+    await prisma.session.create({
+      data: {
+        id: randomUUID(),
+        shopId: shop.id,
+        state: 'active',
+        isOnline: false,
+        scope: 'read_products,write_products,read_inventory,write_inventory',
+        accessToken: 'mock-access-token-shpat_123456789',
+      },
     });
   }
 
