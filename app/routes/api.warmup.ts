@@ -4,7 +4,6 @@ import prisma from "~/db.server";
 
 export const loader: LoaderFunction = async () => {
   try {
-    // Simple lightweight query
     await prisma.$queryRaw`SELECT 1`;
     return json({ ok: true });
   } catch (error) {

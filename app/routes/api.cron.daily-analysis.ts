@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { runDailyTasks } from "~/cron/dailyAnalysis"; // We will export this function next
+import { runDailyTasks } from "~/cron/dailyAnalysis";
 
 export async function loader({ request }: { request: Request }) {
   const cronSecret = process.env.CRON_SECRET;
