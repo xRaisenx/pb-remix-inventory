@@ -1,0 +1,246 @@
+2025-07-16T17:04:51.096Z ℹ️ 🚀 Starting Comprehensive Planet Beauty Inventory AI App Test Suite
+2025-07-16T17:04:51.097Z ℹ️ Testing shop: josedevai.myshopify.com
+2025-07-16T17:04:51.097Z ℹ️ Base URL: https://pb-inventory-ai-olive.vercel.app/
+2025-07-16T17:04:51.097Z ℹ️ NaN
+2025-07-16T17:04:51.097Z ℹ️ 🗄️ Testing database schema and table initialization...
+2025-07-16T17:04:51.468Z ✅ PASS: Database Connection
+2025-07-16T17:04:51.533Z ℹ️ Found 12 tables: AnalyticsData, DemandForecast, Inventory, NotificationLog, NotificationSetting, Product, ProductAlert, Session, Shop, Variant, Warehouse, _prisma_migrations
+2025-07-16T17:04:51.534Z ✅ PASS: All Required Tables Exist
+2025-07-16T17:04:51.597Z ℹ️ Table Session accessible with 0 records
+2025-07-16T17:04:51.598Z ✅ PASS: Table Session Access
+2025-07-16T17:04:51.662Z ℹ️ Table Shop accessible with 0 records
+2025-07-16T17:04:51.662Z ✅ PASS: Table Shop Access
+2025-07-16T17:04:51.726Z ℹ️ Table NotificationSetting accessible with 0 records
+2025-07-16T17:04:51.726Z ✅ PASS: Table NotificationSetting Access
+2025-07-16T17:04:51.791Z ℹ️ Table Product accessible with 0 records
+2025-07-16T17:04:51.791Z ✅ PASS: Table Product Access
+2025-07-16T17:04:51.855Z ℹ️ Table ProductAlert accessible with 0 records
+2025-07-16T17:04:51.855Z ✅ PASS: Table ProductAlert Access
+2025-07-16T17:04:51.919Z ℹ️ Table AnalyticsData accessible with 0 records
+2025-07-16T17:04:51.919Z ✅ PASS: Table AnalyticsData Access
+2025-07-16T17:04:51.984Z ℹ️ Table Variant accessible with 0 records
+2025-07-16T17:04:51.985Z ✅ PASS: Table Variant Access
+2025-07-16T17:04:52.049Z ℹ️ Table Inventory accessible with 0 records
+2025-07-16T17:04:52.049Z ✅ PASS: Table Inventory Access
+2025-07-16T17:04:52.114Z ℹ️ Table Warehouse accessible with 0 records
+2025-07-16T17:04:52.114Z ✅ PASS: Table Warehouse Access
+2025-07-16T17:04:52.178Z ℹ️ Table DemandForecast accessible with 0 records
+2025-07-16T17:04:52.178Z ✅ PASS: Table DemandForecast Access
+2025-07-16T17:04:52.242Z ℹ️ Table NotificationLog accessible with 0 records
+2025-07-16T17:04:52.242Z ✅ PASS: Table NotificationLog Access
+2025-07-16T17:04:52.308Z ✅ PASS: All Required Enums Exist
+2025-07-16T17:04:53.310Z ℹ️ 📊 Testing database indexes and performance...
+2025-07-16T17:04:53.376Z ✅ PASS: Session Table Indexes
+2025-07-16T17:04:53.442Z ✅ PASS: Session Count Performance
+2025-07-16T17:04:53.507Z ✅ PASS: Product Table Indexes
+2025-07-16T17:04:54.508Z ℹ️ 🔐 Testing authentication and session management...
+2025-07-16T17:04:54.574Z ⚠️ No session found for josedevai.myshopify.com
+2025-07-16T17:04:54.574Z ❌ FAIL: Session Exists
+2025-07-16T17:04:55.576Z ℹ️ 📦 Testing product queries and inventory management...
+2025-07-16T17:04:55.641Z ❌ FAIL: Shop Record Exists
+2025-07-16T17:04:56.643Z ℹ️ 🏢 Testing warehouse and location management...
+2025-07-16T17:04:56.785Z ❌ FAIL: Shop for Warehouse Test
+2025-07-16T17:04:57.787Z ℹ️ 🤖 Testing AI functionality (Gemini 2.0 Flash)...
+2025-07-16T17:04:57.788Z ❌ FAIL: AI Service Import
+2025-07-16T17:04:58.789Z ℹ️ ⚙️ Testing settings configuration...
+2025-07-16T17:04:58.823Z ❌ FAIL: Shop for Settings Test
+2025-07-16T17:04:59.824Z ℹ️ 🌐 Testing API endpoints and routes...
+2025-07-16T17:05:00.262Z ❌ FAIL: API Endpoint: Main App Route
+2025-07-16T17:05:00.437Z ❌ FAIL: API Endpoint: Dashboard Index
+2025-07-16T17:05:00.619Z ❌ FAIL: API Endpoint: Settings Page
+2025-07-16T17:05:00.791Z ❌ FAIL: API Endpoint: Products Page
+2025-07-16T17:05:00.965Z ❌ FAIL: API Endpoint: Inventory Page
+2025-07-16T17:05:01.140Z ❌ FAIL: API Endpoint: Reports Page
+2025-07-16T17:05:01.314Z ❌ FAIL: API Endpoint: Alerts Page
+2025-07-16T17:05:01.489Z ❌ FAIL: API Endpoint: Daily Analysis API
+2025-07-16T17:05:01.684Z ❌ FAIL: API Endpoint: Product Details API
+2025-07-16T17:05:01.851Z ❌ FAIL: API Endpoint: Warmup API
+2025-07-16T17:05:01.851Z ❌ FAIL: API Endpoints Overall
+2025-07-16T17:05:02.852Z ℹ️ 📈 Testing data analytics and reporting...
+2025-07-16T17:05:02.886Z ❌ FAIL: Shop for Analytics Test
+2025-07-16T17:05:03.887Z ℹ️ ⚡ Testing performance and optimization...
+2025-07-16T17:05:03.923Z ❌ FAIL: Performance Test Setup
+2025-07-16T17:05:04.925Z ℹ️ 🔍 Testing data integrity and relationships...
+2025-07-16T17:05:04.959Z ❌ FAIL: Data Integrity Setup
+2025-07-16T17:05:05.959Z ℹ️ 🛡️ Testing error handling and edge cases...
+2025-07-16T17:05:05.993Z ✅ PASS: Invalid Shop Handling
+2025-07-16T17:05:06.058Z ✅ PASS: Invalid Session Handling
+2025-07-16T17:05:06.091Z ✅ PASS: Database Connection Resilience
+2025-07-16T17:05:06.098Z ❌ FAIL: Large Query Handling
+2025-07-16T17:05:06.362Z ✅ PASS: Concurrent Operations
+2025-07-16T17:05:07.365Z ℹ️ 💼 Testing business logic validation...
+2025-07-16T17:05:07.428Z ❌ FAIL: Business Logic Setup
+2025-07-16T17:05:07.428Z ℹ️ NaN
+2025-07-16T17:05:07.428Z ℹ️ 📊 COMPREHENSIVE TEST RESULTS SUMMARY
+2025-07-16T17:05:07.428Z ℹ️ NaN
+2025-07-16T17:05:07.428Z ℹ️ Total Tests: 42
+2025-07-16T17:05:07.428Z ℹ️ Passed: 21 ✅
+2025-07-16T17:05:07.428Z ℹ️ Failed: 21 ❌
+2025-07-16T17:05:07.428Z ℹ️ Success Rate: 50.0%
+2025-07-16T17:05:07.428Z ℹ️ Total Time: 16331ms
+2025-07-16T17:05:07.428Z ℹ️
+📋 TEST CATEGORIES:
+2025-07-16T17:05:07.428Z ℹ️    Database: 17 tests
+2025-07-16T17:05:07.428Z ℹ️    Authentication: 5 tests
+2025-07-16T17:05:07.429Z ℹ️    Products: 5 tests
+2025-07-16T17:05:07.429Z ℹ️    Warehouses: 2 tests
+2025-07-16T17:05:07.429Z ℹ️    AI: 1 tests
+2025-07-16T17:05:07.429Z ℹ️    Settings: 2 tests
+2025-07-16T17:05:07.429Z ℹ️    API: 11 tests
+2025-07-16T17:05:07.429Z ℹ️    Analytics: 2 tests
+2025-07-16T17:05:07.429Z ℹ️    Performance: 2 tests
+2025-07-16T17:05:07.429Z ℹ️    Integrity: 1 tests
+2025-07-16T17:05:07.429Z ℹ️    Error Handling: 3 tests
+2025-07-16T17:05:07.429Z ℹ️    Business Logic: 1 tests
+2025-07-16T17:05:07.429Z ℹ️
+📋 DETAILED RESULTS:
+2025-07-16T17:05:07.429Z ℹ️ 1. ✅ Database Connection
+2025-07-16T17:05:07.429Z ℹ️ 2. ✅ All Required Tables Exist
+2025-07-16T17:05:07.429Z ℹ️ 3. ✅ Table Session Access
+2025-07-16T17:05:07.429Z ℹ️ 4. ✅ Table Shop Access
+2025-07-16T17:05:07.429Z ℹ️ 5. ✅ Table NotificationSetting Access
+2025-07-16T17:05:07.429Z ℹ️ 6. ✅ Table Product Access
+2025-07-16T17:05:07.429Z ℹ️ 7. ✅ Table ProductAlert Access
+2025-07-16T17:05:07.429Z ℹ️ 8. ✅ Table AnalyticsData Access
+2025-07-16T17:05:07.429Z ℹ️ 9. ✅ Table Variant Access
+2025-07-16T17:05:07.429Z ℹ️ 10. ✅ Table Inventory Access
+2025-07-16T17:05:07.429Z ℹ️ 11. ✅ Table Warehouse Access
+2025-07-16T17:05:07.429Z ℹ️ 12. ✅ Table DemandForecast Access
+2025-07-16T17:05:07.429Z ℹ️ 13. ✅ Table NotificationLog Access
+2025-07-16T17:05:07.429Z ℹ️ 14. ✅ All Required Enums Exist
+2025-07-16T17:05:07.429Z ℹ️ 15. ✅ Session Table Indexes
+2025-07-16T17:05:07.429Z ℹ️ 16. ✅ Session Count Performance
+2025-07-16T17:05:07.429Z ℹ️ 17. ✅ Product Table Indexes
+2025-07-16T17:05:07.429Z ℹ️ 18. ❌ Session Exists
+2025-07-16T17:05:07.429Z ℹ️    Error: No session found
+2025-07-16T17:05:07.429Z ℹ️ 19. ❌ Shop Record Exists
+2025-07-16T17:05:07.429Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.429Z ℹ️ 20. ❌ Shop for Warehouse Test
+2025-07-16T17:05:07.429Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.429Z ℹ️ 21. ❌ AI Service Import
+2025-07-16T17:05:07.429Z ℹ️    Error: AI service not found
+2025-07-16T17:05:07.429Z ℹ️ 22. ❌ Shop for Settings Test
+2025-07-16T17:05:07.429Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.429Z ℹ️ 23. ❌ API Endpoint: Main App Route
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 410,
+  "statusText": "Gone"
+}
+2025-07-16T17:05:07.429Z ℹ️ 24. ❌ API Endpoint: Dashboard Index
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 25. ❌ API Endpoint: Settings Page
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 26. ❌ API Endpoint: Products Page
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 27. ❌ API Endpoint: Inventory Page
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 28. ❌ API Endpoint: Reports Page
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 29. ❌ API Endpoint: Alerts Page
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 30. ❌ API Endpoint: Daily Analysis API
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 31. ❌ API Endpoint: Product Details API
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 32. ❌ API Endpoint: Warmup API
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "status": 404,
+  "statusText": "Not Found"
+}
+2025-07-16T17:05:07.429Z ℹ️ 33. ❌ API Endpoints Overall
+2025-07-16T17:05:07.429Z ℹ️    Details: {
+  "successful": 0,
+  "total": 10,
+  "successRate": "0.0%"
+}
+2025-07-16T17:05:07.429Z ℹ️ 34. ❌ Shop for Analytics Test
+2025-07-16T17:05:07.430Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.430Z ℹ️ 35. ❌ Performance Test Setup
+2025-07-16T17:05:07.430Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.430Z ℹ️ 36. ❌ Data Integrity Setup
+2025-07-16T17:05:07.430Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.430Z ℹ️ 37. ✅ Invalid Shop Handling
+2025-07-16T17:05:07.430Z ℹ️ 38. ✅ Invalid Session Handling
+2025-07-16T17:05:07.430Z ℹ️ 39. ✅ Database Connection Resilience
+2025-07-16T17:05:07.430Z ℹ️ 40. ❌ Large Query Handling
+2025-07-16T17:05:07.430Z ℹ️    Error:
+Invalid `prisma.product.findMany()` invocation:
+
+{
+  where: {
+    shop: {
+    ~~~~
+      shop: "josedevai.myshopify.com"
+    },
+?   AND?: ProductWhereInput | ProductWhereInput[],
+?   OR?: ProductWhereInput[],
+?   NOT?: ProductWhereInput | ProductWhereInput[],
+?   id?: StringFilter | String,
+?   shopifyId?: StringFilter | String,
+?   title?: StringFilter | String,
+?   vendor?: StringFilter | String,
+?   productType?: StringNullableFilter | String | Null,
+?   status?: EnumProductStatusNullableFilter | ProductStatus | Null,
+?   trending?: BoolNullableFilter | Boolean | Null,
+?   salesVelocityFloat?: FloatNullableFilter | Float | Null,
+?   stockoutDays?: FloatNullableFilter | Float | Null,
+?   lastRestockedDate?: DateTimeNullableFilter | DateTime | Null,
+?   category?: StringNullableFilter | String | Null,
+?   tags?: StringNullableListFilter,
+?   createdAt?: DateTimeFilter | DateTime,
+?   updatedAt?: DateTimeFilter | DateTime,
+?   shopId?: StringFilter | String,
+?   handle?: StringNullableFilter | String | Null,
+?   quantity?: IntNullableFilter | Int | Null,
+?   shopifyInventoryItemId?: StringNullableFilter | String | Null,
+?   price?: DecimalNullableFilter | Decimal | Null,
+?   sku?: StringNullableFilter | String | Null,
+?   imageUrl?: StringNullableFilter | String | Null,
+?   description?: StringNullableFilter | String | Null,
+?   weight?: FloatNullableFilter | Float | Null,
+?   dimensions?: StringNullableFilter | String | Null,
+?   lastUpdated?: DateTimeNullableFilter | DateTime | Null,
+?   lastUpdatedBy?: StringNullableFilter | String | Null,
+?   AnalyticsData?: AnalyticsDataListRelationFilter,
+?   DemandForecast?: DemandForecastListRelationFilter,
+?   Inventory?: InventoryListRelationFilter,
+?   Shop?: ShopScalarRelationFilter | ShopWhereInput,
+?   ProductAlert?: ProductAlertListRelationFilter,
+?   Variant?: VariantListRelationFilter
+  },
+  take: 1000
+}
+
+Unknown argument `shop`. Did you mean `Shop`? Available options are marked with ?.
+2025-07-16T17:05:07.430Z ℹ️ 41. ✅ Concurrent Operations
+2025-07-16T17:05:07.430Z ℹ️ 42. ❌ Business Logic Setup
+2025-07-16T17:05:07.430Z ℹ️    Error: Shop not found
+2025-07-16T17:05:07.430Z ℹ️
+NaN
+2025-07-16T17:05:07.430Z ❌ ❌ Only 50.0% of tests passed. The app has significant issues that need immediate attention.
+2025-07-16T17:05:07.430Z ℹ️ NaN
+2025-07-16T17:05:07.430Z ℹ️ Script finished successfully.
