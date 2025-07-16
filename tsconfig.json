@@ -27,6 +27,6 @@
       "@routes/*": ["./app/routes/*"],
       "@services/*": ["./app/services/*"]
     },
-    "types": ["node", "react", "react-dom"]
+    "types": ["node", "react", "react-dom", "jest"]
   }
 }
