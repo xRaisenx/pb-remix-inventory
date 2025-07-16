@@ -1,6 +1,6 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
-import { Page, Card, Text } from "@shopify/polaris";
+import { Card, Text } from "@shopify/polaris";
 import { useLoaderData } from "@remix-run/react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -8,15 +8,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({ shop: session.shop });
 };
 
-export default function SettingsPage() {
+export default function AppDashboard() {
   const { shop } = useLoaderData<typeof loader>();
   return (
-    <Page title="Settings">
-      <Card>
-        <Text as="h2" variant="headingMd">Settings</Text>
-        <Text as="p">Shop: {shop}</Text>
-        <Text as="p">Settings page content goes here.</Text>
-      </Card>
-    </Page>
+    <Card>
+      <Text as="h2" variant="headingMd">Welcome to your Shopify App Dashboard</Text>
+      <Text as="p">Shop: {shop}</Text>
+    </Card>
   );
 }
