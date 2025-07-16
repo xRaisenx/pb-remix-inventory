@@ -16,6 +16,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 // Services will be mocked for testing
 // import { createSMSService } from '../app/services/sms.service.js';
 // import { createWebhookService } from '../app/services/webhook.service.js';
@@ -155,37 +156,65 @@ async function simulateShopSetup() {
     shop: MOCK_SHOP_CONFIG.shopDomain,
   };
 
-  const shop = await prisma.shop.upsert({
-    where: { shop: MOCK_SHOP_CONFIG.shopDomain },
-    update: shopData,
-    create: shopData,
-  });
+  // Check if shop exists
+  let shop = await prisma.shop.findUnique({ where: { shop: MOCK_SHOP_CONFIG.shopDomain } });
+  if (!shop) {
+    shop = await prisma.shop.create({
+      data: {
+        id: randomUUID(),
+        ...shopData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    shop = await prisma.shop.update({
+      where: { shop: MOCK_SHOP_CONFIG.shopDomain },
+      data: shopData,
+    });
+  }
 
-  // Create notification settings
-  await prisma.notificationSetting.upsert({
-    where: { shopId: shop.id },
-    update: {
-      email: true,
-      sms: true,
-      webhook: true,
-      emailAddress: 'alerts@planetbeauty.com',
-      smsNumber: '+1234567890',
-      webhookUrl: 'https://webhook.site/planet-beauty',
-      frequency: 'realtime',
-      alertsEnabled: true,
-    },
-    create: {
-      shopId: shop.id,
-      email: true,
-      sms: true,
-      webhook: true,
-      emailAddress: 'alerts@planetbeauty.com',
-      smsNumber: '+1234567890',
-      webhookUrl: 'https://webhook.site/planet-beauty',
-      frequency: 'realtime',
-      alertsEnabled: true,
-    },
-  });
+  // Create or update notification settings
+  let notificationSetting = await prisma.notificationSetting.findFirst({ where: { shopId: shop.id } });
+  if (notificationSetting) {
+    await prisma.notificationSetting.update({
+      where: { id: notificationSetting.id },
+      data: {
+        email: true,
+        slack: false,
+        telegram: false,
+        mobilePush: false,
+        emailAddress: 'alerts@planetbeauty.com',
+        frequency: 'realtime',
+        lowStockThreshold: 5,
+        salesVelocityThreshold: 10.0,
+        criticalStockThresholdUnits: 2,
+        criticalStockoutDays: 1,
+        syncEnabled: true,
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    await prisma.notificationSetting.create({
+      data: {
+        id: randomUUID(),
+        shopId: shop.id,
+        email: true,
+        slack: false,
+        telegram: false,
+        mobilePush: false,
+        emailAddress: 'alerts@planetbeauty.com',
+        frequency: 'realtime',
+        lowStockThreshold: 5,
+        salesVelocityThreshold: 10.0,
+        criticalStockThresholdUnits: 2,
+        criticalStockoutDays: 1,
+        syncEnabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  }
 
   log(`Shop setup completed for ${MOCK_SHOP_CONFIG.shopDomain}`, 'success');
   return shop;
@@ -198,79 +227,47 @@ async function simulateProductOperations(shop) {
   const createdProducts = [];
   
   for (const productData of SAMPLE_PRODUCTS) {
-    // Create product request
-    const createProductRequest = createMockShopifyRequest('products.json', 'POST', {
-      product: {
-        title: productData.title,
-        handle: productData.handle,
-        vendor: productData.vendor,
-        product_type: productData.productType,
-        tags: productData.tags.join(', '),
-        variants: [
-          {
-            price: productData.price,
-            inventory_quantity: productData.inventory,
-            sku: productData.sku,
-            weight: productData.weight,
-            weight_unit: 'g',
-          },
-        ],
-      },
-    });
-
-    log(`Mock API Request: ${createProductRequest.method} ${createProductRequest.url}`, 'request');
-
-    // Create product in database
-    const product = await prisma.product.create({
-      data: {
-        shopifyId: productData.id,
-        title: productData.title,
-        handle: productData.handle,
-        vendor: productData.vendor,
-        productType: productData.productType,
-        status: productData.inventory > 10 ? 'OK' : productData.inventory > 0 ? 'Low' : 'OutOfStock',
-        price: productData.price,
-        quantity: productData.inventory,
-        sku: productData.sku,
-        weight: productData.weight,
-        tags: productData.tags,
-        shopId: shop.id,
-      },
-    });
-
-    // Create inventory record
-    await prisma.inventory.create({
-      data: {
-        productId: product.id,
-        quantity: productData.inventory,
-        available: productData.inventory,
-        reserved: 0,
-        shopId: shop.id,
-      },
-    });
-
-    createdProducts.push(product);
-    
-    // Simulate webhook for product creation
-    const webhookPayload = {
-      id: productData.id,
-      title: productData.title,
-      handle: productData.handle,
-      vendor: productData.vendor,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      variants: [
-        {
-          id: `${productData.id}_variant`,
-          inventory_quantity: productData.inventory,
+    let product = await prisma.product.findUnique({ where: { shopifyId: productData.id } });
+    if (product) {
+      product = await prisma.product.update({
+        where: { shopifyId: productData.id },
+        data: {
+          title: productData.title,
+          handle: productData.handle,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          status: 'OK',
           price: productData.price,
+          quantity: productData.inventory,
           sku: productData.sku,
+          weight: productData.weight,
+          tags: productData.tags,
+          shopId: shop.id,
+          updatedAt: new Date(),
         },
-      ],
-    };
-
-    const webhookRequest = createMockWebhookRequest('products/create', webhookPayload);
-    log(`Mock Webhook: ${webhookRequest.method} ${webhookRequest.url}`, 'webhook');
+      });
+    } else {
+      product = await prisma.product.create({
+        data: {
+          id: randomUUID(),
+          shopifyId: productData.id,
+          title: productData.title,
+          handle: productData.handle,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          status: 'OK',
+          price: productData.price,
+          quantity: productData.inventory,
+          sku: productData.sku,
+          weight: productData.weight,
+          tags: productData.tags,
+          shopId: shop.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
+    createdProducts.push(product);
   }
 
   log(`Created ${createdProducts.length} products`, 'success');
@@ -309,12 +306,13 @@ async function simulateInventoryUpdates(products) {
       },
     });
 
-    // Update inventory record
+    // When updating inventory, use availableQuantity instead of available
     await prisma.inventory.updateMany({
       where: { productId: product.id },
       data: {
         quantity: newQuantity,
-        available: newQuantity,
+        availableQuantity: newQuantity,
+        updatedAt: new Date(),
       },
     });
 
@@ -343,14 +341,13 @@ async function simulateInventoryUpdates(products) {
 async function generateLowStockAlert(product, quantity) {
   await prisma.productAlert.create({
     data: {
+      id: randomUUID(),
       productId: product.id,
-      shopId: product.shopId,
       type: 'LOW_STOCK',
-      severity: 'Medium',
-      message: `${product.title} is running low on stock. Current quantity: ${quantity}`,
-      threshold: 10,
-      currentValue: quantity,
+      message: `${product.title} is running low!`,
       isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
   });
 
@@ -366,14 +363,13 @@ async function generateLowStockAlert(product, quantity) {
 async function generateOutOfStockAlert(product) {
   await prisma.productAlert.create({
     data: {
+      id: randomUUID(),
       productId: product.id,
-      shopId: product.shopId,
       type: 'OUT_OF_STOCK',
-      severity: 'High',
       message: `${product.title} is out of stock!`,
-      threshold: 1,
-      currentValue: 0,
       isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
   });
 
@@ -477,89 +473,21 @@ async function simulateUserInteractions(shop) {
   // Simulate inventory page request
   const inventoryRequest = createMockAppRequest('/app/inventory');
   log(`Mock App Request: ${inventoryRequest.method} ${inventoryRequest.url}`, 'request');
-
-  // Simulate alerts page request
-  const alertsRequest = createMockAppRequest('/app/alerts');
-  log(`Mock App Request: ${alertsRequest.method} ${alertsRequest.url}`, 'request');
-
-  // Simulate settings update
-  const settingsRequest = createMockAppRequest('/app/settings', 'POST', {
-    sms: true,
-    email: true,
-    webhook: true,
-    smsNumber: '+1234567890',
-    emailAddress: 'alerts@planetbeauty.com',
-    webhookUrl: 'https://webhook.site/planet-beauty',
-  });
-  log(`Mock App Request: ${settingsRequest.method} ${settingsRequest.url}`, 'request');
-
-  log('User interface interactions completed', 'success');
-}
-
-// Generate simulation report
-function generateSimulationReport(shop, products) {
-  const report = {
-    simulation: {
-      timestamp: new Date().toISOString(),
-      shop: {
-        domain: shop.shop,
-        id: shop.id,
-        productsCreated: products.length,
-      },
-      products: products.map(p => ({
-        id: p.id,
-        title: p.title,
-        quantity: p.quantity,
-        status: p.status,
-      })),
-      mockRequests: {
-        shopifyAPI: products.length * 2, // Create + update for each product
-        webhooks: products.length * 2, // Create + update for each product
-        appRequests: 5, // Dashboard, products, inventory, alerts, settings
-      },
-    },
-    nextSteps: [
-      'Review generated alerts in the dashboard',
-      'Test notification settings',
-      'Verify webhook deliveries',
-      'Check SMS delivery status',
-      'Monitor inventory levels',
-    ],
-  };
-
-  fs.writeFileSync('simulation-report.json', JSON.stringify(report, null, 2));
-  log('Simulation report saved to simulation-report.json', 'success');
-  
-  return report;
 }
 
 // Main simulation function
 async function runShopSimulation() {
   log('🏪 Starting Shop Interaction Simulation', 'info');
-  
   try {
     // Setup shop
     const shop = await simulateShopSetup();
-    
     // Create products
     const products = await simulateProductOperations(shop);
-    
     // Update inventory
     await simulateInventoryUpdates(products);
-    
     // Simulate user interactions
     await simulateUserInteractions(shop);
-    
-    // Generate report
-    const report = generateSimulationReport(shop, products);
-    
-    log('📊 Simulation Summary:', 'info');
-    log(`Shop: ${report.simulation.shop.domain}`, 'info');
-    log(`Products Created: ${report.simulation.shop.productsCreated}`, 'info');
-    log(`Mock Requests Generated: ${Object.values(report.simulation.mockRequests).reduce((a, b) => a + b, 0)}`, 'info');
-    
     log('🎉 Shop simulation completed successfully!', 'success');
-    
   } catch (error) {
     log(`💥 Simulation failed: ${error.message}`, 'error');
     throw error;
