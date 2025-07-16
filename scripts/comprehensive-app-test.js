@@ -222,7 +222,7 @@ async function testAuthentication() {
   try {
     // Check if we have a valid session for the test shop
     const session = await prisma.session.findFirst({
-      where: { shop: TEST_CONFIG.shop }
+      where: { Shop: { shop: TEST_CONFIG.shop } }
     });
     
     if (!session) {
@@ -1174,6 +1174,7 @@ async function runAllTests() {
   }
   log('=' * 80);
   
+  log('Script finished successfully.');
   return allPassed;
 }
 
