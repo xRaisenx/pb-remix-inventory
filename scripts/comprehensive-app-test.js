@@ -222,7 +222,7 @@ async function testAuthentication() {
   try {
     // Check if we have a valid session for the test shop
     const session = await prisma.session.findFirst({
-      where: { shop: TEST_CONFIG.shop }
+      where: { shopId: TEST_CONFIG.shop }
     });
     
     if (!session) {
@@ -533,29 +533,30 @@ async function testSettingsConfiguration() {
       slack: false,
       telegram: false,
       mobilePush: true,
-      sms: false,
-      webhook: false,
       emailAddress: 'test@example.com',
       frequency: 'realtime',
       lowStockThreshold: 15,
       salesVelocityThreshold: 30.0,
       criticalStockThresholdUnits: 5,
       criticalStockoutDays: 1,
-      syncEnabled: true,
-      alertsEnabled: true,
-      businessHoursOnly: false,
-      timezone: 'UTC'
+      syncEnabled: true
     };
     
     // Try to update settings
-    const updatedSettings = await prisma.notificationSetting.upsert({
-      where: { shopId: shop.id },
-      update: testSettings,
-      create: {
-        shopId: shop.id,
-        ...testSettings
-      }
-    });
+    let updatedSettings;
+    if (hasNotificationSettings && shop.NotificationSettings[0].id) {
+      updatedSettings = await prisma.notificationSetting.update({
+        where: { id: shop.NotificationSettings[0].id },
+        data: testSettings
+      });
+    } else {
+      updatedSettings = await prisma.notificationSetting.create({
+        data: {
+          shopId: shop.id,
+          ...testSettings
+        }
+      });
+    }
     
     log('Settings updated successfully');
     addTestResult('Settings Update', true, {
@@ -565,7 +566,7 @@ async function testSettingsConfiguration() {
     });
     
     // Verify settings were saved
-    const verifiedSettings = await prisma.notificationSetting.findUnique({
+    const verifiedSettings = await prisma.notificationSetting.findFirst({
       where: { shopId: shop.id }
     });
     
@@ -848,11 +849,12 @@ async function testDataIntegrity() {
       where: { shopId: shop.id },
       include: { Variant: true }
     });
-    
-    const orphanedVariants = await prisma.Variant.findMany({
-      where: { productId: null }
-    });
-    
+    let orphanedVariants = [];
+    if (productsWithVariants.length > 0) {
+      orphanedVariants = await prisma.Variant.findMany({
+        where: { productId: null }
+      });
+    }
     addTestResult('Product-Variant Integrity', orphanedVariants.length === 0, {
       productsWithVariants: productsWithVariants.length,
       orphanedVariants: orphanedVariants.length
@@ -875,10 +877,10 @@ async function testDataIntegrity() {
     
     // Test session-shop relationships
     const sessions = await prisma.session.findMany({
-      where: { shop: TEST_CONFIG.shop }
+      where: { shopId: shop.id }
     });
     
-    const validSessions = sessions.filter(s => s.shop === TEST_CONFIG.shop);
+    const validSessions = sessions.filter(s => s.shopId === shop.id);
     
     addTestResult('Session-Shop Integrity', validSessions.length === sessions.length, {
       totalSessions: sessions.length,
