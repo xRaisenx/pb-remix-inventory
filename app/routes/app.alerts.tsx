@@ -39,21 +39,9 @@ interface LoaderData {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({
-    where: { shop: session.shop },
-    include: { NotificationSettings: true }
-  });
-
+  let shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop }, include: { NotificationSettings: true } });
   if (!shopRecord) {
-    return json({
-      alerts: [],
-      notificationHistory: [],
-      error: "Shop not found.",
-      lowStockThresholdDisplay: 10,
-      criticalStockThresholdUnitsDisplay: "N/A",
-      criticalStockoutDaysDisplay: "N/A",
-      highSalesVelocityThresholdDisplay: "N/A",
-    } as LoaderData, { status: 404 });
+    shopRecord = await prisma.shop.create({ data: { shop: session.shop, updatedAt: new Date() } });
   }
 
   const { id: shopId, NotificationSettings } = shopRecord;

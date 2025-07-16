@@ -797,3 +797,6 @@ export async function getQuerySuggestions(shopId: string): Promise<string[]> {
     ];
   }
 }
+
+export { processAIQuery };
+export default processAIQuery;

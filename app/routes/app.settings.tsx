@@ -107,7 +107,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { session } = await authenticate.admin(request);
     console.log("[LOADER] /app.settings session:", session);
-    const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+    let shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
     if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
     const notificationSettings = await prisma.notificationSetting.findUnique({
@@ -157,8 +157,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // Action Function
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
-  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
+  let shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+  if (!shopRecord) {
+    shopRecord = await prisma.shop.create({ data: { shop: session.shop, updatedAt: new Date() } });
+  }
 
   const formData = await request.formData();
   const intent = formData.get('intent') as string;

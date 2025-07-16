@@ -42,9 +42,9 @@ interface LoaderData {
 // Loader Function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+  let shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
   if (!shopRecord) {
-    throw new Response("Shop not found", { status: 404 });
+    shopRecord = await prisma.shop.create({ data: { shop: session.shop, updatedAt: new Date() } });
   }
   const shopId = shopRecord.id;
 
@@ -132,9 +132,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shopDomain = session.shop;
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shop) {
-      throw new Response("Shop not found", { status: 404 });
+      shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
     }
 
     const products = await prisma.product.findMany({

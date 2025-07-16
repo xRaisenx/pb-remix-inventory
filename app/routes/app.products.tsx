@@ -84,8 +84,11 @@ const getStatusBadge = (status: string | null) => {
 // --- LOADER ---
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response> => {
   const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
-  if (!shopRecord) throw new Response("Shop not found", { status: 404 });
+  let shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+  if (!shopRecord) {
+    // Upsert shop if not found
+    shopRecord = await prisma.shop.create({ data: { shop: session.shop, updatedAt: new Date() } });
+  }
 
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1", 10);

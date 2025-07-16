@@ -22,9 +22,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // If implemented, they would be retrieved from the session here and passed to the component.
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shop) {
-      return json<LoaderData>({ warehouses: [], error: "Shop not found." }, { status: 404 });
+      shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
     }
 
     const warehouses = await prisma.warehouse.findMany({
@@ -55,7 +55,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+      let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
       if (!shop) {
         return json({ actionError: "Shop not found." }, { status: 404});
       }

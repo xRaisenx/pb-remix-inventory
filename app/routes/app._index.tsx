@@ -20,7 +20,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
     console.log("[LOADER] /app._index session:", session);
     const shopDomain = session.shop;
-    const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    let shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    if (!shopRecord) {
+      shopRecord = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
+    }
     if (!shopRecord) throw new Response("Shop not found", { status: 404 });
 
     if (!shopRecord.initialSyncCompleted) {

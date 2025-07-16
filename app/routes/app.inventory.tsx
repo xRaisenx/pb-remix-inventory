@@ -115,9 +115,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
   const shopDomain = session.shop;
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shop) {
-      return json({ inventoryList: [], warehouses: [], error: "Shop not found." }, { status: 404 });
+      shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
     }
 
     const [inventoryRecordsFromDB, warehousesFromDB] = await Promise.all([
