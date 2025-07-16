@@ -1054,6 +1054,30 @@ async function seedTestShop() {
   return shop;
 }
 
+async function seedTestSession() {
+  const shopDomain = TEST_CONFIG.shop;
+  let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+  if (!shop) {
+    const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString());
+    shop = await prisma.shop.create({ data: { id, shop: shopDomain, updatedAt: new Date(), initialSyncCompleted: true } });
+  }
+  // Create a valid session for the shop
+  const sessionId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+  await prisma.session.upsert({
+    where: { id: sessionId },
+    update: {},
+    create: {
+      id: sessionId,
+      shopId: shop.id,
+      state: 'active',
+      isOnline: true,
+      scope: 'read_products,write_products',
+      accessToken: 'test-access-token',
+      expires: null
+    }
+  });
+}
+
 // Main test runner
 async function runAllTests() {
   log('🚀 Starting Comprehensive Planet Beauty Inventory AI App Test Suite');
@@ -1061,8 +1085,9 @@ async function runAllTests() {
   log(`Base URL: ${TEST_CONFIG.baseUrl}`);
   log('=' * 80);
 
-  // Seed the test shop before running any tests
+  // Seed the test shop and session before running any tests
   await seedTestShop();
+  await seedTestSession();
   
   const startTime = Date.now();
   
