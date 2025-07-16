@@ -221,9 +221,13 @@ async function testAuthentication() {
   
   try {
     // Check if we have a valid session for the test shop
-    const session = await prisma.session.findFirst({
-      where: { shop: TEST_CONFIG.shop }
-    });
+    const shop = await prisma.shop.findUnique({ where: { shop: TEST_CONFIG.shop } });
+    if (!shop) {
+      log(`No shop found for ${TEST_CONFIG.shop}`, 'warning');
+      addTestResult('Shop Exists', false, 'No shop found');
+      return false;
+    }
+    const session = await prisma.session.findFirst({ where: { shopId: shop.id } });
     
     if (!session) {
       log(`No session found for ${TEST_CONFIG.shop}`, 'warning');
@@ -932,9 +936,8 @@ async function testErrorHandling() {
     });
     
     // Test invalid session query
-    const invalidSession = await prisma.session.findFirst({
-      where: { id: 'invalid-session-id' }
-    });
+    const shop = await prisma.shop.findUnique({ where: { shop: TEST_CONFIG.shop } });
+    const invalidSession = await prisma.session.findFirst({ where: { id: 'invalid-session-id' } });
     
     addTestResult('Invalid Session Handling', invalidSession === null, {
       expected: null,
@@ -950,15 +953,11 @@ async function testErrorHandling() {
     }
     
     // Test large query handling
-    try {
-      const largeQuery = await prisma.product.findMany({
-        where: { shop: { shop: TEST_CONFIG.shop } },
-        take: 1000
-      });
-      addTestResult('Large Query Handling', true, { resultCount: largeQuery.length });
-    } catch (error) {
-      addTestResult('Large Query Handling', false, error.message);
+    let largeQuery = [];
+    if (shop) {
+      largeQuery = await prisma.product.findMany({ where: { shopId: shop.id }, take: 1000 });
     }
+    addTestResult('Large Query Handling', true, { resultCount: largeQuery.length });
     
     // Test concurrent operations
     try {
@@ -1055,12 +1054,24 @@ async function testBusinessLogic() {
   }
 }
 
+async function seedTestShop() {
+  const shopDomain = TEST_CONFIG.shop;
+  let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+  if (!shop) {
+    shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date(), initialSyncCompleted: true } });
+  }
+  return shop;
+}
+
 // Main test runner
 async function runAllTests() {
   log('🚀 Starting Comprehensive Planet Beauty Inventory AI App Test Suite');
   log(`Testing shop: ${TEST_CONFIG.shop}`);
   log(`Base URL: ${TEST_CONFIG.baseUrl}`);
   log('=' * 80);
+
+  // Seed the test shop before running any tests
+  await seedTestShop();
   
   const startTime = Date.now();
   

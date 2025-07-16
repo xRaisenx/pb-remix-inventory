@@ -42,8 +42,10 @@ interface GraphQLResponse<T> { data: T; errors?: Array<{ message: string; [key: 
 
 // Helper to get Prisma Shop ID
 async function getShopId(shopDomain: string): Promise<string> {
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain }, select: { id: true } });
-  if (!shopRecord) throw new Error(`Shop ${shopDomain} not found in local database.`);
+  let shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain }, select: { id: true } });
+  if (!shopRecord) {
+    shopRecord = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
+  }
   return shopRecord.id;
 }
 

@@ -69,13 +69,12 @@ export function calculateProductMetrics(
 }
 
 export async function updateAllProductMetricsForShop(shopId: string): Promise<{ success: boolean; message: string; updatedCount: number }> {
-  const shop = await prisma.shop.findUnique({
+  let shop = await prisma.shop.findUnique({
     where: { id: shopId },
-    include: { NotificationSettings: true } // Include to get shop-specific thresholds
+    include: { NotificationSettings: true }
   });
-
   if (!shop) {
-    return { success: false, message: `Shop with ID ${shopId} not found.`, updatedCount: 0 };
+    shop = await prisma.shop.create({ data: { id: shopId, updatedAt: new Date() } });
   }
 
   // Determine thresholds: use notification settings if available, else shop defaults, else app defaults

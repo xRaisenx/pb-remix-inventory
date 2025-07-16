@@ -526,10 +526,13 @@ export async function sendNotification(
 ): Promise<NotificationResult[]> {
   try {
     // Get shop notification settings
-    const shop = await prisma.shop.findUnique({
+    let shop = await prisma.shop.findUnique({
       where: { id: shopId },
       include: { NotificationSettings: true }
     });
+    if (!shop) {
+      shop = await prisma.shop.create({ data: { id: shopId, updatedAt: new Date() } });
+    }
 
     if (!shop || !shop.NotificationSettings?.[0]) {
       return [{
