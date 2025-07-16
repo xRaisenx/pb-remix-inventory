@@ -192,6 +192,18 @@ class EnhancedPrismaSessionStorage extends PrismaSessionStorage<any> {
     this.sessionCountCache = { count: 0, lastUpdated: 0 };
     console.log("[SESSION] Cache cleared");
   }
+
+  async loadSessionFromRequest(request: Request): Promise<any> {
+    // Try to get session id from cookies (Shopify uses 'shopify_app_session')
+    const cookie = request.headers.get('cookie') || '';
+    const match = cookie.match(/shopify_app_session=([^;]+)/);
+    const sessionId = match ? decodeURIComponent(match[1]) : null;
+    if (!sessionId) {
+      console.warn('[SESSION] No session id found in request cookies');
+      return null;
+    }
+    return this.loadSession(sessionId);
+  }
 }
 
 const shopify = shopifyApp({
@@ -294,4 +306,4 @@ export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
-export const sessionStorage = shopify.sessionStorage;
+export const sessionStorage = shopify.sessionStorage as EnhancedPrismaSessionStorage;
