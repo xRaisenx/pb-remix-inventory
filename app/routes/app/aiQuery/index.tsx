@@ -21,12 +21,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   try {
-    const aiResult = await processAIQuery({
-      text: query,
-      shopId: shopRecord.id,
-      userId: session.userId || undefined,
-      sessionId: session.id || undefined
-    });
+    const aiResult = await processAIQuery(query, shopRecord);
     return json({ result: aiResult });
   } catch (error) {
     return json({ error: (error as Error).message }, { status: 500 });

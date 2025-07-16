@@ -82,9 +82,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { name: validatedName, location: validatedLocation, shopifyLocationGid: validatedShopifyLocationGid } = validationResult.data;
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    let shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shop) {
-      return json<ActionData>({ errors: { form: ["Shop not found."] } }, { status: 404 });
+      shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
     }
 
     const existingWarehouseByName = await prisma.warehouse.findFirst({

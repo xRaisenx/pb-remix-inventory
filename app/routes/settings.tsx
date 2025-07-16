@@ -8,13 +8,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({ shop: session.shop });
 };
 
-export default function AlertsPage() {
+export default function SettingsPage() {
   const { shop } = useLoaderData<typeof loader>();
   return (
     <Card>
-      <Text as="h2" variant="headingMd">Alerts</Text>
+      <Text as="h2" variant="headingMd">Settings</Text>
       <Text as="p">Shop: {shop}</Text>
-      <Text as="p">Alerts page content goes here.</Text>
     </Card>
   );
 }

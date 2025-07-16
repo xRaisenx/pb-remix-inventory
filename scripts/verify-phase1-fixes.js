@@ -8,7 +8,6 @@
 
 import { execSync } from 'child_process';
 import fs from 'fs';
-import path from 'path';
 
 console.log('🔍 Phase 1 Fixes Verification');
 console.log('============================\n');

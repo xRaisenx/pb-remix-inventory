@@ -208,18 +208,12 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
   try {
     // Step 2: Get shop session for Shopify API
-    const shop = await prisma.shop.findUnique({
+    let shop = await prisma.shop.findUnique({
       where: { shop: shopDomain },
       include: { }
     });
-
     if (!shop) {
-      return {
-        success: false,
-        message: 'Unable to connect to your Shopify store. Please reinstall the app.',
-        newQuantity: 0,
-        error: 'SHOP_SESSION_NOT_FOUND',
-      };
+      shop = await prisma.shop.create({ data: { shop: shopDomain, updatedAt: new Date() } });
     }
 
     const session = await prisma.session.findFirst({ where: { shopId: shop.id, isOnline: false } });

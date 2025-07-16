@@ -14,7 +14,6 @@ export default function AlertsPage() {
     <Card>
       <Text as="h2" variant="headingMd">Alerts</Text>
       <Text as="p">Shop: {shop}</Text>
-      <Text as="p">Alerts page content goes here.</Text>
     </Card>
   );
 }
