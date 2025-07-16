@@ -7,9 +7,8 @@ declare global {
 }
 
 const neon = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(neon);
 
-const prisma = global.prisma || new PrismaClient({ adapter });
+const prisma = global.prisma || new PrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;
