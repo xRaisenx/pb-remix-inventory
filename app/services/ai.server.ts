@@ -243,7 +243,7 @@ function validateAIQuery(query: AIQuery): { isValid: boolean; errors: string[] }
 async function handleStockCheck(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
     // Optimized query with selective fields and proper indexing
-    const products = await prisma.product.findMany({
+    const products = await prisma.Product.findMany({
       where: {
         shopId, // Uses @@index([shopId])
         ...(entities.productNames.length > 0 && {
@@ -339,7 +339,7 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
 async function handleLowStockQuery(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
     // Optimized query with status index and selective fields
-    const lowStockProducts = await prisma.product.findMany({
+    const lowStockProducts = await prisma.Product.findMany({
       where: {
         shopId, // Uses @@index([shopId])
         status: { // Uses @@index([status])
@@ -452,7 +452,7 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
 
     const searchTerms = [...entities.productNames, ...entities.categories];
     
-    const products = await prisma.product.findMany({
+    const products = await prisma.Product.findMany({
       where: {
         shopId,
         OR: [
@@ -551,7 +551,7 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
 
 async function handleTrendingQuery(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
-    const trendingProducts = await prisma.product.findMany({
+    const trendingProducts = await prisma.Product.findMany({
       where: {
         shopId,
         OR: [
@@ -753,14 +753,14 @@ export async function processAIQuery(query: AIQuery): Promise<AIResponse> {
 export async function getQuerySuggestions(shopId: string): Promise<string[]> {
   try {
     const [lowStockCount, totalProducts, trendingCount] = await Promise.all([
-      prisma.product.count({
+      prisma.Product.count({
         where: {
           shopId,
           status: { in: ['Low', 'Critical', 'OutOfStock'] }
         }
       }),
-      prisma.product.count({ where: { shopId } }),
-      prisma.product.count({
+      prisma.Product.count({ where: { shopId } }),
+      prisma.Product.count({
         where: {
           shopId,
           trending: true

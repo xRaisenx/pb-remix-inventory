@@ -222,7 +222,7 @@ async function testAuthentication() {
   try {
     // Check if we have a valid session for the test shop
     const session = await prisma.session.findFirst({
-      where: { shop: TEST_CONFIG.shop }
+      where: { shopId: TEST_CONFIG.shop }
     });
     
     if (!session) {
@@ -292,15 +292,15 @@ async function testProductQueries() {
       where: { shopId: shop.id },
       take: 10,
       include: {
-        variants: true,
-        inventory: {
+        Variant: true,
+        Inventory: {
           include: {
-            warehouse: true
+            Warehouse: true
           }
         },
-        productAlerts: true,
-        analyticsData: true,
-        DemandForecasts: true
+        ProductAlert: true,
+        AnalyticsData: true,
+        DemandForecast: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -308,10 +308,10 @@ async function testProductQueries() {
     log(`Successfully fetched ${products.length} products with all relations`);
     addTestResult('Product Fetch (10 items)', true, { 
       fetchedCount: products.length,
-      productsWithVariants: products.filter(p => p.variants.length > 0).length,
-      productsWithInventory: products.filter(p => p.inventory.length > 0).length,
-      productsWithAlerts: products.filter(p => p.productAlerts.length > 0).length,
-      productsWithAnalytics: products.filter(p => p.analyticsData.length > 0).length
+      productsWithVariants: products.filter(p => p.Variant.length > 0).length,
+      productsWithInventory: products.filter(p => p.Inventory.length > 0).length,
+      productsWithAlerts: products.filter(p => p.ProductAlert.length > 0).length,
+      productsWithAnalytics: products.filter(p => p.AnalyticsData.length > 0).length
     });
     
     // Test product status distribution
@@ -347,9 +347,9 @@ async function testProductQueries() {
     addTestResult('Trending Products Detection', true, { trendingCount });
     
     // Test product variants
-    const variantCount = await prisma.variant.count({
+    const variantCount = await prisma.Variant.count({
       where: {
-        product: { shopId: shop.id }
+        Product: { shopId: shop.id }
       }
     });
     
@@ -378,7 +378,7 @@ async function testWarehouseManagement() {
     }
     
     // Test warehouse count
-    const warehouseCount = await prisma.warehouse.count({
+    const warehouseCount = await prisma.Warehouse.count({
       where: { shopId: shop.id }
     });
     
@@ -392,7 +392,7 @@ async function testWarehouseManagement() {
     }
     
     // Test warehouse details with all relations
-    const warehouses = await prisma.warehouse.findMany({
+    const warehouses = await prisma.Warehouse.findMany({
       where: { shopId: shop.id },
       include: {
         inventory: {
@@ -435,7 +435,7 @@ async function testWarehouseManagement() {
     }
     
     // Test warehouse uniqueness constraints
-    const duplicateWarehouses = await prisma.warehouse.groupBy({
+    const duplicateWarehouses = await prisma.Warehouse.groupBy({
       by: ['shopId', 'name'],
       where: { shopId: shop.id },
       _count: { name: true }
@@ -533,29 +533,30 @@ async function testSettingsConfiguration() {
       slack: false,
       telegram: false,
       mobilePush: true,
-      sms: false,
-      webhook: false,
       emailAddress: 'test@example.com',
       frequency: 'realtime',
       lowStockThreshold: 15,
       salesVelocityThreshold: 30.0,
       criticalStockThresholdUnits: 5,
       criticalStockoutDays: 1,
-      syncEnabled: true,
-      alertsEnabled: true,
-      businessHoursOnly: false,
-      timezone: 'UTC'
+      syncEnabled: true
     };
     
     // Try to update settings
-    const updatedSettings = await prisma.notificationSetting.upsert({
-      where: { shopId: shop.id },
-      update: testSettings,
-      create: {
-        shopId: shop.id,
-        ...testSettings
-      }
-    });
+    let updatedSettings;
+    if (hasNotificationSettings && shop.NotificationSettings[0].id) {
+      updatedSettings = await prisma.notificationSetting.update({
+        where: { id: shop.NotificationSettings[0].id },
+        data: testSettings
+      });
+    } else {
+      updatedSettings = await prisma.notificationSetting.create({
+        data: {
+          shopId: shop.id,
+          ...testSettings
+        }
+      });
+    }
     
     log('Settings updated successfully');
     addTestResult('Settings Update', true, {
@@ -565,7 +566,7 @@ async function testSettingsConfiguration() {
     });
     
     // Verify settings were saved
-    const verifiedSettings = await prisma.notificationSetting.findUnique({
+    const verifiedSettings = await prisma.notificationSetting.findFirst({
       where: { shopId: shop.id }
     });
     
@@ -690,9 +691,9 @@ async function testDataAnalytics() {
     }
     
     // Test analytics data
-    const analyticsCount = await prisma.analyticsData.count({
+    const analyticsCount = await prisma.AnalyticsData.count({
       where: {
-        product: { shopId: shop.id }
+        Product: { shopId: shop.id }
       }
     });
     
@@ -700,9 +701,9 @@ async function testDataAnalytics() {
     addTestResult('Analytics Data Count', true, { analyticsCount });
     
     // Test demand forecasts
-    const forecastCount = await prisma.demandForecast.count({
+    const forecastCount = await prisma.DemandForecast.count({
       where: {
-        product: { shopId: shop.id }
+        Product: { shopId: shop.id }
       }
     });
     
@@ -710,15 +711,15 @@ async function testDataAnalytics() {
     addTestResult('Demand Forecasts Count', true, { forecastCount });
     
     // Test product alerts
-    const alertCount = await prisma.productAlert.count({
-      where: { shopId: shop.id }
+    const alertCount = await prisma.ProductAlert.count({
+      where: { Product: { shopId: shop.id } }
     });
     
     log(`Found ${alertCount} product alerts`);
     addTestResult('Product Alerts Count', true, { alertCount });
     
     // Test notification logs
-    const notificationCount = await prisma.notificationLog.count({
+    const notificationCount = await prisma.NotificationLog.count({
       where: { shopId: shop.id }
     });
     
@@ -791,7 +792,7 @@ async function testPerformance() {
     
     // Test warehouse query performance
     const warehouseStartTime = Date.now();
-    await prisma.warehouse.findMany({
+    await prisma.Warehouse.findMany({
       where: { shopId: shop.id }
     });
     const warehouseQueryTime = Date.now() - warehouseStartTime;
@@ -806,10 +807,10 @@ async function testPerformance() {
     await prisma.product.findMany({
       where: { shopId: shop.id },
       include: {
-        variants: true,
-        inventory: {
+        Variant: true,
+        Inventory: {
           include: {
-            warehouse: true
+            Warehouse: true
           }
         }
       },
@@ -846,27 +847,25 @@ async function testDataIntegrity() {
     // Test product-variant relationships
     const productsWithVariants = await prisma.product.findMany({
       where: { shopId: shop.id },
-      include: { variants: true }
+      include: { Variant: true }
     });
-    
-    const orphanedVariants = await prisma.variant.findMany({
-      where: {
-        product: { shopId: shop.id },
-        productId: null
-      }
-    });
-    
+    let orphanedVariants = [];
+    if (productsWithVariants.length > 0) {
+      orphanedVariants = await prisma.Variant.findMany({
+        where: { productId: null }
+      });
+    }
     addTestResult('Product-Variant Integrity', orphanedVariants.length === 0, {
       productsWithVariants: productsWithVariants.length,
       orphanedVariants: orphanedVariants.length
     });
     
     // Test inventory-warehouse relationships
-    const inventoryWithWarehouses = await prisma.inventory.findMany({
+    const inventoryWithWarehouses = await prisma.Inventory.findMany({
       where: {
-        product: { shopId: shop.id }
+        Product: { shopId: shop.id }
       },
-      include: { warehouse: true }
+      include: { Warehouse: true }
     });
     
     const orphanedInventory = inventoryWithWarehouses.filter(inv => !inv.warehouse);
@@ -878,10 +877,10 @@ async function testDataIntegrity() {
     
     // Test session-shop relationships
     const sessions = await prisma.session.findMany({
-      where: { shop: TEST_CONFIG.shop }
+      where: { shopId: shop.id }
     });
     
-    const validSessions = sessions.filter(s => s.shop === TEST_CONFIG.shop);
+    const validSessions = sessions.filter(s => s.shopId === shop.id);
     
     addTestResult('Session-Shop Integrity', validSessions.length === sessions.length, {
       totalSessions: sessions.length,
@@ -952,7 +951,7 @@ async function testErrorHandling() {
     // Test large query handling
     try {
       const largeQuery = await prisma.product.findMany({
-        where: { shop: { shop: TEST_CONFIG.shop } },
+        where: { Shop: { shop: TEST_CONFIG.shop } },
         take: 1000
       });
       addTestResult('Large Query Handling', true, { resultCount: largeQuery.length });
@@ -965,7 +964,7 @@ async function testErrorHandling() {
       const promises = [
         prisma.product.count(),
         prisma.session.count(),
-        prisma.warehouse.count()
+        prisma.Warehouse.count()
       ];
       
       const results = await Promise.all(promises);
@@ -1035,12 +1034,12 @@ async function testBusinessLogic() {
     const productsWithInventory = await prisma.product.findMany({
       where: { shopId: shop.id },
       include: {
-        inventory: true
+        Inventory: true
       }
     });
     
     const totalInventory = productsWithInventory.reduce((sum, p) => {
-      return sum + p.inventory.reduce((invSum, inv) => invSum + inv.quantity, 0);
+      return sum + p.Inventory.reduce((invSum, inv) => invSum + inv.quantity, 0);
     }, 0);
     
     addTestResult('Inventory Calculation Logic', totalInventory >= 0, {
