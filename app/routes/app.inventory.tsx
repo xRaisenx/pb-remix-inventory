@@ -65,13 +65,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: result.error, userErrors: result.userErrors }, { status: 400 });
     }
 
-    const updatedVariant = await prisma.variant.findUnique({
+    const updatedVariant = await prisma.Variant.findUnique({
       where: { id: variantId },
       select: { productId: true }
     });
 
     if (updatedVariant?.productId) {
-      const productToUpdate = await prisma.product.findUnique({
+      const productToUpdate = await prisma.Product.findUnique({
         where: { id: updatedVariant.productId },
         include: {
           Variant: { select: { inventoryQuantity: true } },
@@ -95,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);
         const trending = (productToUpdate.salesVelocityFloat ?? 0) > salesVelocityThresholdForTrending;
 
-        await prisma.product.update({
+        await prisma.Product.update({
           where: { id: productToUpdate.id },
           data: {
             stockoutDays: metrics.stockoutDays,
@@ -115,13 +115,13 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
   const shopDomain = session.shop;
 
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    const shop = await prisma.Shop.findUnique({ where: { shop: shopDomain } });
     if (!shop) {
       return json({ inventoryList: [], warehouses: [], error: "Shop not found." }, { status: 404 });
     }
 
     const [inventoryRecordsFromDB, warehousesFromDB] = await Promise.all([
-      prisma.inventory.findMany({
+      prisma.Inventory.findMany({
         where: { Warehouse: { shopId: shop.id } },
         include: {
           Product: {
@@ -140,7 +140,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         },
         orderBy: [{ Product: { title: 'asc' } }, { Warehouse: { name: 'asc' } }]
       }),
-      prisma.warehouse.findMany({ where: { shopId: shop.id }, select: { id: true, name: true, shopifyLocationGid: true } })
+      prisma.Warehouse.findMany({ where: { shopId: shop.id }, select: { id: true, name: true, shopifyLocationGid: true } })
     ]);
 
     const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map(inv => ({

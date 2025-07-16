@@ -208,7 +208,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
   try {
     // Step 2: Get shop session for Shopify API
-    const shop = await prisma.shop.findUnique({
+    const shop = await prisma.Shop.findUnique({
       where: { shop: shopDomain },
       include: { }
     });
@@ -222,13 +222,13 @@ export async function updateInventoryQuantityInShopifyAndDB(
       };
     }
 
-    const session = await prisma.session.findFirst({ where: { shopId: shop.id, isOnline: false } });
+    const session = await prisma.Session.findFirst({ where: { shopId: shop.id, isOnline: false } });
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
       return await prisma.$transaction(async (tx) => {
         // Get current product data
-        const variant = await tx.variant.findUnique({
+        const variant = await tx.Variant.findUnique({
           where: { id: variantId },
           include: {
             Product: {
@@ -315,7 +315,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 5: Update local database
-        await tx.variant.update({
+        await tx.Variant.update({
           where: { id: variantId },
           data: {
             inventoryQuantity: newQuantity,
@@ -324,12 +324,12 @@ export async function updateInventoryQuantityInShopifyAndDB(
         });
 
         // Step 6: Update inventory record
-        const warehouse = await tx.warehouse.findFirst({
+        const warehouse = await tx.Warehouse.findFirst({
           where: { shopifyLocationGid: shopifyLocationGid }
         });
 
         if (warehouse) {
-          await tx.inventory.upsert({
+          await tx.Inventory.upsert({
             where: {
               productId_warehouseId: {
                 productId: product.id,
@@ -365,7 +365,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Update product with new status
-        await tx.product.update({
+        await tx.Product.update({
           where: { id: product.id },
           data: {
             status: newStatus,
@@ -378,7 +378,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         let alertGenerated = false;
 
         if (shouldGenerateAlert) {
-          const existingAlert = await tx.productAlert.findFirst({
+          const existingAlert = await tx.ProductAlert.findFirst({
             where: {
               productId: product.id,
               type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
@@ -387,7 +387,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
           });
 
           if (!existingAlert) {
-            await tx.productAlert.create({
+            await tx.ProductAlert.create({
               data: {
                 id: product.id,
                 productId: product.id,
@@ -499,7 +499,7 @@ export async function bulkUpdateInventory(
 
   try {
     // Get default location if not provided
-    const defaultLocation = await prisma.warehouse.findFirst({
+    const defaultLocation = await prisma.Warehouse.findFirst({
       where: { Shop: { shop: shopDomain } }
     });
 
@@ -574,7 +574,7 @@ export async function bulkUpdateInventory(
 // Get comprehensive stock analysis for merchants
 export async function getStockAnalysis(productId: string): Promise<StockAnalysis | null> {
   try {
-    const product = await prisma.product.findUnique({
+    const product = await prisma.Product.findUnique({
       where: { id: productId },
       include: {
         AnalyticsData: {
