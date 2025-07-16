@@ -28,31 +28,13 @@ export default function handleRequest(
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
-  // Set proper CSP headers for Shopify embedded app
-  // This allows the app to be embedded in Shopify admin
-  const shop = getShopFromRequest(request) || '';
-  
-  // Enhanced CSP for Shopify embedded apps
-  const cspDirectives = [
-    "frame-ancestors https://admin.shopify.com https://*.myshopify.com",
-    shop ? `https://${shop}` : '',
-  ].filter(Boolean).join(' ');
-  
-  responseHeaders.set("Content-Security-Policy", `frame-ancestors ${cspDirectives};`);
-  
-  // Remove X-Frame-Options as it conflicts with CSP frame-ancestors
-  // and can cause issues with embedding
-  responseHeaders.delete("X-Frame-Options");
-  
-  // Add security headers for embedded app
+  responseHeaders.set("Content-Security-Policy", "frame-ancestors 'self';");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
   responseHeaders.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  
   addDocumentResponseHeaders(request, responseHeaders);
   const callbackName = isbot(request.headers.get("user-agent"))
     ? "onAllReady"
     : "onShellReady";
-
   return new Promise((resolve, reject) => {
     const { pipe, abort } = renderToPipeableStream(
       <RemixServer context={remixContext} url={request.url} />,
@@ -78,7 +60,6 @@ export default function handleRequest(
         },
       }
     );
-
     setTimeout(abort, ABORT_DELAY);
   });
 }

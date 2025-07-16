@@ -252,10 +252,7 @@ const shopify = shopifyApp({
   hooks: {
     afterAuth: async ({ session, ...rest }) => {
       try {
-        console.log("Registering webhooks for shop:", session.shop);
         await shopify.registerWebhooks({ session });
-
-        console.log("Upserting shop record for:", session.shop);
         await prisma.shop.upsert({
           where: { shop: session.shop },
           update: { updatedAt: new Date() },
@@ -266,37 +263,15 @@ const shopify = shopifyApp({
             updatedAt: new Date(),
           },
         });
-
-        console.log("Shop setup completed for:", session.shop);
       } catch (error) {
         console.error("Error in afterAuth hook:", error);
-        // Don't throw to prevent auth loop, but log the error
       }
-
-      // Enhanced redirect strategy for embedded apps to prevent iframe issues
-      const request = (rest as any)?.request;
-      const host = (rest as any)?.host || (session as any)?.host || "";
-
-      // Check if this is an embedded context (has shop and host parameters)
-      if (!host) {
-        console.warn("Missing host parameter in afterAuth - using embedded-safe fallback");
-        const fallbackHost = Buffer.from(`admin.shopify.com/store/${session.shop.replace('.myshopify.com', '')}`).toString('base64');
-        console.log("Using base64 encoded fallback host for embedded context");
-        throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(fallbackHost)}`);
-      }
-
-      console.log("Redirecting to embedded app with host:", host);
-      throw redirect(`/app?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(host)}`);
+      throw redirect("/app?shop=" + encodeURIComponent(session.shop));
     },
   },
-  future: {
-    unstable_newEmbeddedAuthStrategy: true,
-  },
-  isEmbeddedApp: true,
-  embedded: true,
-  ...(process.env.SHOP_CUSTOM_DOMAIN
-    ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
-    : {}),
+  isEmbeddedApp: false,
+  embedded: false,
+  unstable_newEmbeddedAuthStrategy: false,
 });
 
 export default shopify;
