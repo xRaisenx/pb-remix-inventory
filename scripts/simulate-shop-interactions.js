@@ -283,6 +283,26 @@ async function simulateProductOperations(shop) {
       });
     }
     createdProducts.push(product);
+
+    // Create a variant for this product
+    const variantShopifyId = `${product.shopifyId}_variant`;
+    let variant = await prisma.variant.findUnique({ where: { shopifyId: variantShopifyId } });
+    if (!variant) {
+      await prisma.variant.create({
+        data: {
+          id: randomUUID(),
+          shopifyId: variantShopifyId,
+          title: product.title + ' Variant',
+          sku: product.sku ? product.sku + '-V' : undefined,
+          price: product.price,
+          inventoryQuantity: product.quantity,
+          inventoryItemId: variantShopifyId + '_inv',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          productId: product.id,
+        },
+      });
+    }
   }
 
   log(`Created ${createdProducts.length} products`, 'success');
