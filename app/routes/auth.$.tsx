@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useRouteError } from "@remix-run/react";
-import { authenticate, login } from "~/shopify.server";
+import { login } from "~/shopify.server";
 import { boundary } from "@shopify/shopify-app-remix/server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
