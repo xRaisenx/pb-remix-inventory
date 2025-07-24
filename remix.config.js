@@ -4,4 +4,5 @@ module.exports = {
     v2_meta: true,
     v2_normalizeFormMethod: true,
   },
+  outputFileTracingIgnores: ["**/*.md", "**/tests/**"],
 };

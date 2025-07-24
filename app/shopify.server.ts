@@ -287,7 +287,7 @@ const shopify = shopifyApp({
     : {}),
 });
 
-export default shopify;
+export default shopify as typeof shopifyApp;
 export const apiVersion = "2025-07";
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;

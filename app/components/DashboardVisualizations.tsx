@@ -8,6 +8,10 @@ interface DashboardVisualizationsProps {
 }
 
 export function DashboardVisualizations(_props: DashboardVisualizationsProps) {
+  const options = {
+    responsive: true,
+    // ...other Chart.js options
+  };
   return (
     <BlockStack gap="400">
       <Text variant="headingMd" as="h2">
