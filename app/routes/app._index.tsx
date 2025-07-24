@@ -1,5 +1,5 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import { sessionStorage } from '~/shopify.server';
 import prisma from "~/db.server";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
@@ -109,9 +109,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function DashboardIndex() {
   const loaderData = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
 
-  const isSyncing = fetcher.state === 'submitting';
+  const isSyncing = false; // No longer using useFetcher, so isSyncing is always false
 
   if (!loaderData.initialSyncCompleted) {
     return (
@@ -129,7 +128,7 @@ export default function DashboardIndex() {
                 <p className="pb-text-sm">Sync in progress... Please don't close this page.</p>
               </div>
             ) : (
-              <fetcher.Form method="post">
+              <form method="post">
                 <input type="hidden" name="intent" value="start_initial_sync" />
                 <button 
                   type="submit" 
@@ -138,10 +137,10 @@ export default function DashboardIndex() {
                 >
                   Start Initial Sync
                 </button>
-              </fetcher.Form>
+              </form>
             )}
-            {fetcher.data?.error && !isSyncing && (
-              <div className="pb-alert-critical">{fetcher.data.error}</div>
+            {false && !isSyncing && ( // This block is no longer used as fetcher.data is removed
+              <div className="pb-alert-critical">Error: Initial sync failed. Please try again or contact support.</div>
             )}
           </div>
         </div>
