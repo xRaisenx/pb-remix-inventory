@@ -110,6 +110,7 @@ function HtmlDocument({
         {title ? <title>{title}</title> : null}
         <Meta />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: "localStorage.theme === 'dark' && document.documentElement.classList.add('dark')" }} />
       </head>
       <body>
         {children}

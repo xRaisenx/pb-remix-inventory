@@ -1,9 +1,13 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/daily-analysis",
-      "schedule": "0 0 * * *"
+  "functions": {
+    "app/**/*.ts": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 30
     }
+  },
+  "crons": [
+    { "path": "/api/cron/sync-inventory", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/daily-analysis", "schedule": "0 0 * * *" }
   ],
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "build/client",

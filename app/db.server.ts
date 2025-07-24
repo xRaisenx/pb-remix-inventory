@@ -33,7 +33,9 @@ const createPrismaClient = () => {
         url: connectionUrl,
       },
     },
-    errorFormat: 'minimal'
+    errorFormat: 'minimal',
+    // Add lazyConnect for serverless
+    lazyConnect: true,
   });
 };
 

@@ -15,4 +15,16 @@ export const db = {
   transaction: <T>(cb: () => Promise<T>) => queuedWrite(cb),
 };
 
+// Singleton Redis client pattern (example, adjust if not using Redis)
+let redisClient: any;
+
+export function getRedisClient() {
+  if (!redisClient) {
+    // Replace with actual Redis client initialization
+    // Example: redisClient = new Redis(process.env.REDIS_URL);
+    redisClient = {};
+  }
+  return redisClient;
+}
+
 export default writeQueue;

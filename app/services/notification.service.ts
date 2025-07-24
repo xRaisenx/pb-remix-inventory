@@ -1,5 +1,10 @@
 import prisma from "~/db.server";
 import { NotificationChannel, NotificationStatus } from "@prisma/client";
+import twilio from "twilio";
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 // Comprehensive notification service with real implementations
 export interface NotificationConfig {

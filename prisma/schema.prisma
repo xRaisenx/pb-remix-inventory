@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -124,6 +125,8 @@ model Product {
   dimensions             String?
   lastUpdated            DateTime?        @default(now())
   lastUpdatedBy          String?
+  costCents              Int?             // Added for MoneyV2 normalization
+  sellCents              Int?             // Added for MoneyV2 normalization
   AnalyticsData          AnalyticsData[]
   DemandForecast         DemandForecast[]
   Inventory              Inventory[]

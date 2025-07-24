@@ -45,7 +45,9 @@
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
-    "verify:phase1": "node scripts/verify-phase1-fixes.js"
+    "verify:phase1": "node scripts/verify-phase1-fixes.js",
+    "test": "tsx scripts/test-suite/index.ts",
+    "test:autofix": "tsx scripts/test-suite/index.ts --fix"
   },
   "type": "module",
   "engines": {
@@ -77,6 +79,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "@remix-run/eslint-config": "^2.16.8",
     "@remix-run/route-config": "^2.16.8",
     "@shopify/api-codegen-preset": "^1.1.1",
@@ -90,10 +93,17 @@
     "@types/node": "^22.16.1",
     "@types/react": "^18.2.31",
     "@types/react-dom": "^18.2.14",
+    "@types/supertest": "^6.0.3",
+    "@upstash/ratelimit": "^2.0.5",
+    "@upstash/redis": "^1.35.1",
+    "bundlesize": "^0.18.2",
+    "esbuild-runner": "^2.2.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.0.1",
     "jest": "^29.7.0",
+    "openai": "^5.10.2",
     "prisma": "^6.11.1",
+    "supertest": "^7.1.4",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
     "vite": "^6.2.2",
