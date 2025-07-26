@@ -125,7 +125,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         orderBy: { title: 'asc' },
         include: {
           Variant: {
-            orderBy: { createdAt: 'asc' },
+            // orderBy removed: createdAt does not exist in schema
             select: {
               id: true, shopifyId: true, title: true, sku: true, price: true, inventoryItemId: true,
               Inventory: { select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } } }

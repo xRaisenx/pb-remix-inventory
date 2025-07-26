@@ -709,7 +709,7 @@ Just ask me anything about your inventory in natural language!`,
 }
 
 // Main AI query processing function
-async function processAIQuery(query: AIQuery): Promise<AIResponse> {
+export async function processAIQuery(query: AIQuery): Promise<AIResponse> {
   const startTime = Date.now();
   
   try {

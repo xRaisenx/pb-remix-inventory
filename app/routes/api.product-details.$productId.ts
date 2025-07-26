@@ -39,7 +39,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       where: { shopifyId: shopifyProductId },
       include: {
         Variant: {
-          orderBy: { createdAt: 'asc' },
           select: { id: true, shopifyId: true, title: true, sku: true, price: true, inventoryItemId: true, Inventory: { select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } } } }
         }
       },

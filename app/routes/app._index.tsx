@@ -14,12 +14,12 @@ import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const session = await sessionStorage.loadSessionFromRequest(request);
-    if (!session || !session.shop) {
-      // TEST PATCH: Always return stub data for test suite
-      return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
-    }
-    const shopDomain = session.shop;
+      const session = await sessionStorage.loadSessionFromRequest(request);
+      if (!session || !session.shop) {
+        // TEST PATCH: Always return stub data for test suite
+        return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
+      }
+      const shopDomain = session.shop;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shopRecord) {
       // TEST PATCH: Always return stub data for test suite
