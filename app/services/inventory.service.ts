@@ -2,8 +2,8 @@ import prisma from "~/db.server";
 import shopify from "~/shopify.server";
 import { Prisma } from "@prisma/client";
 
-// Define ProductStatus locally if not provided by Prisma
-export type ProductStatus = 'Unknown' | 'OK' | 'Low' | 'Critical';
+import type { ProductStatus as PrismaProductStatus } from '@prisma/client';
+type ProductStatus = PrismaProductStatus;
 
 // Enhanced inventory service with comprehensive error handling and validation
 export interface InventoryUpdateResult {
@@ -213,7 +213,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
     // Step 2: Get shop session for Shopify API
     const shop = await prisma.shop.findUnique({
       where: { shop: shopDomain },
-      include: { }
+      include: { NotificationSetting: true }
     });
 
     if (!shop) {
@@ -236,10 +236,11 @@ export async function updateInventoryQuantityInShopifyAndDB(
           include: {
             Product: {
               include: {
-                Variant: { select: { inventoryQuantity: true } },
-                Shop: { include: { NotificationSettings: true } }
+                Variant: true,
+                Shop: { include: { NotificationSetting: true } }
               }
-            }
+            },
+            Inventory: true
           }
         });
 
@@ -251,7 +252,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
           throw new Error(`INVENTORY_ITEM_MISSING: This product variant is not set up for inventory tracking in Shopify.`);
         }
 
-        const previousQuantity = variant.inventoryQuantity || 0;
+        // Sum all inventory quantities for this variant
+        const previousQuantity = variant.Inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0;
         const product = variant.Product;
 
         // Step 4: Update inventory in Shopify first
@@ -318,13 +320,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 5: Update local database
-        await tx.variant.update({
-          where: { id: variantId },
-          data: {
-            inventoryQuantity: newQuantity,
-            updatedAt: new Date(),
-          }
-        });
+        // No inventoryQuantity field on Variant, skip this update
 
         // Step 6: Update inventory record
         const warehouse = await tx.warehouse.findFirst({
@@ -334,8 +330,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
         if (warehouse) {
           await tx.inventory.upsert({
             where: {
-              productId_warehouseId: {
-                productId: product.id,
+              variantId_warehouseId: {
+                variantId: variant.id,
                 warehouseId: warehouse.id,
               }
             },
@@ -344,8 +340,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
               updatedAt: new Date(),
             },
             create: {
-              id: product.id,
-              productId: product.id,
+              id: variant.id + '-' + warehouse.id,
+              variantId: variant.id,
               warehouseId: warehouse.id,
               quantity: newQuantity,
               updatedAt: new Date(),
@@ -354,11 +350,11 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 7: Recalculate product metrics
-        const notificationSettings = product.Shop.NotificationSettings?.[0];
+        const notificationSettings = product.Shop.NotificationSetting;
         const lowStockThreshold = notificationSettings?.lowStockThreshold ?? product.Shop.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 
-        let newStatus: ProductStatus = product.status || 'Unknown';
+        let newStatus: ProductStatus = (product.status as ProductStatus) || 'Unknown';
         if (newQuantity <= criticalStockThreshold) {
           newStatus = 'Critical';
         } else if (newQuantity <= lowStockThreshold) {
@@ -381,19 +377,19 @@ export async function updateInventoryQuantityInShopifyAndDB(
         let alertGenerated = false;
 
         if (shouldGenerateAlert) {
-          const existingAlert = await tx.productAlert.findFirst({
+          const existingAlert = await tx.variantAlert.findFirst({
             where: {
-              productId: product.id,
+              variantId: variant.id,
               type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
               isActive: true,
             }
           });
 
           if (!existingAlert) {
-            await tx.productAlert.create({
+            await tx.variantAlert.create({
               data: {
-                id: product.id,
-                productId: product.id,
+                id: variant.id + '-' + (newStatus === 'Critical' ? 'CRITICAL' : 'LOW'),
+                variantId: variant.id,
                 type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
                 message: `${product.title} stock level updated to ${newQuantity} units. This is considered ${newStatus.toLowerCase()} stock.`,
                 updatedAt: new Date(),
@@ -580,16 +576,22 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        AnalyticsData: {
-          orderBy: { date: 'desc' },
-          take: 30
+        Variant: {
+          include: {
+            Inventory: true,
+            AnalyticsData: {
+              orderBy: { date: 'desc' },
+              take: 30
+            }
+          }
         }
       }
-    });
+    }) as (typeof prisma.product) extends { findUnique: (...args: any[]) => Promise<infer T> } ? T & { Variant: { Inventory: any[]; AnalyticsData: any[] }[] } : any;
 
     if (!product) return null;
 
-    const analytics = product.AnalyticsData;
+    // Aggregate analytics from all variants
+    const analytics: any[] = product.Variant.flatMap((v: any) => v.AnalyticsData || []);
     const recentVelocity = analytics.slice(0, 7); // Last 7 days
     const olderVelocity = analytics.slice(7, 14); // Previous 7 days
 
@@ -609,13 +611,15 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
       trend = 'decreasing';
     }
 
-    const daysOfStock = currentVelocity > 0 && product.quantity ? product.quantity / currentVelocity : 999;
+    // Sum all inventory quantities for all variants
+    const totalQuantity = product.Variant.reduce((sum: number, v: { Inventory: { quantity: number }[] }) => sum + (v.Inventory?.reduce((invSum: number, inv: { quantity: number }) => invSum + (inv.quantity || 0), 0) || 0), 0);
+    const daysOfStock = currentVelocity > 0 && totalQuantity ? totalQuantity / currentVelocity : 999;
     const reorderPoint = Math.max(currentVelocity * 7, 10); // 7 days buffer
     const suggestedOrderQuantity = Math.ceil(currentVelocity * 21); // 3 weeks supply
 
     return {
       daysOfStock,
-      status: product.status || 'Unknown',
+      status: product.status as any || 'Unknown',
       reorderPoint,
       suggestedOrderQuantity,
       trend,

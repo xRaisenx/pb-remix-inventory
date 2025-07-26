@@ -5,7 +5,7 @@ import { ProductStatus, type Product, type Variant } from '@prisma/client';
 // Define a precise type for the product data shape we are working with.
 // This combines the base Product type with the included Variant relation.
 type ProductWithVariants = Product & {
-  Variant: Pick<Variant, 'inventoryQuantity'>[];
+  Variant: (Variant & { Inventory: { quantity: number }[] })[];
 };
 
 interface ProductMetrics {
@@ -27,7 +27,8 @@ export function calculateProductMetrics(
 ): ProductMetrics {
   // FIX: Add explicit types for the 'reduce' callback parameters.
   const currentTotalInventory = product.Variant.reduce(
-    (sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0),
+    (sum: number, v: Variant & { Inventory: { quantity: number }[] }) =>
+      sum + (v.Inventory?.reduce((invSum: number, inv: { quantity: number }) => invSum + (inv.quantity || 0), 0) || 0),
     0
   );
   const salesVelocity = product.salesVelocityFloat ?? 0;
@@ -64,14 +65,14 @@ export function calculateProductMetrics(
 export async function updateAllProductMetricsForShop(shopId: string): Promise<{ success: boolean; message: string; updatedCount: number }> {
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
-    include: { NotificationSettings: true }
+    include: { NotificationSetting: true }
   });
 
   if (!shop) {
     return { success: false, message: `Shop with ID ${shopId} not found.`, updatedCount: 0 };
   }
 
-  const notificationSetting = shop.NotificationSettings?.[0];
+  const notificationSetting = shop.NotificationSetting;
   const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
 
   const shopSettings: ShopSettingsForMetrics = {
@@ -93,7 +94,7 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
     // the `as` assertion are no longer needed, leading to cleaner code.
     const productsInBatch: ProductWithVariants[] = await prisma.product.findMany({
       where: { shopId },
-      include: { Variant: { select: { inventoryQuantity: true } } },
+      include: { Variant: { include: { Inventory: true } } },
       take: BATCH_SIZE,
       skip: skip,
       orderBy: { id: 'asc' }

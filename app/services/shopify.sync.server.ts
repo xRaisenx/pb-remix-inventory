@@ -180,11 +180,11 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
         for (const variantEdge of sp.variants.edges) {
           const v = variantEdge.node;
           await prisma.variant.upsert({
-            where: { shopifyId: v.id }, // Assumes shopifyId is unique on Variant model
-            update: { title: v.title, sku: v.sku, price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id },
+            where: { shopifyId: v.id },
+            update: { title: v.title, sku: v.sku, price: parseFloat(v.price) || 0, inventoryItemId: v.inventoryItem?.id },
             create: {
               id: v.id, shopifyId: v.id, productId: productRecord.id, title: v.title, sku: v.sku,
-              price: parseFloat(v.price) || 0, inventoryQuantity: v.inventoryQuantity, inventoryItemId: v.inventoryItem?.id,
+              price: parseFloat(v.price) || 0, inventoryItemId: v.inventoryItem?.id,
               updatedAt: new Date(),
             },
           });
@@ -192,15 +192,14 @@ export async function syncProductsAndInventory(shopDomain: string, session: Sess
           if (v.inventoryItem?.inventoryLevels?.edges) {
             for (const levelEdge of v.inventoryItem.inventoryLevels.edges) {
               const invLevel = levelEdge.node;
-              const prismaWarehouseId = locationsMap.get(invLevel.location.id); // Get Prisma Warehouse ID
+              const prismaWarehouseId = locationsMap.get(invLevel.location.id);
               if (prismaWarehouseId) {
-                // Find the 'available' quantity from quantities array
                 const availableObj = invLevel.quantities.find(q => q.name === 'available');
                 const availableQty = availableObj ? availableObj.quantity : 0;
                 await prisma.inventory.upsert({
-                  where: { productId_warehouseId: { productId: productRecord.id, warehouseId: prismaWarehouseId } },
-                  update: { availableQuantity: availableQty },
-                  create: { id: productRecord.id, productId: productRecord.id, warehouseId: prismaWarehouseId, availableQuantity: availableQty, quantity: availableQty, updatedAt: new Date() },
+                  where: { variantId_warehouseId: { variantId: v.id, warehouseId: prismaWarehouseId } },
+                  update: { availableQuantity: availableQty, quantity: availableQty },
+                  create: { id: v.id + '-' + prismaWarehouseId, variantId: v.id, warehouseId: prismaWarehouseId, availableQuantity: availableQty, quantity: availableQty, updatedAt: new Date() },
                 });
               } else {
                 console.warn(`[Sync][${shopDomain}] Shopify Location GID ${invLevel.location.id} not found in local warehouse map for product ${sp.title}, variant ${v.sku}. Inventory for this location not synced.`);

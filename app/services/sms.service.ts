@@ -176,7 +176,7 @@ class SMSService {
           recipient: message.to,
           message: message.message,
           status,
-          productId: message.productId,
+          variantId: message.productId,
           productTitle: message.productTitle,
           alertType: message.alertType,
           alertId: message.alertId,

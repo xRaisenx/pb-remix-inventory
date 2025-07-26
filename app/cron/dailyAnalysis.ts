@@ -13,7 +13,7 @@ export async function runDailyTasks() {
   const shops = await prisma.shop.findMany({
     // where: { accessToken: { not: null } }, // Original condition
     where: { initialSyncCompleted: true }, // Only run for shops that have completed the initial sync.
-    include: { NotificationSettings: true },
+    include: { NotificationSetting: true },
   });
 
   if (shops.length === 0) {

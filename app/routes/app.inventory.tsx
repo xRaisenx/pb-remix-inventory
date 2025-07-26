@@ -74,22 +74,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const productToUpdate = await prisma.product.findUnique({
         where: { id: updatedVariant.productId },
         include: {
-          Variant: { select: { inventoryQuantity: true } },
-          Shop: { include: { NotificationSettings: true } }
+          Variant: {
+            include: {
+              Inventory: true,
+            },
+          },
+          Shop: { include: { NotificationSetting: true } }
         }
       });
 
       if (productToUpdate) {
-        const notificationSetting = productToUpdate.Shop.NotificationSettings?.[0];
+        const notificationSetting = productToUpdate.Shop.NotificationSetting;
         const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.Shop.lowStockThreshold ?? 10;
         const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
         const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
         const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
 
         const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
+        // Build ProductWithVariants type for metrics calculation
         const productWithVariantsForCalc = {
           ...productToUpdate,
-          variants: productToUpdate.Variant.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
+          Variant: productToUpdate.Variant.map((v: any) => ({
+            ...v,
+            inventoryQuantity: v.Inventory.reduce((sum: number, inv: any) => sum + (inv.quantity || 0), 0)
+          })),
         };
 
         const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);
@@ -120,41 +128,41 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       return json({ inventoryList: [], warehouses: [], error: "Shop not found." }, { status: 404 });
     }
 
-    const [inventoryRecordsFromDB, warehousesFromDB] = await Promise.all([
-      prisma.inventory.findMany({
-        where: { Warehouse: { shopId: shop.id } },
+    const [productsFromDB, warehousesFromDB] = await Promise.all([
+      prisma.product.findMany({
+        where: { shopId: shop.id },
         include: {
-          Product: {
-            select: {
-              id: true,
-              title: true,
-              shopifyId: true,
-              Variant: {
-                select: { id: true, shopifyId: true, inventoryItemId: true, sku: true, title: true, price: true, inventoryQuantity: true },
-                orderBy: { createdAt: 'asc' },
-                take: 1
-              }
-            }
+          Variant: {
+            include: {
+              Inventory: true,
+            },
           },
-          Warehouse: { select: { id: true, name: true, shopifyLocationGid: true } },
         },
-        orderBy: [{ Product: { title: 'asc' } }, { Warehouse: { name: 'asc' } }]
+        orderBy: { title: 'asc' },
       }),
       prisma.warehouse.findMany({ where: { shopId: shop.id }, select: { id: true, name: true, shopifyLocationGid: true } })
     ]);
 
-    const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map((inv: any) => ({
-      id: inv.id,
-      warehouseId: inv.Warehouse.id,
-      warehouseName: inv.Warehouse.name,
-      warehouseShopifyLocationGid: inv.Warehouse.shopifyLocationGid,
-      productId: inv.Product.id,
-      productTitle: inv.Product.title,
-      quantity: inv.quantity,
-      productShopifyId: inv.Product.shopifyId,
-      variantShopifyId: inv.Product.Variant?.[0]?.shopifyId ?? '',
-      inventoryItemId: inv.Product.Variant?.[0]?.inventoryItemId ?? null,
-    }));
+    // Flatten product/variant/inventory into InventoryRecord[]
+    const inventoryList: InventoryRecord[] = [];
+    for (const product of productsFromDB) {
+      for (const variant of product.Variant) {
+        for (const inv of variant.Inventory) {
+          inventoryList.push({
+            id: inv.id,
+            warehouseId: inv.warehouseId,
+            warehouseName: warehousesFromDB.find(w => w.id === inv.warehouseId)?.name || '',
+            warehouseShopifyLocationGid: warehousesFromDB.find(w => w.id === inv.warehouseId)?.shopifyLocationGid || null,
+            productId: product.id,
+            productTitle: product.title,
+            quantity: inv.quantity,
+            productShopifyId: product.shopifyId,
+            variantShopifyId: variant.shopifyId,
+            inventoryItemId: variant.inventoryItemId,
+          });
+        }
+      }
+    }
 
     return json({ inventoryList, warehouses: warehousesFromDB, lowStockThreshold: shop.lowStockThreshold });
   } catch (error) {

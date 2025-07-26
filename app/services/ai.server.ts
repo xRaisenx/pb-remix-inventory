@@ -1,5 +1,5 @@
 // app/services/ai.server.ts
-// import prisma from "~/lib/prisma.server.ts";
+import prisma from "../db.server";
 import type { Prisma } from "@prisma/client";
 
 // Enhanced AI service with improved intent parsing and error handling
@@ -241,7 +241,7 @@ function validateAIQuery(query: AIQuery): { isValid: boolean; errors: string[] }
 }
 
 interface StockCheckProductVariant {
-  inventoryQuantity: number | null;
+  quantity: number | null;
   sku: string | null;
 }
 
@@ -254,7 +254,7 @@ interface StockCheckProduct {
 }
 
 interface LowStockProductVariant {
-  inventoryQuantity: number | null;
+  quantity: number | null;
   sku: string | null;
 }
 
@@ -266,7 +266,7 @@ interface LowStockProduct {
 }
 
 interface ProductSearchProductVariant {
-  inventoryQuantity: number | null;
+  quantity: number | null;
   price: string | null;
   sku: string | null;
 }
@@ -295,14 +295,12 @@ interface TrendingProduct {
 async function handleStockCheck(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
     // Optimized query with selective fields and proper indexing
-    const products: StockCheckProduct[] = await prisma.product.findMany({
+    const products: any[] = await prisma.product.findMany({
       where: {
-        shopId, // Uses @@index([shopId])
+        shopId,
         ...(entities.productNames.length > 0 && {
           title: {
-            in: entities.productNames.map((name: string) => 
-              name.toLowerCase()
-            ),
+            in: entities.productNames.map((name: string) => name.toLowerCase()),
             mode: 'insensitive'
           }
         }),
@@ -312,19 +310,12 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
           }
         })
       },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        quantity: true,
+      include: {
         Variant: {
-          select: {
-            inventoryQuantity: true,
-            sku: true
-          }
+          include: { Inventory: true }
         }
       },
-      orderBy: { quantity: 'asc' },
+      orderBy: { id: 'asc' },
       take: 10
     });
 
@@ -343,7 +334,7 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
 
     const stockInfo = products.map(product => ({
       title: product.title,
-      quantity: product.Variant.reduce((sum: number, v: StockCheckProductVariant) => sum + (v.inventoryQuantity || 0), 0 as number),
+      quantity: product.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0),
       status: product.status,
       sku: product.Variant[0]?.sku || 'N/A'
     }));
@@ -391,27 +382,21 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
 async function handleLowStockQuery(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
     // Optimized query with status index and selective fields
-    const lowStockProducts: LowStockProduct[] = await prisma.product.findMany({
+    const lowStockProducts: any[] = await prisma.product.findMany({
       where: {
-        shopId, // Uses @@index([shopId])
-        status: { // Uses @@index([status])
+        shopId,
+        status: {
           in: ['Low', 'Critical', 'OutOfStock']
         }
       },
-      select: {
-        id: true,
-        title: true,
-        status: true,
+      include: {
         Variant: {
-          select: {
-            inventoryQuantity: true,
-            sku: true
-          }
+          include: { Inventory: true }
         }
       },
       orderBy: [
-        { status: 'desc' }, // Critical first
-        { quantity: 'asc' }
+        { status: 'desc' },
+        { id: 'asc' }
       ],
       take: 20
     });
@@ -438,8 +423,8 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
 
     message += `\n**Products needing attention**:\n\n`;
 
-    lowStockProducts.slice(0, 10).forEach((product: LowStockProduct) => {
-      const totalQuantity = product.Variant.reduce((sum: number, v: LowStockProductVariant) => sum + (v.inventoryQuantity || 0), 0 as number);
+    lowStockProducts.slice(0, 10).forEach((product: any) => {
+      const totalQuantity = product.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0);
       const statusEmoji = {
         'Critical': '🔴',
         'Low': '⚠️',
@@ -470,10 +455,10 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
       message,
       data: {
         summary: { critical: criticalCount, low: lowCount, outOfStock: outOfStockCount },
-        products: lowStockProducts.map((p: LowStockProduct) => ({
+        products: lowStockProducts.map((p: any) => ({
           id: p.id,
           title: p.title,
-          quantity: p.Variant.reduce((sum: number, v: LowStockProductVariant) => sum + (v.inventoryQuantity || 0), 0),
+          quantity: p.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0),
           status: p.status
         }))
       },
@@ -531,11 +516,7 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
       },
       include: {
         Variant: {
-          select: {
-            inventoryQuantity: true,
-            price: true,
-            sku: true
-          }
+          include: { Inventory: true }
         }
       },
       take: 15
@@ -555,10 +536,10 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
 
     let message = `🔍 Found ${products.length} product${products.length !== 1 ? 's' : ''} matching your search:\n\n`;
 
-    products.forEach((product: ProductSearchProduct) => {
-      const totalQuantity = product.Variant.reduce((sum: number, v: ProductSearchProductVariant) => sum + (v.inventoryQuantity || 0), 0);
+    products.forEach((product: any) => {
+      const totalQuantity = product.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0);
       const avgPrice = product.Variant.length > 0
-        ? product.Variant.reduce((sum: number, v: ProductSearchProductVariant) => sum + Number(v.price || 0), 0) / product.Variant.length
+        ? product.Variant.reduce((sum: number, v: any) => sum + Number(v.price || 0), 0) / product.Variant.length
         : 0;
       
       const statusEmoji = {
@@ -571,7 +552,6 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
 
       message += `${statusEmoji} **${product.title}**\n`;
       message += `   Stock: ${totalQuantity} units | Price: $${avgPrice.toFixed(2)}\n`;
-      // FIX: Use 'product.vendor' which is in scope
       if (product.vendor) message += `   Brand: ${product.vendor}\n`;
       message += `\n`;
     });
@@ -579,14 +559,14 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
     return {
       message,
       // FIX: Add type to 'p' and use 'p' instead of 'product' inside the map
-      data: products.map((p: ProductSearchProduct) => ({
+      data: products.map((p: any) => ({
         id: p.id,
         title: p.title,
         vendor: p.vendor,
-        quantity: p.Variant.reduce((sum: number, v: ProductSearchProductVariant) => sum + (v.inventoryQuantity || 0), 0),
+        quantity: p.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0),
         status: p.status,
         avgPrice: p.Variant.length > 0
-          ? p.Variant.reduce((sum: number, v: ProductSearchProductVariant) => sum + Number(v.price || 0), 0) / p.Variant.length
+          ? p.Variant.reduce((sum: number, v: any) => sum + Number(v.price || 0), 0) / p.Variant.length
           : 0
       })),
       suggestions: [
@@ -618,9 +598,13 @@ async function handleTrendingQuery(entities: any, shopId: string): Promise<Parti
         ]
       },
       include: {
-        AnalyticsData: {
-          orderBy: { date: 'desc' },
-          take: 7 // Last 7 days
+        Variant: {
+          include: {
+            AnalyticsData: {
+              orderBy: { date: 'desc' },
+              take: 7
+            }
+          }
         }
       },
       orderBy: [
@@ -643,8 +627,11 @@ async function handleTrendingQuery(entities: any, shopId: string): Promise<Parti
 
     let message = `🔥 **Trending Products** (Top ${trendingProducts.length}):\n\n`;
 
-    trendingProducts.forEach((product: TrendingProduct, index: number) => {
-      const recentSales = product.AnalyticsData.reduce((sum: number, data: TrendingProductAnalyticsData) => sum + (data.unitsSold || 0), 0);
+    trendingProducts.forEach((product: any, index: number) => {
+      // Aggregate recent sales across all variants
+      const recentSales = product.Variant?.reduce((sum: number, variant: any) => {
+        return sum + (variant.AnalyticsData?.reduce((vSum: number, data: any) => vSum + (data.unitsSold || 0), 0) || 0);
+      }, 0) || 0;
       const velocity = product.salesVelocityFloat || 0;
       
       const trendEmoji = velocity > 10 ? '🚀' : velocity > 5 ? '📈' : '📊';
@@ -658,12 +645,14 @@ async function handleTrendingQuery(entities: any, shopId: string): Promise<Parti
     // FIX: The entire return object was malformed. This is the correct structure.
     return {
       message,
-      data: trendingProducts.map((p: TrendingProduct) => ({
+      data: trendingProducts.map((p: any) => ({
         id: p.id,
         title: p.title,
         salesVelocity: p.salesVelocityFloat,
         trending: p.trending,
-        recentSales: p.AnalyticsData.reduce((sum: number, data: TrendingProductAnalyticsData) => sum + (data.unitsSold || 0), 0)
+        recentSales: p.Variant?.reduce((sum: number, variant: any) => {
+          return sum + (variant.AnalyticsData?.reduce((vSum: number, data: any) => vSum + (data.unitsSold || 0), 0) || 0);
+        }, 0) || 0
       })),
       suggestions: [
         "Increase inventory for trending items",
