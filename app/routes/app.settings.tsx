@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import Settings, { type NotificationSettingsType } from "~/components/Settings";
 import { INTENT } from "~/utils/intents";
+import type { PrismaClient } from "@prisma/client";
 
 // TypeScript Interfaces for the route
 interface LoaderData {
@@ -184,7 +185,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
        const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx) => {
+       await prisma.$transaction(async (tx: PrismaClient) => {
          // Update shop-level settings
          await tx.shop.update({
            where: { id: shopRecord.id },

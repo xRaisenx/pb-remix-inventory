@@ -2,12 +2,12 @@
 
 import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
-import type { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { stringify } from "csv-stringify/sync";
 import React, { useState } from "react";
+import type { Decimal } from "@prisma/client/runtime/library";
 
 // TypeScript Interfaces
 interface ReportProductSummary {
@@ -19,7 +19,7 @@ interface ReportProductSummary {
   stockoutDays: number | null;
   salesVelocityFloat: number | null;
   Variant: Array<{
-    price: Prisma.Decimal | null;
+    price: Decimal | null;
     inventoryQuantity: number | null;
   }>;
 }
@@ -77,24 +77,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let productsWithSalesVelocity = 0;
     const inventoryByCategoryMap = new Map<string, number>();
 
-    productsForSummary.forEach((p: ReportProductSummary) => {
-      p.Variant.forEach((v: { price: Prisma.Decimal | null; inventoryQuantity: number | null }) => {
+    productsForSummary.forEach((product: ReportProductSummary) => {
+      product.Variant.forEach((v: { price: Decimal | null; inventoryQuantity: number | null }) => {
         if (v.price && v.inventoryQuantity) {
           totalInventoryValue += Number(v.price) * v.inventoryQuantity;
         }
-        const category = p.category || 'Uncategorized';
+        const category = product.category || 'Uncategorized';
         const currentCategoryQty = inventoryByCategoryMap.get(category) || 0;
         inventoryByCategoryMap.set(category, currentCategoryQty + (v.inventoryQuantity || 0));
       });
 
-      if (p.status === 'Low') lowStockCount++;
-      if (p.status === 'Critical') criticalStockCount++;
-      if (p.stockoutDays !== null && p.stockoutDays > 0 && isFinite(p.stockoutDays)) {
-        totalStockoutDays += p.stockoutDays;
+      if (product.status === 'Low') lowStockCount++;
+      if (product.status === 'Critical') criticalStockCount++;
+      if (product.stockoutDays !== null && product.stockoutDays > 0 && isFinite(product.stockoutDays)) {
+        totalStockoutDays += product.stockoutDays;
         productsWithStockoutDays++;
       }
-      if (p.salesVelocityFloat !== null) {
-        totalSalesVelocity += p.salesVelocityFloat;
+      if (product.salesVelocityFloat !== null) {
+        totalSalesVelocity += product.salesVelocityFloat;
         productsWithSalesVelocity++;
       }
     });
@@ -108,7 +108,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         .filter(p => p.trending)
         .sort((a, b) => (b.salesVelocityFloat || 0) - (a.salesVelocityFloat || 0))
         .slice(0, 3)
-        .map(p => ({ title: p.title, salesVelocityFloat: p.salesVelocityFloat })),
+        .map(product => ({ title: product.title, salesVelocityFloat: product.salesVelocityFloat })),
       averageStockoutDays: productsWithStockoutDays > 0 ? parseFloat((totalStockoutDays / productsWithStockoutDays).toFixed(1)) : 0,
       inventoryByCategory: Array.from(inventoryByCategoryMap)
         .map(([category, totalQuantity]: [string, number]) => ({ category, totalQuantity }))
@@ -165,7 +165,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       "Last Restocked Date", "Warehouse Location(s)"
     ];
 
-    const csvRows = products.map(product => {
+    const csvRows = products.map((product: any) => {
       const totalInventory = product.Variant.reduce((sum: number, v: { inventoryQuantity: number | null }) => sum + (v.inventoryQuantity || 0), 0);
       const warehouseNames = [...new Set(product.Inventory
         .filter((inv: { quantity: number; Warehouse: { name: string } }) => inv.quantity > 0)

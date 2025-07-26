@@ -3,6 +3,27 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import type { ProductForTable } from "~/routes/app.products"; // Import the target type
+import type { Decimal } from "@prisma/client/runtime/library";
+
+// Define a type for the selected inventory fields
+type SelectedInventory = {
+    quantity: number;
+    warehouseId: string;
+    Warehouse: {
+        shopifyLocationGid: string | null;
+    } | null;
+};
+
+// Define a type for the selected variant fields
+type SelectedVariant = {
+    id: string;
+    shopifyId: string | null;
+    title: string | null;
+    sku: string | null;
+    price: Decimal | null;
+    inventoryQuantity: number | null;
+    inventoryItemId: string | null;
+};
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await authenticate.admin(request); // Ensures the request is authenticated
@@ -35,10 +56,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
     // Construct the full ProductForTable object, similar to the app.products loader
     // This logic should ideally be shared or kept consistent with how ProductForTable is constructed elsewhere.
-    const totalInventory = productFromDB.Inventory.reduce((sum, inv) => sum + inv.quantity, 0);
+    const totalInventory = productFromDB.Inventory.reduce((sum: number, inv: SelectedInventory) => sum + inv.quantity, 0);
     const firstVariant = productFromDB.Variant?.[0];
 
-    const inventoryByLocation = productFromDB.Inventory.reduce((acc, inv) => {
+    const inventoryByLocation = productFromDB.Inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv: SelectedInventory) => {
       // Ensure warehouse and shopifyLocationGid exist to prevent runtime errors
       if (inv.Warehouse && inv.Warehouse.shopifyLocationGid) {
         acc[inv.warehouseId] = {
@@ -66,7 +87,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       salesVelocity: productFromDB.salesVelocityFloat, // From Prisma model
       stockoutDays: productFromDB.stockoutDays,       // From Prisma model
       status: productFromDB.status,                   // From Prisma model
-      variantsForModal: productFromDB.Variant.map(v => ({
+      variantsForModal: productFromDB.Variant.map((v: SelectedVariant) => ({
         id: v.id, // Prisma Variant ID
         shopifyVariantId: v.shopifyId ?? '', // Shopify Variant GID
         title: v.title ?? v.sku ?? 'Variant', // Fallback for variant title

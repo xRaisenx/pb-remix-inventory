@@ -2,12 +2,18 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { ProductStatus } from "@prisma/client";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { useState, useMemo } from "react";
-import type { NotificationLog as PrismaNotificationLog } from "@prisma/client";
 
-type NotificationLog = PrismaNotificationLog | {
+enum ProductStatus {
+  Unknown = "Unknown",
+  OK = "OK",
+  Low = "Low",
+  Critical = "Critical",
+  OutOfStock = "OutOfStock"
+}
+
+interface NotificationLog {
   id: string;
   createdAt: Date;
   channel: string;
@@ -15,7 +21,7 @@ type NotificationLog = PrismaNotificationLog | {
   productTitle: string | null;
   message: string;
   status: string;
-};
+}
 
 interface AlertItem {
   id: string;

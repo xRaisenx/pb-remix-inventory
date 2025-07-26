@@ -4,51 +4,55 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+// Tracks sales and performance data for a specific product variant.
 model AnalyticsData {
   id            String   @id
-  productId     String
+  variantId     String
   date          DateTime
   unitsSold     Int?
   revenue       Float?
   orders        Int?
   salesVelocity Float?
   createdAt     DateTime @default(now())
-  updatedAt     DateTime
-  Product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatedAt     DateTime @updatedAt
+  Variant       Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@index([date])
-  @@index([productId])
+  @@index([variantId])
 }
 
+// Stores demand predictions for a specific product variant.
 model DemandForecast {
   id              String   @id
-  productId       String
+  variantId       String
   predictedDemand Float
   periodDays      Int
   confidenceScore Float
   createdAt       DateTime @default(now())
-  Product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime @updatedAt // FIX: Added for consistency
+  Variant         Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
-  @@index([productId])
+  @@index([variantId])
 }
 
+// Manages inventory stock for a specific variant in a specific warehouse.
 model Inventory {
   id                String    @id
   quantity          Int
   warehouseId       String
-  productId         String
+  variantId         String
   createdAt         DateTime  @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime  @updatedAt
   availableQuantity Int?
-  Product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Variant           Variant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
   Warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, warehouseId])
+  @@unique([variantId, warehouseId])
 }
 
 model NotificationLog {
@@ -58,11 +62,11 @@ model NotificationLog {
   recipient    String?
   message      String
   status       NotificationStatus
-  productId    String?
+  variantId    String?
   productTitle String?
   alertType    String?
   createdAt    DateTime            @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime            @updatedAt
   errorMessage String?
   subject      String?
   Shop         Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
@@ -75,9 +79,10 @@ model NotificationLog {
   @@index([shopId])
 }
 
+// Manages notification settings for a shop. Each shop has exactly one.
 model NotificationSetting {
   id                          String   @id
-  shopId                      String
+  shopId                      String   @unique // FIX: Ensures one-to-one relation with Shop
   email                       Boolean  @default(false)
   slack                       Boolean  @default(false)
   telegram                    Boolean  @default(false)
@@ -93,59 +98,50 @@ model NotificationSetting {
   criticalStockoutDays        Int?
   syncEnabled                 Boolean  @default(false)
   createdAt                   DateTime @default(now())
-  updatedAt                   DateTime
+  updatedAt                   DateTime @updatedAt
   Shop                        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 }
 
 model Product {
-  id                     String           @id
-  shopifyId              String           @unique
-  title                  String
-  vendor                 String
-  productType            String?
-  status                 ProductStatus?   @default(Unknown)
-  trending               Boolean?         @default(false)
-  salesVelocityFloat     Float?
-  stockoutDays           Float?
-  lastRestockedDate      DateTime?
-  category               String?
-  tags                   String[]
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime
-  shopId                 String
-  handle                 String?
-  quantity               Int?             @default(0)
-  shopifyInventoryItemId String?
-  price                  Decimal?         @default(0) @db.Decimal(10, 2)
-  sku                    String?
-  imageUrl               String?
-  description            String?
-  weight                 Float?
-  dimensions             String?
-  lastUpdated            DateTime?        @default(now())
-  lastUpdatedBy          String?
-  AnalyticsData          AnalyticsData[]
-  DemandForecast         DemandForecast[]
-  Inventory              Inventory[]
-  Shop                   Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  ProductAlert           ProductAlert[]
-  Variant                Variant[]
+  id                 String    @id
+  shopifyId          String    @unique
+  title              String
+  vendor             String
+  productType        String?
+  handle             String?
+  description        String?
+  imageUrl           String?
+  tags               String[]
+  shopId             String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastUpdatedBy      String?
+  status             ProductStatus? @default(Unknown)
+  trending           Boolean?  @default(false)
+  salesVelocityFloat Float?
+  stockoutDays       Float?
+  lastRestockedDate  DateTime?
+  category           String?
+  Shop               Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  Variant            Variant[]
 
   @@index([shopId])
+  @@index([status])
 }
 
-model ProductAlert {
+// Alerts specific to a product variant (e.g., low stock).
+model VariantAlert {
   id        String   @id
-  productId String
+  variantId String
   type      String
   message   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  Product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+  Variant   Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
-  @@index([productId])
+  @@index([variantId])
 }
 
 model Session {
@@ -157,44 +153,51 @@ model Session {
   expires     DateTime?
   accessToken String
   userId      BigInt?
+  createdAt   DateTime  @default(now()) // FIX: Added for consistency
+  updatedAt   DateTime  @updatedAt      // FIX: Added for consistency
   Shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId])
 }
 
 model Shop {
-  id                         String                @id
-  shop                       String                @unique
+  id                         String                 @id
+  shop                       String                 @unique
   emailForNotifications      String?
   slackWebhookUrl            String?
   telegramBotToken           String?
   telegramChatId             String?
   whatsAppApiCredentialsJson String?
-  lowStockThreshold          Int?                  @default(10)
-  initialSyncCompleted       Boolean               @default(false)
-  createdAt                  DateTime              @default(now())
-  updatedAt                  DateTime
-  criticalStockThreshold     Int?                  @default(5)
-  highDemandThreshold        Float?                @default(50.0)
+  lowStockThreshold          Int?                   @default(10)
+  initialSyncCompleted       Boolean                @default(false)
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  criticalStockThreshold     Int?                   @default(5)
+  highDemandThreshold        Float?                 @default(50.0)
   NotificationLog            NotificationLog[]
-  NotificationSettings       NotificationSetting[]
+  NotificationSetting        NotificationSetting?   // FIX: Changed to a one-to-one relation
   Product                    Product[]
-  Session                    Session[]
   Warehouse                  Warehouse[]
+  Session                    Session[]
 }
 
 model Variant {
-  id                String   @id
-  shopifyId         String   @unique
-  title             String?
-  sku               String?
-  price             Decimal?
-  inventoryQuantity Int?
-  inventoryItemId   String?  @unique
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime
-  productId         String
-  Product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id              String           @id
+  shopifyId       String           @unique
+  productId       String
+  title           String?
+  sku             String?
+  price           Decimal          @db.Decimal(10, 2)
+  inventoryItemId String?          @unique
+  weight          Float?
+  dimensions      String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  Product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  AnalyticsData   AnalyticsData[]
+  DemandForecast  DemandForecast[]
+  Inventory       Inventory[]
+  VariantAlert    VariantAlert[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -207,9 +210,9 @@ model Warehouse {
   shopifyLocationGid String?     @unique
   shopId             String
   createdAt          DateTime    @default(now())
-  updatedAt          DateTime
-  Inventory          Inventory[]
+  updatedAt          DateTime    @updatedAt
   Shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  Inventory          Inventory[]
 
   @@unique([shopId, name])
 }

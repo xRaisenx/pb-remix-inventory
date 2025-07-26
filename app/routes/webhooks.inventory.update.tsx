@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { calculateProductMetrics } from "~/services/product.service";
+import type { PrismaClient } from "@prisma/client";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
@@ -37,7 +38,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const locationGid = `gid://shopify/Location/${inventoryData.location_id}`;
 
     // Update inventory in local database with transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaClient) => {
       // Find the variant associated with this inventory item
       const variant = await tx.variant.findFirst({
         where: { inventoryItemId: inventoryItemGid },

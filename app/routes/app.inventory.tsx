@@ -143,7 +143,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       prisma.warehouse.findMany({ where: { shopId: shop.id }, select: { id: true, name: true, shopifyLocationGid: true } })
     ]);
 
-    const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map(inv => ({
+    const inventoryList: InventoryRecord[] = inventoryRecordsFromDB.map((inv: any) => ({
       id: inv.id,
       warehouseId: inv.Warehouse.id,
       warehouseName: inv.Warehouse.name,

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import type { PrismaClient } from "@prisma/client";
 
 import { calculateProductMetrics } from "~/services/product.service";
 
@@ -44,7 +45,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Create product in local database with transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaClient) => {
       // Create product
       const product = await tx.product.create({
         data: {

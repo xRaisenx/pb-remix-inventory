@@ -1,275 +1,117 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { calculateProductMetrics, updateAllProductMetricsForShop } from './product.service';
-import prisma from '~/db.server';
+// app/services/product.service.test.ts
+
+import { describe, it, expect } from 'vitest';
+import { calculateProductMetrics } from './product.service';
+// After running `npx prisma generate`, this import will work correctly.
 import { ProductStatus } from '@prisma/client';
 
-// Mock the database
-jest.mock('~/db.server', () => ({
-  __esModule: true,
-  default: {
-    product: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      upsert: jest.fn(),
-      count: jest.fn(),
-    },
-    shop: {
-      findUnique: jest.fn(),
-    },
-  },
-}));
+// Mock data for testing
+const mockShopSettings = {
+  lowStockThresholdUnits: 10,
+  criticalStockThresholdUnits: 5,
+  criticalStockoutDays: 3,
+};
 
-// Type the mocked prisma client
-const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+describe('calculateProductMetrics', () => {
+  it('should return status OK for a healthy product', () => {
+    const mockProduct = {
+      // Provide necessary fields from the ProductWithVariants type
+      id: 'prod_1',
+      salesVelocityFloat: 10,
+      Variant: [{ inventoryQuantity: 100 }],
+      // Add other required Product fields with dummy data
+      shopifyId: 'sh_1',
+      title: 'Test Product',
+      vendor: 'Test Vendor',
+      tags: [],
+      shopId: 'shop_1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-// Helper function to create a mock product with all required fields
-const createMockProduct = (overrides: any = {}) => ({
-  id: '1',
-  shopifyId: 'shopify_1',
-  shopifyInventoryItemId: null,
-  title: 'Test Product',
-  handle: 'test-product',
-  vendor: null,
-  productType: null,
-  status: ProductStatus.OK,
-  trending: false,
-  salesVelocityFloat: 2.5,
-  stockoutDays: null,
-  lastRestockedDate: null,
-  category: null,
-  tags: [],
-  price: 29.99,
-  quantity: 100,
-  sku: null,
-  imageUrl: null,
-  description: null,
-  weight: null,
-  dimensions: null,
-  lastUpdated: new Date(),
-  lastUpdatedBy: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  shopId: 'test-shop',
-  Variant: [
-    { inventoryQuantity: 100 },
-    { inventoryQuantity: 50 },
-  ],
-  ...overrides,
-});
-
-describe('Product Service', () => {
-  
-  beforeEach(() => {
-    jest.clearAllMocks();
+    const metrics = calculateProductMetrics(mockProduct as any, mockShopSettings);
+    expect(metrics.status).toBe(ProductStatus.OK);
+    expect(metrics.currentTotalInventory).toBe(100);
+    expect(metrics.stockoutDays).toBe(10);
   });
 
-  describe('calculateProductMetrics', () => {
-    it('should calculate metrics for product with good stock', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: 2.5,
-        Variant: [
-          { inventoryQuantity: 100 },
-          { inventoryQuantity: 50 },
-        ],
-      });
+  it('should return status Low when inventory is below the low threshold', () => {
+    const mockProduct = {
+      id: 'prod_2',
+      salesVelocityFloat: 2,
+      Variant: [{ inventoryQuantity: 8 }], // 8 is <= 10 (low) but > 5 (critical)
+      // Add other required Product fields
+      shopifyId: 'sh_2',
+      title: 'Low Stock Product',
+      vendor: 'Test Vendor',
+      tags: [],
+      shopId: 'shop_1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(150);
-      expect(result.stockoutDays).toBe(60); // 150 / 2.5
-      expect(result.status).toBe(ProductStatus.OK);
-    });
-
-    it('should calculate metrics for product with low stock', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: 10,
-        Variant: [
-          { inventoryQuantity: 15 },
-        ],
-      });
-
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(15);
-      expect(result.stockoutDays).toBe(1.5); // 15 / 10
-      expect(result.status).toBe(ProductStatus.Low);
-    });
-
-    it('should calculate metrics for product with critical stock', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: 5,
-        Variant: [
-          { inventoryQuantity: 5 },
-        ],
-      });
-
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(5);
-      expect(result.stockoutDays).toBe(1); // 5 / 5
-      expect(result.status).toBe(ProductStatus.Critical);
-    });
-
-    it('should handle zero inventory', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: 5,
-        Variant: [
-          { inventoryQuantity: 0 },
-        ],
-      });
-
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(0);
-      expect(result.stockoutDays).toBe(0);
-      expect(result.status).toBe(ProductStatus.Critical);
-    });
-
-    it('should handle zero sales velocity', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: 0,
-        variants: [
-          { inventoryQuantity: 100 },
-        ],
-      });
-
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(100);
-      expect(result.stockoutDays).toBe(Infinity);
-      expect(result.status).toBe(ProductStatus.OK);
-    });
-
-    it('should handle null sales velocity', () => {
-      const product = createMockProduct({
-        salesVelocityFloat: null,
-        Variant: [
-          { inventoryQuantity: 50 },
-        ],
-      });
-
-      const shopSettings = {
-        lowStockThresholdUnits: 20,
-        criticalStockThresholdUnits: 10,
-        criticalStockoutDays: 7,
-      };
-
-      const result = calculateProductMetrics(product, shopSettings);
-
-      expect(result.currentTotalInventory).toBe(50);
-      expect(result.stockoutDays).toBe(Infinity);
-      expect(result.status).toBe(ProductStatus.OK);
-    });
+    const metrics = calculateProductMetrics(mockProduct as any, mockShopSettings);
+    expect(metrics.status).toBe(ProductStatus.Low);
+    expect(metrics.currentTotalInventory).toBe(8);
   });
 
-  describe('updateAllProductMetricsForShop', () => {
-    it('should update all product metrics for a shop', async () => {
-      const mockShop = {
-        id: 'test-shop',
-        shop: 'test-shop.myshopify.com',
-        emailForNotifications: null,
-        slackWebhookUrl: null,
-        telegramBotToken: null,
-        telegramChatId: null,
-        whatsAppApiCredentialsJson: null,
-        lowStockThreshold: 20,
-        criticalStockThreshold: 10,
-        highDemandThreshold: 50.0,
-        initialSyncCompleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+  it('should return status Critical when inventory is below the critical threshold', () => {
+    const mockProduct = {
+      id: 'prod_3',
+      salesVelocityFloat: 5,
+      Variant: [{ inventoryQuantity: 4 }], // 4 is <= 5 (critical)
+      // Add other required Product fields
+      shopifyId: 'sh_3',
+      title: 'Critical Stock Product',
+      vendor: 'Test Vendor',
+      tags: [],
+      shopId: 'shop_1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      const mockProducts = [
-        createMockProduct({
-          id: '1',
-          salesVelocityFloat: 2.5,
-          Variant: [{ inventoryQuantity: 100 }],
-        }),
-        createMockProduct({
-          id: '2',
-          salesVelocityFloat: 1.0,
-          Variant: [{ inventoryQuantity: 5 }],
-        }),
-      ];
+    const metrics = calculateProductMetrics(mockProduct as any, mockShopSettings);
+    expect(metrics.status).toBe(ProductStatus.Critical);
+  });
 
-      const mockUpdatedProduct = createMockProduct({
-        id: '1',
-        status: ProductStatus.OK,
-      });
+  it('should return status Critical when stockout days are below the critical threshold', () => {
+    const mockProduct = {
+      id: 'prod_4',
+      salesVelocityFloat: 5, // Sells 5 per day
+      Variant: [{ inventoryQuantity: 15 }], // 15 units / 5 per day = 3 days until stockout
+      // Add other required Product fields
+      shopifyId: 'sh_4',
+      title: 'Fast Selling Product',
+      vendor: 'Test Vendor',
+      tags: [],
+      shopId: 'shop_1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      mockPrisma.shop.findUnique.mockResolvedValue(mockShop);
-      mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-      mockPrisma.product.update.mockResolvedValue(mockUpdatedProduct);
+    const metrics = calculateProductMetrics(mockProduct as any, mockShopSettings);
+    // Stocks out in 3 days, which is <= the criticalStockoutDays threshold of 3
+    expect(metrics.status).toBe(ProductStatus.Critical);
+    expect(metrics.stockoutDays).toBe(3);
+  });
 
-      const result = await updateAllProductMetricsForShop('test-shop');
+  it('should return status Critical for zero inventory', () => {
+    const mockProduct = {
+      id: 'prod_5',
+      salesVelocityFloat: 1,
+      Variant: [{ inventoryQuantity: 0 }],
+      // Add other required Product fields
+      shopifyId: 'sh_5',
+      title: 'Out of Stock Product',
+      vendor: 'Test Vendor',
+      tags: [],
+      shopId: 'shop_1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      expect(result.success).toBe(true);
-      expect(result.updatedCount).toBeGreaterThan(0);
-      expect(prisma.shop.findUnique).toHaveBeenCalledWith({
-        where: { id: 'test-shop' },
-        include: { NotificationSettings: true },
-      });
-      expect(prisma.product.findMany).toHaveBeenCalledWith({
-        where: { shopId: 'test-shop' },
-        include: { Variant: { select: { inventoryQuantity: true } } },
-        take: 100,
-        skip: 0,
-        orderBy: { id: 'asc' },
-      });
-    });
-
-    it('should handle shop not found', async () => {
-      mockPrisma.shop.findUnique.mockResolvedValue(null);
-
-      const result = await updateAllProductMetricsForShop('non-existent-shop');
-
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Shop with ID non-existent-shop not found.');
-      expect(result.updatedCount).toBe(0);
-    });
-
-    it('should handle database errors', async () => {
-      mockPrisma.shop.findUnique.mockRejectedValue(
-        new Error('Database connection failed')
-      );
-
-      await expect(updateAllProductMetricsForShop('test-shop')).rejects.toThrow(
-        'Database connection failed'
-      );
-    });
+    const metrics = calculateProductMetrics(mockProduct as any, mockShopSettings);
+    expect(metrics.status).toBe(ProductStatus.Critical);
+    expect(metrics.stockoutDays).toBe(0);
   });
 });

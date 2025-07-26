@@ -1,6 +1,9 @@
 import prisma from "~/db.server";
 import shopify from "~/shopify.server";
-import type { ProductStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+
+// Define ProductStatus locally if not provided by Prisma
+export type ProductStatus = 'Unknown' | 'OK' | 'Low' | 'Critical';
 
 // Enhanced inventory service with comprehensive error handling and validation
 export interface InventoryUpdateResult {
@@ -226,7 +229,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
     // Step 3: Database transaction with Shopify API call
     const result = await withRetry(async () => {
-      return await prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Get current product data
         const variant = await tx.variant.findUnique({
           where: { id: variantId },

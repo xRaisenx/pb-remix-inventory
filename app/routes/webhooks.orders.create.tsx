@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import type { PrismaClient } from "@prisma/client";
 
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -46,7 +47,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process order line items to update product sales data
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaClient) => {
       // Process each line item to update product sales data
       for (const lineItem of orderData.line_items) {
         if (lineItem.product_id && lineItem.variant_id) {

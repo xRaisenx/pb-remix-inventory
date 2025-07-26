@@ -4,9 +4,9 @@ import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from
 import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 import { Page, Card, TextField, Button, BlockStack, Banner, Select } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
-import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { z } from "zod";
+import type { PrismaClient } from "@prisma/client";
 
 // Zod schema for validation
 const WarehouseSchema = z.object({
@@ -114,15 +114,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
     return redirect("/app/warehouses");
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error creating warehouse:", error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const targetFields = Array.isArray(error.meta?.target) ? error.meta.target : [];
-      if (targetFields.includes('shopifyLocationGid') && targetFields.includes('shopId')) {
-         return json<ActionData>({ errors: { shopifyLocationGid: ["This Shopify Location is already linked (DB constraint)."] } }, { status: 400 });
-      } else if (targetFields.includes('name') && targetFields.includes('shopId')) {
-         return json<ActionData>({ errors: { name: ["Warehouse name conflict (DB constraint)."] } }, { status: 400 });
-      }
+    if (error instanceof Error && error.message.includes('P2002')) {
+      return json<ActionData>({ errors: { form: ["Unique constraint violation. A warehouse with this name or Shopify Location may already exist."] } }, { status: 400 });
     }
     return json<ActionData>({ errors: { form: ["An unexpected error occurred. Please try again."] } }, { status: 500 });
   }

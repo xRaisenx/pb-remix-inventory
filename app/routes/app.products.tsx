@@ -10,8 +10,35 @@ import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
 import { calculateProductMetrics } from "~/services/product.service";
 import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service";
 import { INTENT } from "~/utils/intents";
+import type { Decimal } from "@prisma/client/runtime/library";
 
 // --- TYPE DEFINITIONS ---
+type ProductFromDB = {
+    id: string;
+    shopifyId: string;
+    title: string;
+    vendor: string | null;
+    salesVelocityFloat: number | null;
+    stockoutDays: number | null;
+    status: string | null;
+    Variant: {
+        id: string;
+        shopifyId: string | null;
+        title: string | null;
+        sku: string | null;
+        price: Decimal | null;
+        inventoryQuantity: number | null;
+        inventoryItemId: string | null;
+    }[];
+    Inventory: {
+        quantity: number;
+        warehouseId: string;
+        Warehouse: {
+            shopifyLocationGid: string | null;
+        } | null;
+    }[];
+};
+
 interface ProductVariantForModal {
   id: string;
   shopifyVariantId: string;
@@ -117,11 +144,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       }),
     ]);
 
-    const productsForTable = productsFromDB.map((p): ProductForTable => {
+    const productsForTable = productsFromDB.map((p: ProductFromDB): ProductForTable => {
       const totalInventory = p.Inventory.reduce((sum: number, inv: { quantity: number }) => sum + inv.quantity, 0);
       const firstVariant = p.Variant?.[0];
 
-      const inventoryByLocation = p.Inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv) => {
+      const inventoryByLocation = p.Inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv: any) => {
         acc[inv.warehouseId] = { quantity: inv.quantity, shopifyLocationGid: inv.Warehouse.shopifyLocationGid };
         return acc;
       }, {} as ProductForTable['inventoryByLocation']);
@@ -137,7 +164,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         salesVelocity: p.salesVelocityFloat,
         stockoutDays: p.stockoutDays,
         status: p.status,
-        variantsForModal: p.Variant.map(v => ({
+        variantsForModal: p.Variant.map((v: any) => ({
           id: v.id,
           shopifyVariantId: v.shopifyId ?? '',
           title: v.title ?? v.sku ?? 'Variant',
@@ -215,7 +242,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
           const productWithVariantsForCalc = {
             ...productToUpdate,
-            variants: productToUpdate.Variant.map((v: { inventoryQuantity: number | null }) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
+            variants: productToUpdate.Variant.map((v: any) => ({ inventoryQuantity: v.inventoryQuantity || 0 })),
           };
 
           const metrics = calculateProductMetrics(productWithVariantsForCalc, shopSettingsForMetrics);

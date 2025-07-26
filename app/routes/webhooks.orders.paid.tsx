@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import type { PrismaClient } from "@prisma/client";
 
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -42,7 +43,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process paid order to update trending status
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaClient) => {
       const notificationSettings = shopRecord.NotificationSettings?.[0];
       const salesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 25.0;
 
