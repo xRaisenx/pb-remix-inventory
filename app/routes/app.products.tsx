@@ -143,19 +143,13 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
     ]);
 
     const productsForTable = productsFromDB.map((p: ProductFromDB): ProductForTable => {
-      // Aggregate total inventory and per-variant inventory from Variant.Inventory
+      // Aggregate total inventory from Variant.Inventory
       let totalInventory = 0;
-      const variantInventoryMap: Record<string, number> = {};
       const inventoryByLocation: ProductForTable['inventoryByLocation'] = {};
-        
       p.Variant.forEach((variant: any) => {
-        let variantTotal = 0;
-          
         if (variant.Inventory?.length) {
           variant.Inventory.forEach((inv: any) => {
-            variantTotal += inv.quantity;
             totalInventory += inv.quantity;
-              
             if (inv.warehouseId) {
               inventoryByLocation[inv.warehouseId] = { 
                 quantity: inv.quantity, 
@@ -164,8 +158,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
             }
           });
         }
-          
-        variantInventoryMap[variant.id] = variantTotal;
       });
         
       const firstVariant = p.Variant?.[0];
@@ -186,7 +178,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
           title: v.title ?? v.sku ?? 'Variant',
           sku: v.sku,
           price: v.price?.toString(),
-          inventoryQuantity: variantInventoryMap[v.id] || 0,
+        // inventoryQuantity removed, use inventory aggregation if needed
           inventoryItemId: v.inventoryItemId,
         })),
         inventoryByLocation: inventoryByLocation,

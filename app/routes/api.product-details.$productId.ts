@@ -21,8 +21,8 @@ type SelectedVariant = {
     title: string | null;
     sku: string | null;
     price: Decimal | null;
-    inventoryQuantity: number | null;
     inventoryItemId: string | null;
+    Inventory: SelectedInventory[];
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -40,13 +40,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       include: {
         Variant: {
           orderBy: { createdAt: 'asc' },
-          select: { id: true, shopifyId: true, title: true, sku: true, price: true, inventoryQuantity: true, inventoryItemId: true }
-        },
-        Inventory: {
-          select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } }
-        },
-        // Assuming shop relation is not needed here as authenticate.admin(request) handles shop context
-        // If shop-specific settings are needed (e.g. for metric calculation context not done here), include shop.
+          select: { id: true, shopifyId: true, title: true, sku: true, price: true, inventoryItemId: true, Inventory: { select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } } } }
+        }
       },
     });
 
@@ -54,26 +49,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       return json({ error: "Product not found in local database." }, { status: 404 });
     }
 
-    // Construct the full ProductForTable object, similar to the app.products loader
-    // This logic should ideally be shared or kept consistent with how ProductForTable is constructed elsewhere.
-    const totalInventory = productFromDB.Inventory.reduce((sum: number, inv: SelectedInventory) => sum + inv.quantity, 0);
+    // Calculate total inventory by summing all variant inventories
+    let totalInventory = 0;
+    const inventoryByLocation: ProductForTable['inventoryByLocation'] = {};
+    productFromDB.Variant.forEach((variant: SelectedVariant) => {
+      variant.Inventory.forEach((inv) => {
+        totalInventory += inv.quantity;
+        inventoryByLocation[inv.warehouseId] = {
+          quantity: inv.quantity,
+          shopifyLocationGid: inv.Warehouse?.shopifyLocationGid ?? null
+        };
+      });
+    });
     const firstVariant = productFromDB.Variant?.[0];
 
-    const inventoryByLocation = productFromDB.Inventory.reduce((acc: ProductForTable['inventoryByLocation'], inv: SelectedInventory) => {
-      // Ensure warehouse and shopifyLocationGid exist to prevent runtime errors
-      if (inv.Warehouse && inv.Warehouse.shopifyLocationGid) {
-        acc[inv.warehouseId] = {
-          quantity: inv.quantity,
-          shopifyLocationGid: inv.Warehouse.shopifyLocationGid
-        };
-      } else if (inv.Warehouse) { // Local warehouse without Shopify link
-         acc[inv.warehouseId] = {
-           quantity: inv.quantity,
-           shopifyLocationGid: null // Explicitly null
-         };
-      }
-      return acc;
-    }, {} as ProductForTable['inventoryByLocation']);
+    // The inventoryByLocation is now constructed within the variant loop above
 
     const productForTable: ProductForTable = {
       id: productFromDB.id, // Prisma Product ID
@@ -93,7 +83,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         title: v.title ?? v.sku ?? 'Variant', // Fallback for variant title
         sku: v.sku,
         price: v.price?.toString(),
-        inventoryQuantity: v.inventoryQuantity, // Total for this variant
+        inventoryQuantity: v.Inventory.reduce((sum, inv) => sum + inv.quantity, 0), // Total for this variant
         inventoryItemId: v.inventoryItemId,     // Shopify InventoryItem GID
       })),
       inventoryByLocation: inventoryByLocation,

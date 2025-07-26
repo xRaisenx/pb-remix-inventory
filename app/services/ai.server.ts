@@ -312,7 +312,6 @@ async function handleStockCheck(entities: any, shopId: string): Promise<Partial<
       },
       include: {
         Variant: {
-          include: { Inventory: true }
         }
       },
       orderBy: { id: 'asc' },
@@ -391,7 +390,6 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
       },
       include: {
         Variant: {
-          include: { Inventory: true }
         }
       },
       orderBy: [
@@ -516,7 +514,6 @@ async function handleProductSearch(entities: any, shopId: string): Promise<Parti
       },
       include: {
         Variant: {
-          include: { Inventory: true }
         }
       },
       take: 15

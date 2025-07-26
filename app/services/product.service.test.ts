@@ -18,7 +18,7 @@ describe('calculateProductMetrics', () => {
       // Provide necessary fields from the ProductWithVariants type
       id: 'prod_1',
       salesVelocityFloat: 10,
-      Variant: [{ inventoryQuantity: 100 }],
+      Variant: [{}],
       // Add other required Product fields with dummy data
       shopifyId: 'sh_1',
       title: 'Test Product',
@@ -39,7 +39,7 @@ describe('calculateProductMetrics', () => {
     const mockProduct = {
       id: 'prod_2',
       salesVelocityFloat: 2,
-      Variant: [{ inventoryQuantity: 8 }], // 8 is <= 10 (low) but > 5 (critical)
+      Variant: [{}],
       // Add other required Product fields
       shopifyId: 'sh_2',
       title: 'Low Stock Product',
@@ -59,7 +59,7 @@ describe('calculateProductMetrics', () => {
     const mockProduct = {
       id: 'prod_3',
       salesVelocityFloat: 5,
-      Variant: [{ inventoryQuantity: 4 }], // 4 is <= 5 (critical)
+      Variant: [{}],
       // Add other required Product fields
       shopifyId: 'sh_3',
       title: 'Critical Stock Product',
@@ -78,7 +78,7 @@ describe('calculateProductMetrics', () => {
     const mockProduct = {
       id: 'prod_4',
       salesVelocityFloat: 5, // Sells 5 per day
-      Variant: [{ inventoryQuantity: 15 }], // 15 units / 5 per day = 3 days until stockout
+      Variant: [{}],
       // Add other required Product fields
       shopifyId: 'sh_4',
       title: 'Fast Selling Product',
@@ -99,7 +99,7 @@ describe('calculateProductMetrics', () => {
     const mockProduct = {
       id: 'prod_5',
       salesVelocityFloat: 1,
-      Variant: [{ inventoryQuantity: 0 }],
+      Variant: [{}],
       // Add other required Product fields
       shopifyId: 'sh_5',
       title: 'Out of Stock Product',

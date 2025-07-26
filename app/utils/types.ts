@@ -13,7 +13,6 @@ export interface ProductWithVariants {
   title: string;
   status?: string;
   variants: Array<{
-    inventoryQuantity?: number;
     price?: number;
     sku?: string;
   }>;

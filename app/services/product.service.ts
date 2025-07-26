@@ -90,14 +90,19 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
   console.log(`Starting metrics update for shop ${shopId}. Low: ${shopSettings.lowStockThresholdUnits}, CritUnits: ${shopSettings.criticalStockThresholdUnits}, CritDays: ${shopSettings.criticalStockoutDays}`);
 
   while (hasMoreProducts) {
-    // The type is now correctly inferred by Prisma. The explicit type annotation and
-    // the `as` assertion are no longer needed, leading to cleaner code.
+    // Fetch products with their variants and inventory for metrics calculation
     const productsInBatch: ProductWithVariants[] = await prisma.product.findMany({
       where: { shopId },
-      include: { Variant: { include: { Inventory: true } } },
       take: BATCH_SIZE,
       skip: skip,
-      orderBy: { id: 'asc' }
+      orderBy: { id: 'asc' },
+      include: {
+        Variant: {
+          include: {
+            Inventory: true
+          }
+        }
+      }
     });
 
     if (productsInBatch.length === 0) {

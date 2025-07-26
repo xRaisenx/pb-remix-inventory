@@ -170,7 +170,6 @@ async function testDatabaseCRUD() {
          // Test queries with inventory
      const products = await prisma.product.findMany({
        where: { shopId: testShop.id },
-       include: { Inventory: true },
      });
 
      if (products.length === 0) {

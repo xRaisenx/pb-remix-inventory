@@ -174,7 +174,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             >
               {product?.variantsForModal.map(v => (
                 <option key={v.id} value={v.id}>
-                  {v.title || v.sku || 'N/A'} (Current: {v.inventoryQuantity ?? 0})
+                  {v.title || v.sku || 'N/A'}
                 </option>
               ))}
             </select>

@@ -6,7 +6,6 @@ export interface Product {
     id: string; // Variant GID
     sku: string;
     price: string;
-    inventoryQuantity: number;
     inventoryItem: { // Added inventoryItem
       id: string;    // InventoryItem GID
       locationId?: string; // Added locationId, make it optional for now
@@ -102,7 +101,6 @@ export interface ShopifyProduct {
     title?: string;
     sku?: string | null;
     price?: string | number;
-    inventoryQuantity?: number | null;
     inventory_management?: string;
     inventoryItem?: { id: string };
   }>;
