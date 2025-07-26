@@ -221,9 +221,12 @@ async function testAuthentication() {
   
   try {
     // Check if we have a valid session for the test shop
-    const session = await prisma.session.findFirst({
-      where: { shop: TEST_CONFIG.shop }
-    });
+    // Use correct relation: find session by joining Shop relation
+    const shopRecord = await prisma.shop.findUnique({ where: { shop: TEST_CONFIG.shop } });
+    let session = null;
+    if (shopRecord) {
+      session = await prisma.session.findFirst({ where: { shopId: shopRecord.id } });
+    }
     
     if (!session) {
       log(`No session found for ${TEST_CONFIG.shop}`, 'warning');
@@ -292,15 +295,11 @@ async function testProductQueries() {
       where: { shopId: shop.id },
       take: 10,
       include: {
-        variants: true,
-        inventory: {
-          include: {
-            warehouse: true
-          }
-        },
-        productAlerts: true,
-        analyticsData: true,
-        DemandForecasts: true
+        Variant: { include: { Inventory: true } },
+        Inventory: { include: { warehouse: true } },
+        ProductAlert: true,
+        AnalyticsData: true,
+        DemandForecast: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -308,10 +307,10 @@ async function testProductQueries() {
     log(`Successfully fetched ${products.length} products with all relations`);
     addTestResult('Product Fetch (10 items)', true, { 
       fetchedCount: products.length,
-      productsWithVariants: products.filter(p => p.variants.length > 0).length,
-      productsWithInventory: products.filter(p => p.inventory.length > 0).length,
-      productsWithAlerts: products.filter(p => p.productAlerts.length > 0).length,
-      productsWithAnalytics: products.filter(p => p.analyticsData.length > 0).length
+      productsWithVariants: products.filter(p => p.Variant.length > 0).length,
+      productsWithInventory: products.filter(p => p.Inventory.length > 0).length,
+      productsWithAlerts: products.filter(p => p.ProductAlert.length > 0).length,
+      productsWithAnalytics: products.filter(p => p.AnalyticsData.length > 0).length
     });
     
     // Test product status distribution
@@ -395,11 +394,11 @@ async function testWarehouseManagement() {
     const warehouses = await prisma.warehouse.findMany({
       where: { shopId: shop.id },
       include: {
-        inventory: {
+        Inventory: {
           include: {
-            product: {
+            Product: {
               include: {
-                variants: true
+                Variant: true
               }
             }
           }
@@ -411,7 +410,7 @@ async function testWarehouseManagement() {
     addTestResult('Warehouse Details Fetch', true, { warehouseCount: warehouses.length });
     
     // Test warehouses with products
-    const warehousesWithProducts = warehouses.filter(w => w.inventory.length > 0);
+    const warehousesWithProducts = warehouses.filter(w => w.Inventory.length > 0);
     log(`Found ${warehousesWithProducts.length} warehouses with products`);
     addTestResult('Warehouses with Products', true, { 
       warehousesWithProducts: warehousesWithProducts.length,
@@ -420,9 +419,9 @@ async function testWarehouseManagement() {
     
     // Test inventory per warehouse
     for (const warehouse of warehousesWithProducts) {
-      const productCount = warehouse.inventory.length;
-      const totalQuantity = warehouse.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
-      const availableQuantity = warehouse.inventory.reduce((sum, inv) => sum + inv.availableQuantity, 0);
+      const productCount = warehouse.Inventory.length;
+      const totalQuantity = warehouse.Inventory.reduce((sum, inv) => sum + inv.quantity, 0);
+      const availableQuantity = warehouse.Inventory.reduce((sum, inv) => sum + inv.availableQuantity, 0);
       
       log(`Warehouse "${warehouse.name}": ${productCount} products, ${totalQuantity} total units, ${availableQuantity} available`);
       addTestResult(`Warehouse ${warehouse.name} Inventory`, true, {
@@ -512,7 +511,7 @@ async function testSettingsConfiguration() {
     const shop = await prisma.shop.findUnique({
       where: { shop: TEST_CONFIG.shop },
       include: {
-        NotificationSettings: true
+        NotificationSetting: true
       }
     });
     
@@ -522,9 +521,9 @@ async function testSettingsConfiguration() {
     }
     
     // Test notification settings
-    const hasNotificationSettings = shop.NotificationSettings && shop.NotificationSettings.length > 0;
+    const hasNotificationSettings = shop.NotificationSetting != null;
     addTestResult('Notification Settings Exist', hasNotificationSettings, {
-      settingsCount: shop.NotificationSettings?.length || 0
+      settingsCount: shop.NotificationSetting ? 1 : 0
     });
     
     // Test comprehensive settings update
@@ -549,9 +548,10 @@ async function testSettingsConfiguration() {
     
     // Try to update settings
     const updatedSettings = await prisma.notificationSetting.upsert({
-      where: { shopId: shop.id },
+      where: { id: shop.id },
       update: testSettings,
       create: {
+        id: shop.id,
         shopId: shop.id,
         ...testSettings
       }
@@ -566,7 +566,7 @@ async function testSettingsConfiguration() {
     
     // Verify settings were saved
     const verifiedSettings = await prisma.notificationSetting.findUnique({
-      where: { shopId: shop.id }
+      where: { id: shop.id }
     });
     
     const settingsSaved = verifiedSettings && 
@@ -615,15 +615,15 @@ async function testAPIEndpoints() {
   try {
     const endpoints = [
       { path: '/app', name: 'Main App Route' },
-      { path: '/app._index', name: 'Dashboard Index' },
-      { path: '/app.settings', name: 'Settings Page' },
-      { path: '/app.products', name: 'Products Page' },
-      { path: '/app.inventory', name: 'Inventory Page' },
-      { path: '/app.reports', name: 'Reports Page' },
-      { path: '/app.alerts', name: 'Alerts Page' },
-      { path: '/api.cron.daily-analysis', name: 'Daily Analysis API' },
-      { path: '/api.product-details', name: 'Product Details API' },
-      { path: '/api.warmup', name: 'Warmup API' }
+      { path: '/app/_index', name: 'Dashboard Index' },
+      { path: '/app/settings', name: 'Settings Page' },
+      { path: '/app/products', name: 'Products Page' },
+      { path: '/app/inventory', name: 'Inventory Page' },
+      { path: '/app/reports', name: 'Reports Page' },
+      { path: '/app/alerts', name: 'Alerts Page' },
+      { path: '/api/cron/daily-analysis', name: 'Daily Analysis API' },
+      { path: '/api/product-details', name: 'Product Details API' },
+      { path: '/api/warmup', name: 'Warmup API' }
     ];
     
     let successfulEndpoints = 0;
@@ -692,7 +692,9 @@ async function testDataAnalytics() {
     // Test analytics data
     const analyticsCount = await prisma.analyticsData.count({
       where: {
-        product: { shopId: shop.id }
+        Variant: {
+          productId: shop.id
+        }
       }
     });
     
@@ -702,7 +704,9 @@ async function testDataAnalytics() {
     // Test demand forecasts
     const forecastCount = await prisma.demandForecast.count({
       where: {
-        product: { shopId: shop.id }
+        Variant: {
+          productId: shop.id
+        }
       }
     });
     
@@ -806,12 +810,8 @@ async function testPerformance() {
     await prisma.product.findMany({
       where: { shopId: shop.id },
       include: {
-        variants: true,
-        inventory: {
-          include: {
-            warehouse: true
-          }
-        }
+        Variant: { include: { Inventory: true } },
+        Inventory: { include: { warehouse: true } }
       },
       take: 5
     });
@@ -846,12 +846,11 @@ async function testDataIntegrity() {
     // Test product-variant relationships
     const productsWithVariants = await prisma.product.findMany({
       where: { shopId: shop.id },
-      include: { variants: true }
+      include: { Variant: true }
     });
     
     const orphanedVariants = await prisma.variant.findMany({
       where: {
-        product: { shopId: shop.id },
         productId: null
       }
     });
@@ -864,7 +863,7 @@ async function testDataIntegrity() {
     // Test inventory-warehouse relationships
     const inventoryWithWarehouses = await prisma.inventory.findMany({
       where: {
-        product: { shopId: shop.id }
+        Product: { shopId: shop.id }
       },
       include: { warehouse: true }
     });
@@ -1032,20 +1031,20 @@ async function testBusinessLogic() {
     });
     
     // Test inventory calculation logic
-    const productsWithInventory = await prisma.product.findMany({
+    const productsWithVariants = await prisma.product.findMany({
       where: { shopId: shop.id },
       include: {
-        inventory: true
+        Variant: { select: { inventoryQuantity: true } }
       }
     });
-    
-    const totalInventory = productsWithInventory.reduce((sum, p) => {
-      return sum + p.inventory.reduce((invSum, inv) => invSum + inv.quantity, 0);
+
+    const totalInventory = productsWithVariants.reduce((sum, p) => {
+      return sum + (p.Variant?.reduce((invSum, v) => invSum + (v.inventoryQuantity || 0), 0) || 0);
     }, 0);
-    
+
     addTestResult('Inventory Calculation Logic', totalInventory >= 0, {
       totalInventory,
-      productsWithInventory: productsWithInventory.length
+      productsWithVariants: productsWithVariants.length
     });
     
     return true;

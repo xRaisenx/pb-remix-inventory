@@ -163,7 +163,7 @@ async function simulateShopSetup() {
 
   // Create notification settings
   await prisma.notificationSetting.upsert({
-    where: { shopId: shop.id },
+    where: { id: shop.id },
     update: {
       email: true,
       sms: true,
@@ -175,6 +175,7 @@ async function simulateShopSetup() {
       alertsEnabled: true,
     },
     create: {
+      id: shop.id,
       shopId: shop.id,
       email: true,
       sms: true,

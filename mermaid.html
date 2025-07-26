@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mermaid Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.0/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true, flowchart: { useMaxWidth: false } });
+    </script>
+</head>
+<body>
+    <div class="mermaid">
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+graph TD
+    subgraph "User"
+        A[Merchant]
+    end
+
+    subgraph "Shopify Ecosystem"
+        B[Shopify Admin<br/>(Embedded App Host)]
+        C[Shopify GraphQL API<br/>(Products, Inventory, Locations)]
+    end
+
+    subgraph "Application Infrastructure (Vercel)"
+        subgraph "Remix Application (pb-remix-inventory)"
+            D[Frontend<br/>(React, Polaris, Remix Routes)]
+            E[Backend<br/>(Remix Loaders & Actions)]
+            F[Prisma Client<br/>(ORM)]
+            G[Cron Endpoint<br/>(/api/cron)]
+        end
+
+        subgraph "Backend Services"
+            H[shopify.server.ts<br/>(Auth, Webhooks, API Context)]
+            I[inventory.server.ts<br/>(Business Logic)]
+            J[ai.server.ts<br/>(AI Prompts & Logic)]
+            K[notification.server.ts<br/>(User Alerts)]
+        end
+
+        subgraph "Data & External APIs"
+            L[PostgreSQL Database<br/>(Neon)]
+            M[Google Gemini API]
+        end
+
+        N[Vercel Cron Scheduler]
+    end
+
+    %% --- Main User Flow ---
+    A -- Interacts with --> B
+    B -- Renders --> D
+    D -- Makes requests to --> E
+
+    %% --- Backend Logic ---
+    E -- Uses --> H
+    E -- Uses --> I
+    E -- Uses --> J
+    E -- Uses --> K
+
+    %% --- Service Interactions ---
+    H -- Authenticates with --> C
+    I -- Reads/Writes Inventory --> C
+    I -- Reads/Writes App Data --> F
+    J -- Uses Inventory Data --> I
+    J -- Sends Prompts --> M
+    K -- Reads/Writes Notifications --> F
+
+    %% --- Data Layer ---
+    F -- Manages connection to --> L
+
+    %% --- Cron Job Flow ---
+    N -- Triggers --> G
+    G -- Executes --> I
+    G -- Executes --> K
+    </div>
+</body>
+</html>

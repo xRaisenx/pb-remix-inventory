@@ -185,7 +185,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        const encryptedWebhook = settingsData.slack.webhook ? encryptSensitiveField(settingsData.slack.webhook) : '';
        const encryptedBotToken = settingsData.telegram.botToken ? encryptSensitiveField(settingsData.telegram.botToken) : '';
 
-       await prisma.$transaction(async (tx: PrismaClient) => {
+       await prisma.$transaction(async (tx) => {
          // Update shop-level settings
          await tx.shop.update({
            where: { id: shopRecord.id },

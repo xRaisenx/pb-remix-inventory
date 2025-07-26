@@ -69,7 +69,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Get shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: session.shop },
-      include: { NotificationSettings: true },
+      include: { NotificationSetting: true },
     });
 
     if (!shopRecord) {
@@ -80,7 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Check if notifications are configured
-    const notificationSettings = shopRecord.NotificationSettings?.[0];
+    const notificationSettings = shopRecord.NotificationSetting;
     if (!notificationSettings) {
       return json({ 
         success: false,
@@ -200,7 +200,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             channel: 'System',
             message: `Error processing notification: ${error instanceof Error ? error.message : String(error)}`,
             status: 'Error',
-            productId: (await request.formData()).get("productId") as string || undefined,
+            // productId removed, use variantId if available
             productTitle: (await request.formData()).get("productTitle") as string || undefined,
             alertType: (await request.formData()).get("alertType") as string || undefined,
             errorMessage: error instanceof Error ? error.message : String(error),

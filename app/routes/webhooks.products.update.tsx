@@ -34,8 +34,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
-      where: { shop: shop },
-      include: { NotificationSettings: true }
+        where: { shop },
+        include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -56,7 +56,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const productGid = `gid://shopify/Product/${productData.id}`;
 
     // Update product in local database with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Find existing product
       const existingProduct = await tx.product.findUnique({
         where: { shopifyId: productGid },
@@ -88,31 +88,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         if (productData.variants && productData.variants.length > 0) {
           for (const variantData of productData.variants) {
             await tx.variant.create({
-              data: {
-                id: `gid://shopify/ProductVariant/${variantData.id}`,
-                shopifyId: `gid://shopify/ProductVariant/${variantData.id}`,
-                productId: product.id,
-                title: variantData.title || 'Default',
-                sku: variantData.sku || null,
-                price: variantData.price ? parseFloat(variantData.price) : 0,
-                inventoryQuantity: variantData.inventory_quantity || 0,
-                inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
-                updatedAt: new Date(),
-              },
+                data: {
+                    id: `gid://shopify/ProductVariant/${variantData.id}`,
+                    shopifyId: `gid://shopify/ProductVariant/${variantData.id}`,
+                    productId: product.id,
+                    title: variantData.title || 'Default',
+                    sku: variantData.sku || null,
+                    price: variantData.price ? parseFloat(variantData.price) : 0,
+                    inventoryItemId: variantData.inventory_item_id ? `gid://shopify/InventoryItem/${variantData.inventory_item_id}` : null,
+                    updatedAt: new Date(),
+                },
             });
           }
         }
       } else {
         // Update existing product
         await tx.product.update({
-          where: { id: existingProduct.id },
-          data: {
-            title: productData.title,
-            vendor: productData.vendor || existingProduct.vendor,
-            productType: productData.product_type || null,
-            tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : existingProduct.tags,
-            updatedAt: new Date(),
-          },
+      where: { id: existingProduct.id },
+      data: {
+        title: productData.title,
+        vendor: productData.vendor || existingProduct.vendor,
+        productType: productData.product_type || null,
+        tags: productData.tags ? productData.tags.split(',').map(tag => tag.trim()) : existingProduct.tags,
+        updatedAt: new Date(),
+      },
         });
 
         // Handle variant updates
@@ -143,10 +142,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   title: v.title || existingVariant.title,
                   sku: v.sku || existingVariant.sku,
                   price: v.price ? parseFloat(v.price) : existingVariant.price,
-                  inventoryQuantity: v.inventory_quantity ?? existingVariant.inventoryQuantity,
                   inventoryItemId: v.inventory_item_id
                     ? `gid://shopify/InventoryItem/${v.inventory_item_id}`
                     : existingVariant.inventoryItemId,
+                  updatedAt: new Date(),
                 },
               });
             } else {
@@ -159,7 +158,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   title: v.title || 'Default',
                   sku: v.sku || null,
                   price: v.price ? parseFloat(v.price) : 0,
-                  inventoryQuantity: v.inventory_quantity || 0,
                   inventoryItemId: v.inventory_item_id ? `gid://shopify/InventoryItem/${v.inventory_item_id}` : null,
                   updatedAt: new Date(),
                 },
@@ -169,10 +167,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Recalculate product metrics for updated product
-        const notificationSettings = shopRecord.NotificationSettings?.[0];
-        const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-        const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
-        const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
+        const notificationSetting = shopRecord.NotificationSetting;
+        const lowStockThreshold = notificationSetting?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+        const criticalStockThreshold = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+        const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
 
         const shopSettings = {
           lowStockThresholdUnits: lowStockThreshold,
@@ -181,25 +179,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         };
 
         // Get updated variants for metrics calculation
-        const updatedVariants = await tx.variant.findMany({
+        const allVariants = await tx.variant.findMany({
           where: { productId: existingProduct.id },
-          select: { inventoryQuantity: true }
+          include: { Inventory: true }
         });
 
         const productWithVariants = {
           ...existingProduct,
-          variants: updatedVariants,
+          Variant: allVariants,
         };
 
         const metrics = calculateProductMetrics(productWithVariants, shopSettings);
         
         // Update product with new metrics
         await tx.product.update({
-          where: { id: existingProduct.id },
-          data: {
-            status: metrics.status,
-            stockoutDays: metrics.stockoutDays,
-          },
+            where: { id: existingProduct.id },
+            data: {
+                status: metrics.status,
+                stockoutDays: metrics.stockoutDays,
+            },
         });
       }
 

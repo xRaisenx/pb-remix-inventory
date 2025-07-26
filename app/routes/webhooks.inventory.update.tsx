@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -38,16 +38,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const locationGid = `gid://shopify/Location/${inventoryData.location_id}`;
 
     // Update inventory in local database with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+    await prisma.$transaction(async (tx) => {
       // Find the variant associated with this inventory item
       const variant = await tx.variant.findFirst({
         where: { inventoryItemId: inventoryItemGid },
         include: {
-          Product: {
-            include: {
-              Variant: { select: { inventoryQuantity: true } }
-            }
-          }
+          Product: true
         }
       });
 
@@ -66,20 +62,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return;
       }
 
-      // Update variant inventory quantity
-      await tx.variant.update({
-        where: { id: variant.id },
-        data: {
-          inventoryQuantity: inventoryData.available,
-          updatedAt: new Date(inventoryData.updated_at),
-        }
-      });
-
-      // Update or create inventory record for this product/warehouse combination
+      // Update or create inventory record for this variant/warehouse combination
       await tx.inventory.upsert({
         where: {
-          productId_warehouseId: {
-            productId: variant.Product.id,
+          variantId_warehouseId: {
+            variantId: variant.id,
             warehouseId: warehouse.id,
           }
         },
@@ -88,8 +75,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           updatedAt: new Date(inventoryData.updated_at),
         },
         create: {
-          id: variant.Product.id,
-          productId: variant.Product.id,
+          id: `${variant.id}_${warehouse.id}`,
+          variantId: variant.id,
           warehouseId: warehouse.id,
           quantity: inventoryData.available,
           updatedAt: new Date(inventoryData.updated_at),
@@ -97,7 +84,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Recalculate product metrics with new inventory levels
-      const notificationSettings = shopRecord.NotificationSettings?.[0];
+      const notificationSettings = shopRecord.NotificationSetting;
       const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
       const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
       const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
@@ -108,23 +95,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         criticalStockoutDays: criticalStockoutDays,
       };
 
-      // Get all variants for this product to calculate total inventory
+      // Get all inventory for this product's variants
       const allVariants = await tx.variant.findMany({
-        where: { productId: variant.Product.id },
-        select: { inventoryQuantity: true }
+        where: { productId: variant.productId },
+        include: { Inventory: true }
       });
 
       const productWithUpdatedVariants = {
         ...variant.Product,
-        variants: allVariants,
+        Variant: allVariants,
       };
 
-      const metrics = calculateProductMetrics(productWithUpdatedVariants, shopSettings);
+      const metrics = calculateProductMetrics(productWithUpdatedVariants as any, shopSettings);
       const previousStatus = variant.Product.status;
-      
+
       // Update product with new metrics
       await tx.product.update({
-        where: { id: variant.Product.id },
+        where: { id: variant.productId },
         data: {
           status: metrics.status,
           stockoutDays: metrics.stockoutDays,
@@ -132,36 +119,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
 
-      // Check if we need to create an alert for status change
-      if (previousStatus !== metrics.status && 
-          (metrics.status === 'Low' || metrics.status === 'Critical')) {
-        
-        const alertType = metrics.status === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK';
-        
-        // Check if similar alert already exists and is unresolved
-        const existingAlert = await tx.productAlert.findFirst({
-          where: {
-            productId: variant.Product.id,
-            type: alertType,
-            isActive: true,
-          }
-        });
-
-        if (!existingAlert) {
-          await tx.productAlert.create({
-            data: {
-              id: variant.Product.id,
-              productId: variant.Product.id,
-              type: alertType,
-              message: `${variant.Product.title} stock level is now ${metrics.status.toLowerCase()}. Current inventory: ${inventoryData.available} units.`,
-              updatedAt: new Date(),
-            }
-          });
-          
-          console.log(`🚨 Created ${alertType} alert for product: ${variant.Product.title}`);
-        }
-      }
-
+      // Log update
       console.log(`✅ Successfully updated inventory for ${variant.Product.title}: ${inventoryData.available} units at location ${locationGid}`);
     });
 

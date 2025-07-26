@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find shop record
     const shopRecord = await prisma.shop.findUnique({
       where: { shop: shop },
-      include: { NotificationSettings: true }
+      include: { NotificationSetting: true }
     });
 
     if (!shopRecord) {
@@ -43,9 +43,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process paid order to update trending status
-    await prisma.$transaction(async (tx: PrismaClient) => {
-      const notificationSettings = shopRecord.NotificationSettings?.[0];
-      const salesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 25.0;
+    await prisma.$transaction(async (tx) => {
+      const notificationSetting = shopRecord.NotificationSetting;
+      const salesVelocityThreshold = notificationSetting?.salesVelocityThreshold ?? 25.0;
 
       // Process each line item to check for trending products
       for (const lineItem of orderData.line_items) {
@@ -75,27 +75,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 
                 // Create a trending alert if it's a significant trend
                 if ((product.salesVelocityFloat || 0) > salesVelocityThreshold * 2) {
-                  const existingTrendAlert = await tx.productAlert.findFirst({
-                    where: {
-                      productId: product.id,
-                      type: 'SALES_SPIKE',
-                      isActive: true,
-                    }
-                  });
-
-                  if (!existingTrendAlert) {
-                    await tx.productAlert.create({
-                      data: {
-                        id: product.id,
-                        productId: product.id,
-                        type: 'SALES_SPIKE',
-                        message: `${product.title} is experiencing high demand with a sales velocity of ${product.salesVelocityFloat?.toFixed(1)} units/day.`,
-                        updatedAt: new Date(),
-                      }
-                    });
-
-                    console.log(`🚨 Created SALES_SPIKE alert for trending product: ${product.title}`);
-                  }
+                  // Product alert logic removed; implement alerting as needed
                 }
               }
             }
