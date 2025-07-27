@@ -65,8 +65,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Update or create inventory record for this variant/warehouse combination
       await tx.inventory.upsert({
         where: {
-          variantId_warehouseId: {
-            variantId: variant.id,
+          productId_warehouseId: {
+            productId: variant.productId,
             warehouseId: warehouse.id,
           }
         },
@@ -75,8 +75,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           updatedAt: new Date(inventoryData.updated_at),
         },
         create: {
-          id: `${variant.id}_${warehouse.id}`,
-          variantId: variant.id,
+          id: `${variant.productId}_${warehouse.id}`,
+          productId: variant.productId,
           warehouseId: warehouse.id,
           quantity: inventoryData.available,
           updatedAt: new Date(inventoryData.updated_at),
@@ -84,7 +84,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Recalculate product metrics with new inventory levels
-      const notificationSettings = shopRecord.NotificationSetting;
+      const notificationSettings = shopRecord.NotificationSetting?.[0];
       const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
       const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
       const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
@@ -98,7 +98,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Get all inventory for this product's variants
       const allVariants = await tx.variant.findMany({
         where: { productId: variant.productId },
-        include: { Inventory: true }
       });
 
       const productWithUpdatedVariants = {

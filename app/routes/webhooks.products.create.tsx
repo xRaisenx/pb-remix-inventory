@@ -83,9 +83,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Calculate initial product metrics
         const notificationSettings = shopRecord.NotificationSetting;
-        const lowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-        const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
-        const criticalStockoutDays = notificationSettings?.criticalStockoutDays ?? 3;
+        const lowStockThreshold = notificationSettings?.[0]?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+        const criticalStockThreshold = notificationSettings?.[0]?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+        const criticalStockoutDays = notificationSettings?.[0]?.criticalStockoutDays ?? 3;
 
         const shopSettings = {
           lowStockThresholdUnits: lowStockThreshold,
@@ -96,7 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Fetch all variants with Inventory for metrics calculation
         const allVariants = await tx.variant.findMany({
           where: { productId: product.id },
-          include: { Inventory: true }
+          // No Inventory include, fetch separately if needed
         });
 
         const productWithVariants = {

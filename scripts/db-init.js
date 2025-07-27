@@ -24,7 +24,7 @@ const createPrismaClient = () => {
   let connectionUrl = databaseUrl;
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=3&connect_timeout=30&pool_timeout=30`;
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=5&connect_timeout=30&pool_timeout=30`;
   }
 
   return new PrismaClient({

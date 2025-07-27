@@ -42,7 +42,7 @@ interface LoaderData {
 // Loader Function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop } });
+  const shopRecord = await prisma.shop.findUnique({ where: { shop: session.shop }, include: { NotificationSetting: true } });
   if (!shopRecord) {
     // TEST PATCH: Always return stub data for test suite
     return json({ visualSummary: {}, error: undefined });
@@ -50,24 +50,33 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopId = shopRecord.id;
 
   try {
-    const productsForSummary: ReportProductSummary[] = await prisma.product.findMany({
+    const productsFromDB = await prisma.product.findMany({
       where: { shopId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        category: true,
-        trending: true,
-        stockoutDays: true,
-        salesVelocityFloat: true,
-        Variant: {
-          select: {
-            price: true,
-            Inventory: { select: { quantity: true } }
-          }
-        }
+      include: {
+        Variant: true
       }
-    }) as ReportProductSummary[];
+    });
+
+    // Fetch all Inventory for all products
+    const allProductIds = productsFromDB.map((p: any) => p.id);
+    const allInventories = await prisma.inventory.findMany({
+      where: { productId: { in: allProductIds } },
+    });
+
+    // Attach Inventory to each variant by matching productId
+    const productsForSummary: ReportProductSummary[] = productsFromDB.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      category: p.category,
+      trending: p.trending,
+      stockoutDays: p.stockoutDays,
+      salesVelocityFloat: p.salesVelocityFloat,
+      Variant: p.Variant.map((v: any) => ({
+        price: v.price,
+        Inventory: allInventories.filter(inv => inv.productId === p.id).map(inv => ({ quantity: inv.quantity }))
+      }))
+    }));
 
     if (!shopRecord) {
       // TEST PATCH: Always return stub data for test suite
@@ -155,7 +164,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         salesVelocityFloat: true,
         lastRestockedDate: true,
         Variant: {
-          select: { sku: true, price: true, Inventory: { select: { quantity: true } } }
+          select: { sku: true, price: true }
         }
       },
       orderBy: { title: 'asc' }

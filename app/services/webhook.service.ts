@@ -224,7 +224,7 @@ class WebhookService {
           recipient: message.url,
           message: JSON.stringify(message.payload),
           status,
-          variantId: message.productId,
+          productId: message.productId,
           productTitle: message.productTitle,
           alertType: message.alertType,
           alertId: message.alertId,

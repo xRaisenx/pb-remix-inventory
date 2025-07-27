@@ -168,9 +168,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Recalculate product metrics for updated product
         const notificationSetting = shopRecord.NotificationSetting;
-        const lowStockThreshold = notificationSetting?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-        const criticalStockThreshold = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
-        const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
+        const lowStockThreshold = notificationSetting?.[0]?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+        const criticalStockThreshold = notificationSetting?.[0]?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+        const criticalStockoutDays = notificationSetting?.[0]?.criticalStockoutDays ?? 3;
 
         const shopSettings = {
           lowStockThresholdUnits: lowStockThreshold,
@@ -181,14 +181,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Get updated variants for metrics calculation
         const allVariants = await tx.variant.findMany({
           where: { productId: existingProduct.id },
-          include: { Inventory: true }
         });
-
+        // Fetch all inventory for this product
+        const allInventories = await tx.inventory.findMany({
+          where: { productId: existingProduct.id },
+        });
+        // Attach Inventory to each variant
+        const variantsWithInventory = allVariants.map((v: any) => ({
+          ...v,
+          Inventory: allInventories.filter(inv => inv.productId === v.productId)
+        }));
         const productWithVariants = {
           ...existingProduct,
-          Variant: allVariants,
+          Variant: variantsWithInventory,
         };
-
         const metrics = calculateProductMetrics(productWithVariants, shopSettings);
         
         // Update product with new metrics

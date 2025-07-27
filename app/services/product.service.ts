@@ -27,8 +27,8 @@ export function calculateProductMetrics(
 ): ProductMetrics {
   // FIX: Add explicit types for the 'reduce' callback parameters.
   const currentTotalInventory = product.Variant.reduce(
-    (sum: number, v: Variant & { Inventory: { quantity: number }[] }) =>
-      sum + (v.Inventory?.reduce((invSum: number, inv: { quantity: number }) => invSum + (inv.quantity || 0), 0) || 0),
+    (sum: number, v: Variant) =>
+      sum + (v.inventoryQuantity || 0),
     0
   );
   const salesVelocity = product.salesVelocityFloat ?? 0;
@@ -73,14 +73,14 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
   }
 
   const notificationSetting = shop.NotificationSetting;
-  const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
+  const lowStockThresholdUnits = notificationSetting[0]?.lowStockThreshold ?? shop.lowStockThreshold ?? 10;
 
   const shopSettings: ShopSettingsForMetrics = {
     lowStockThresholdUnits,
-    criticalStockThresholdUnits: notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3)),
-    criticalStockoutDays: notificationSetting?.criticalStockoutDays ?? 3,
+    criticalStockThresholdUnits: notificationSetting[0]?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3)),
+    criticalStockoutDays: notificationSetting[0]?.criticalStockoutDays ?? 3,
   };
-  const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
+  const salesVelocityThresholdForTrending = notificationSetting[0]?.salesVelocityThreshold ?? 50;
 
   let totalUpdatedCount = 0;
   const BATCH_SIZE = 100;
@@ -91,19 +91,15 @@ export async function updateAllProductMetricsForShop(shopId: string): Promise<{ 
 
   while (hasMoreProducts) {
     // Fetch products with their variants and inventory for metrics calculation
-    const productsInBatch: ProductWithVariants[] = await prisma.product.findMany({
+    const productsInBatch = await prisma.product.findMany({
       where: { shopId },
       take: BATCH_SIZE,
       skip: skip,
       orderBy: { id: 'asc' },
       include: {
-        Variant: {
-          include: {
-            Inventory: true
-          }
-        }
+        Variant: true
       }
-    });
+    }) as ProductWithVariants[];
 
     if (productsInBatch.length === 0) {
       hasMoreProducts = false;

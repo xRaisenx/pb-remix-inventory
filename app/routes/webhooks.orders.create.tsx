@@ -47,7 +47,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     // Process order line items to update product sales data
-    await prisma.$transaction(async (tx: PrismaClient) => {
+await prisma.$transaction(async (prisma) => {
       // Process each line item to update product sales data
       for (const lineItem of orderData.line_items) {
         if (lineItem.product_id && lineItem.variant_id) {
@@ -55,11 +55,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const variantGid = `gid://shopify/ProductVariant/${lineItem.variant_id}`;
 
           // Find the product and variant
-          const product = await tx.product.findUnique({
+          const product = await prisma.product.findUnique({
             where: { shopifyId: productGid }
           });
 
-          const variant = await tx.variant.findUnique({
+          const variant = await prisma.variant.findUnique({
             where: { shopifyId: variantGid }
           });
 
@@ -68,7 +68,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             const currentSalesVelocity = product.salesVelocityFloat || 0;
             const newSalesVelocity = currentSalesVelocity + (lineItem.quantity / 30); // Daily velocity
 
-            await tx.product.update({
+            await prisma.product.update({
               where: { id: product.id },
               data: {
                 salesVelocityFloat: newSalesVelocity,
@@ -77,7 +77,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
 
             // Create analytics data point for this sale
-            await tx.analyticsData.create({
+            await prisma.analyticsData.create({
               data: {
                 id: product.id,
                 productId: product.id,

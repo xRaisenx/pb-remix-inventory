@@ -45,7 +45,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Process paid order to update trending status
     await prisma.$transaction(async (tx) => {
       const notificationSetting = shopRecord.NotificationSetting;
-      const salesVelocityThreshold = notificationSetting?.salesVelocityThreshold ?? 25.0;
+      const salesVelocityThreshold = notificationSetting?.[0]?.salesVelocityThreshold ?? 25.0;
 
       // Process each line item to check for trending products
       for (const lineItem of orderData.line_items) {

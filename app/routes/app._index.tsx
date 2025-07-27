@@ -1,6 +1,6 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useFetcher } from "@remix-run/react";
-import { sessionStorage } from '~/shopify.server';
+import { useLoaderData, useFetcher, useRouteError } from "@remix-run/react";
+import { authenticate } from '../shopify.server';
 import prisma from "~/db.server";
 import { syncProductsAndInventory } from "~/services/shopify.sync.server";
 import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
@@ -11,24 +11,80 @@ import { DashboardVisualizations } from "~/components/DashboardVisualizations";
 import { AIAssistant } from "~/components/AIAssistant";
 import { QuickActions } from "~/components/QuickActions";
 import type { DashboardAlertProduct, DashboardTrendingProduct } from "~/types";
+import { boundary } from "@shopify/shopify-app-remix/server";
+
+// Hybrid: fetch product images/details from Shopify GraphQL
+async function fetchShopifyProducts(session: any, limit = 5) {
+  const query = `{
+    products(first: ${limit}) {
+      nodes {
+        id
+        title
+        images(first: 1) { edges { node { src } } }
+        variants(first: 10) { edges { node { id, title, sku, price } } }
+      }
+    }
+  }`;
+  const response = await session.admin.graphql(query);
+  const data = await response.json();
+  return data.data.products.nodes.map((p: any) => ({
+    id: p.id,
+    title: p.title,
+    image: p.images?.edges?.[0]?.node?.src || null,
+    variants: p.variants.edges.map((v: any) => v.node)
+  }));
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-      const session = await sessionStorage.loadSessionFromRequest(request);
-      if (!session || !session.shop) {
-        // TEST PATCH: Always return stub data for test suite
-        return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
-      }
-      const shopDomain = session.shop;
+    const { session } = await authenticate.admin(request);
+    if (!session || !session.shop) {
+      return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
+    }
+    const shopDomain = session.shop;
     const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
     if (!shopRecord) {
-      // TEST PATCH: Always return stub data for test suite
       return json({ initialSyncCompleted: true, storeName: shopDomain.replace(".myshopify.com", ""), totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
     }
     if (!shopRecord.initialSyncCompleted) {
       return json({ initialSyncCompleted: false, storeName: shopDomain.replace(".myshopify.com", "") });
     }
-    // ...existing code...
+    
+    // Hybrid: fetch product images/details from Shopify, analytics from Prisma
+    const [
+      totalProducts,
+      lowStockItemsCount,
+      totalInventoryUnits,
+      shopifyProducts
+    ] = await Promise.all([
+      prisma.product.count({ where: { shopId: shopDomain } }),
+      prisma.product.count({ 
+        where: { 
+          shopId: shopDomain,
+          // Count products with at least one variant with low inventoryQuantity
+          Variant: { some: { inventoryQuantity: { lt: 5 } } }
+        } 
+      }),
+      (async () => {
+        const variants = await prisma.variant.findMany({
+          where: { Product: { shopId: shopDomain } },
+          select: { inventoryQuantity: true }
+        });
+        return variants.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
+      })(),
+      fetchShopifyProducts(session, 5)
+    ]);
+
+    return json({
+      initialSyncCompleted: true,
+      storeName: shopDomain.replace(".myshopify.com", ""),
+      totalProducts,
+      lowStockItemsCount,
+      totalInventoryUnits,
+      trendingProducts: shopifyProducts,
+      lowStockProductsForAlerts: shopifyProducts,
+      highSalesTrendProducts: shopifyProducts
+    });
   } catch (error) {
     console.error("[LOADER ERROR] /app._index loader failed:", error);
     throw error;
@@ -36,7 +92,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export async function action({ request }: ActionFunctionArgs) {
-  const session = await sessionStorage.loadSessionFromRequest(request);
+  const { session } = await authenticate.admin(request);
   if (!session || !session.shop) {
     throw redirect("/auth/login");
   }
@@ -56,6 +112,11 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
   return json({ error: "Invalid action" }, { status: 400 });
+}
+
+// Add error boundary for embedded app
+export function ErrorBoundary() {
+  return boundary.error(useRouteError());
 }
 
 export default function DashboardIndex() {

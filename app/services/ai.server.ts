@@ -595,14 +595,7 @@ async function handleTrendingQuery(entities: any, shopId: string): Promise<Parti
         ]
       },
       include: {
-        Variant: {
-          include: {
-            AnalyticsData: {
-              orderBy: { date: 'desc' },
-              take: 7
-            }
-          }
-        }
+        Variant: true
       },
       orderBy: [
         { salesVelocityFloat: 'desc' },

@@ -38,8 +38,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const productFromDB = await prisma.product.findUnique({
       where: { shopifyId: shopifyProductId },
       include: {
-        Variant: {
-          select: { id: true, shopifyId: true, title: true, sku: true, price: true, inventoryItemId: true, Inventory: { select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } } } }
+        Variant: true,
+        Inventory: {
+          include: {
+            Warehouse: {
+              select: { shopifyLocationGid: true }
+            }
+          }
         }
       },
     });
@@ -48,17 +53,15 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       return json({ error: "Product not found in local database." }, { status: 404 });
     }
 
-    // Calculate total inventory by summing all variant inventories
+    // Calculate total inventory by summing all product inventories
     let totalInventory = 0;
     const inventoryByLocation: ProductForTable['inventoryByLocation'] = {};
-    productFromDB.Variant.forEach((variant: SelectedVariant) => {
-      variant.Inventory.forEach((inv) => {
-        totalInventory += inv.quantity;
-        inventoryByLocation[inv.warehouseId] = {
-          quantity: inv.quantity,
-          shopifyLocationGid: inv.Warehouse?.shopifyLocationGid ?? null
-        };
-      });
+    productFromDB.Inventory.forEach((inv: any) => {
+      totalInventory += inv.quantity;
+      inventoryByLocation[inv.warehouseId] = {
+        quantity: inv.quantity,
+        shopifyLocationGid: inv.Warehouse?.shopifyLocationGid ?? null
+      };
     });
     const firstVariant = productFromDB.Variant?.[0];
 
@@ -76,13 +79,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       salesVelocity: productFromDB.salesVelocityFloat, // From Prisma model
       stockoutDays: productFromDB.stockoutDays,       // From Prisma model
       status: productFromDB.status,                   // From Prisma model
-      variantsForModal: productFromDB.Variant.map((v: SelectedVariant) => ({
+      variantsForModal: productFromDB.Variant.map((v: any) => ({
         id: v.id, // Prisma Variant ID
         shopifyVariantId: v.shopifyId ?? '', // Shopify Variant GID
         title: v.title ?? v.sku ?? 'Variant', // Fallback for variant title
         sku: v.sku,
         price: v.price?.toString(),
-        inventoryQuantity: v.Inventory.reduce((sum, inv) => sum + inv.quantity, 0), // Total for this variant
+        // No direct inventory relation, so sum inventory for this variant if possible
+        inventoryQuantity: productFromDB.Inventory
+          .filter((inv: any) => inv.inventoryItemId === v.inventoryItemId)
+          .reduce((sum: number, inv: any) => sum + inv.quantity, 0),
         inventoryItemId: v.inventoryItemId,     // Shopify InventoryItem GID
       })),
       inventoryByLocation: inventoryByLocation,

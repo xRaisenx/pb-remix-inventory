@@ -64,9 +64,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const shopId = shopRecord.id;
   const notificationSettings = shopRecord.NotificationSetting;
-
-  const currentLowStockThreshold = notificationSettings?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
-  const highSalesVelocityThreshold = notificationSettings?.salesVelocityThreshold ?? 30;
+  const currentLowStockThreshold = notificationSettings[0]?.lowStockThreshold ?? shopRecord.lowStockThreshold ?? 10;
+  const highSalesVelocityThreshold = notificationSettings[0]?.salesVelocityThreshold ?? 30;
 
   const allAlertItems: AlertItem[] = [];
   let notificationHistory: NotificationLog[] = [];
@@ -88,11 +87,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const criticalStatusProducts = await prisma.product.findMany({
       where: { shopId, status: ProductStatus.Critical },
-      select: { id: true, title: true, Variant: { select: { Inventory: { select: { quantity: true } } } } },
+      select: { id: true, title: true, Variant: true },
       take: 10,
     });
-    criticalStatusProducts.forEach((p: { id: string; title: string; Variant: Array<{ Inventory: Array<{ quantity: number }> }> }) => {
-      const totalInventory = p.Variant.reduce((sum: number, v) => sum + (v.Inventory?.reduce((invSum, inv) => invSum + (inv.quantity || 0), 0) || 0), 0);
+    criticalStatusProducts.forEach((p: { id: string; title: string; Variant: any[] }) => {
+      const totalInventory = p.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0);
       allAlertItems.push({
         id: `critical-${p.id}`,
         title: `CRITICAL STOCK: ${p.title}`,
@@ -105,11 +104,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const lowStatusProducts = await prisma.product.findMany({
       where: { shopId, status: ProductStatus.Low },
-      select: { id: true, title: true, Variant: { select: { Inventory: { select: { quantity: true } } } } },
+      select: { id: true, title: true, Variant: true },
       take: 10,
     });
-    lowStatusProducts.forEach((p: { id: string; title: string; Variant: Array<{ Inventory: Array<{ quantity: number }> }> }) => {
-      const totalInventory = p.Variant.reduce((sum: number, v) => sum + (v.Inventory?.reduce((invSum, inv) => invSum + (inv.quantity || 0), 0) || 0), 0);
+    lowStatusProducts.forEach((p: { id: string; title: string; Variant: any[] }) => {
+      const totalInventory = p.Variant.reduce((sum: number, v: any) => sum + (v.Inventory?.reduce((invSum: number, inv: any) => invSum + (inv.quantity || 0), 0) || 0), 0);
       allAlertItems.push({
         id: `low-${p.id}`,
         title: `Low Stock: ${p.title}`,
@@ -147,8 +146,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       notificationHistory,
       historyError,
       lowStockThresholdDisplay: currentLowStockThreshold,
-      criticalStockThresholdUnitsDisplay: notificationSettings?.criticalStockThresholdUnits?.toString() ?? "Not set",
-      criticalStockoutDaysDisplay: notificationSettings?.criticalStockoutDays?.toString() ?? "Not set",
+      criticalStockThresholdUnitsDisplay: notificationSettings[0]?.criticalStockThresholdUnits?.toString() ?? "Not set",
+      criticalStockoutDaysDisplay: notificationSettings[0]?.criticalStockoutDays?.toString() ?? "Not set",
       highSalesVelocityThresholdDisplay: highSalesVelocityThreshold.toString() + " units/day"
     });
 

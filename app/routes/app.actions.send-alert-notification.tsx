@@ -81,17 +81,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Check if notifications are configured
     const notificationSettings = shopRecord.NotificationSetting;
-    if (!notificationSettings) {
+    if (!notificationSettings || notificationSettings.length === 0) {
       return json({ 
         success: false,
         error: 'Notification settings not configured. Please configure notifications in Settings.'
       }, { status: 400 });
     }
 
-    // Check if any notification channels are enabled
-    const hasEnabledChannels = notificationSettings.email || 
-                              notificationSettings.slack || 
-                              notificationSettings.telegram
+    // Check if any notification channels are enabled in any setting
+    const hasEnabledChannels = notificationSettings.some(
+      setting => setting.email || setting.slackWebhookUrl || (setting.telegramBotToken && setting.telegramChatId)
+    );
 
     if (!hasEnabledChannels) {
       return json({ 

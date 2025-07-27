@@ -219,9 +219,9 @@ export async function updateInventoryQuantityInShopifyAndDB(
     if (!shop) {
       return {
         success: false,
-        message: 'Unable to connect to your Shopify store. Please reinstall the app.',
+        message: 'Shop not found',
         newQuantity: 0,
-        error: 'SHOP_SESSION_NOT_FOUND',
+        error: 'SHOP_NOT_FOUND'
       };
     }
 
@@ -239,8 +239,7 @@ export async function updateInventoryQuantityInShopifyAndDB(
                 Variant: true,
                 Shop: { include: { NotificationSetting: true } }
               }
-            },
-            Inventory: true
+            }
           }
         });
 
@@ -253,7 +252,11 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Sum all inventory quantities for this variant
-        const previousQuantity = variant.Inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0;
+        // Fetch all inventory records for this variant
+        const inventoryRecords = await tx.inventory.findMany({
+          where: { productId: variant.productId }
+        });
+        const previousQuantity = inventoryRecords.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0;
         const product = variant.Product;
 
         // Step 4: Update inventory in Shopify first
@@ -268,6 +271,11 @@ export async function updateInventoryQuantityInShopifyAndDB(
             state: session?.state || "",
           }
         });
+
+        // Optionally fetch inventory record if needed (not used below, so commented out)
+        // const inventoryRecord = await prisma.inventory.findUnique({
+        //   where: { productId_warehouseId: { productId: variant.productId, warehouseId: input.shopifyLocationGid } },
+        // });
 
         const inventoryAdjustMutation = `
           mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
@@ -330,8 +338,9 @@ export async function updateInventoryQuantityInShopifyAndDB(
         if (warehouse) {
           await tx.inventory.upsert({
             where: {
-              variantId_warehouseId: {
-                variantId: variant.id,
+              // Inventory unique constraint is on productId + warehouseId
+              productId_warehouseId: {
+                productId: variant.productId,
                 warehouseId: warehouse.id,
               }
             },
@@ -340,8 +349,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
               updatedAt: new Date(),
             },
             create: {
-              id: variant.id + '-' + warehouse.id,
-              variantId: variant.id,
+              id: variant.productId + '-' + warehouse.id,
+              productId: variant.productId,
               warehouseId: warehouse.id,
               quantity: newQuantity,
               updatedAt: new Date(),
@@ -351,8 +360,10 @@ export async function updateInventoryQuantityInShopifyAndDB(
 
         // Step 7: Recalculate product metrics
         const notificationSettings = product.Shop.NotificationSetting;
-        const lowStockThreshold = notificationSettings?.lowStockThreshold ?? product.Shop.lowStockThreshold ?? 10;
-        const criticalStockThreshold = notificationSettings?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
+        // NotificationSetting is an array, so use the first element if present
+        const notificationSetting = Array.isArray(product.Shop.NotificationSetting) ? product.Shop.NotificationSetting[0] : undefined;
+        const lowStockThreshold = notificationSetting?.lowStockThreshold ?? product.Shop.lowStockThreshold ?? 10;
+        const criticalStockThreshold = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 
         let newStatus: ProductStatus = (product.status as ProductStatus) || 'Unknown';
         if (newQuantity <= criticalStockThreshold) {
@@ -377,22 +388,22 @@ export async function updateInventoryQuantityInShopifyAndDB(
         let alertGenerated = false;
 
         if (shouldGenerateAlert) {
-          const existingAlert = await tx.variantAlert.findFirst({
+          const existingAlert = await tx.productAlert.findFirst({
             where: {
-              variantId: variant.id,
+              productId: product.id,
               type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
               isActive: true,
             }
           });
 
           if (!existingAlert) {
-            await tx.variantAlert.create({
+            await tx.productAlert.create({
               data: {
-                id: variant.id + '-' + (newStatus === 'Critical' ? 'CRITICAL' : 'LOW'),
-                variantId: variant.id,
+                id: product.id + '-' + (newStatus === 'Critical' ? 'CRITICAL' : 'LOW'),
+                productId: product.id,
                 type: newStatus === 'Critical' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
                 message: `${product.title} stock level updated to ${newQuantity} units. This is considered ${newStatus.toLowerCase()} stock.`,
-                updatedAt: new Date(),
+                updatedAt: new Date()
               }
             });
             alertGenerated = true;
@@ -576,17 +587,9 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        Variant: {
-          include: {
-            Inventory: true,
-            AnalyticsData: {
-              orderBy: { date: 'desc' },
-              take: 30
-            }
-          }
-        }
+        Variant: true
       }
-    }) as (typeof prisma.product) extends { findUnique: (...args: any[]) => Promise<infer T> } ? T & { Variant: { Inventory: any[]; AnalyticsData: any[] }[] } : any;
+    });
 
     if (!product) return null;
 
@@ -611,8 +614,15 @@ export async function getStockAnalysis(productId: string): Promise<StockAnalysis
       trend = 'decreasing';
     }
 
+    // Fetch all inventory for this product
+    const allInventories = await prisma.inventory.findMany({ where: { productId } });
+    // Attach Inventory to each variant
+    const variantsWithInventory = product.Variant.map((v: any) => ({
+      ...v,
+      Inventory: allInventories.filter(inv => inv.productId === productId)
+    }));
     // Sum all inventory quantities for all variants
-    const totalQuantity = product.Variant.reduce((sum: number, v: { Inventory: { quantity: number }[] }) => sum + (v.Inventory?.reduce((invSum: number, inv: { quantity: number }) => invSum + (inv.quantity || 0), 0) || 0), 0);
+    const totalQuantity = variantsWithInventory.reduce((sum: number, v: { Inventory: { quantity: number }[] }) => sum + (v.Inventory?.reduce((invSum: number, inv: { quantity: number }) => invSum + (inv.quantity || 0), 0) || 0), 0);
     const daysOfStock = currentVelocity > 0 && totalQuantity ? totalQuantity / currentVelocity : 999;
     const reorderPoint = Math.max(currentVelocity * 7, 10); // 7 days buffer
     const suggestedOrderQuantity = Math.ceil(currentVelocity * 21); // 3 weeks supply

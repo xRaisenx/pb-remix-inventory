@@ -74,21 +74,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const productToUpdate = await prisma.product.findUnique({
         where: { id: updatedVariant.productId },
         include: {
-          Variant: {
-            include: {
-              Inventory: true,
-            },
-          },
+          Variant: true,
+          Inventory: true,
           Shop: { include: { NotificationSetting: true } }
         }
       });
 
       if (productToUpdate) {
         const notificationSetting = productToUpdate.Shop.NotificationSetting;
-        const lowStockThresholdUnits = notificationSetting?.lowStockThreshold ?? productToUpdate.Shop.lowStockThreshold ?? 10;
-        const criticalStockThresholdUnits = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
-        const criticalStockoutDays = notificationSetting?.criticalStockoutDays ?? 3;
-        const salesVelocityThresholdForTrending = notificationSetting?.salesVelocityThreshold ?? 50;
+        const lowStockThresholdUnits = notificationSetting[0]?.lowStockThreshold ?? productToUpdate.Shop.lowStockThreshold ?? 10;
+        const criticalStockThresholdUnits = notificationSetting[0]?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThresholdUnits * 0.3));
+        const criticalStockoutDays = notificationSetting[0]?.criticalStockoutDays ?? 3;
+        const salesVelocityThresholdForTrending = notificationSetting[0]?.salesVelocityThreshold ?? 50;
 
         const shopSettingsForMetrics = { lowStockThresholdUnits, criticalStockThresholdUnits, criticalStockoutDays };
         // Build ProductWithVariants type for metrics calculation
@@ -124,6 +121,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
 
   try {
     const shop = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+    // ...existing code...
     if (!shop) {
       // TEST PATCH: Always return stub data for test suite
       return json({ inventoryList: [], warehouses: [], lowStockThreshold: 0 }, { status: 200 });
@@ -133,11 +131,8 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       prisma.product.findMany({
         where: { shopId: shop.id },
         include: {
-          Variant: {
-            include: {
-              Inventory: true,
-            },
-          },
+          Variant: true,
+          Inventory: true,
         },
         orderBy: { title: 'asc' },
       }),
@@ -148,7 +143,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
     const inventoryList: InventoryRecord[] = [];
     for (const product of productsFromDB) {
       for (const variant of product.Variant) {
-        for (const inv of variant.Inventory) {
+        // Find all inventory records for this variant by matching inventoryItemId
+        const variantInventories = product.Inventory.filter((inv: any) => inv.inventoryItemId === variant.inventoryItemId);
+        for (const inv of variantInventories) {
           inventoryList.push({
             id: inv.id,
             warehouseId: inv.warehouseId,

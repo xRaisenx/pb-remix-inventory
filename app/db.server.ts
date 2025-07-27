@@ -18,12 +18,8 @@ const createPrismaClient = () => {
   // Ensure proper connection pooling parameters for Neon serverless
   if (!connectionUrl.includes('pgbouncer=true')) {
     const separator = connectionUrl.includes('?') ? '&' : '?';
-    // Optimized settings for Neon serverless with better performance:
-    // - Increased connection_limit for better concurrency
-    // - Reduced timeouts for faster failure detection
-    // - Added proper pooling configuration
-    // - Added statement_cache_size for better performance
-    connectionUrl += `${separator}pgbouncer=true&connection_limit=15&connect_timeout=5&pool_timeout=10&idle_timeout=20&max_lifetime=300&prepared_statements=false&statement_cache_size=100`;
+    // Lowered connection_limit for Neon serverless stability
+    connectionUrl += `${separator}pgbouncer=true&connection_limit=5&connect_timeout=5&pool_timeout=10&idle_timeout=20&max_lifetime=300&prepared_statements=false&statement_cache_size=100`;
   }
 
   return new PrismaClient({

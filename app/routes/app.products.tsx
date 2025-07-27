@@ -14,29 +14,21 @@ import type { Decimal } from "@prisma/client/runtime/library";
 
 // --- TYPE DEFINITIONS ---
 type ProductFromDB = {
+  id: string;
+  shopifyId: string;
+  title: string;
+  vendor: string | null;
+  salesVelocityFloat: number | null;
+  stockoutDays: number | null;
+  status: string | null;
+  Variant: Array<{
     id: string;
-    shopifyId: string;
-    title: string;
-    vendor: string | null;
-    salesVelocityFloat: number | null;
-    stockoutDays: number | null;
-    status: string | null;
-    Variant: {
-        id: string;
-        shopifyId: string | null;
-        title: string | null;
-        sku: string | null;
-        price: Decimal | null;
-        inventoryItemId: string | null;
-        Inventory: {
-            quantity: number;
-            warehouseId: string;
-            Warehouse: {
-                shopifyLocationGid: string | null;
-            } | null;
-        }[];
-    }[];
-    // Inventory is now accessed via Variant.Inventory
+    shopifyId: string | null;
+    title: string | null;
+    sku: string | null;
+    price: Decimal | null;
+    inventoryItemId: string | null;
+  }>;
 };
 
 interface ProductVariantForModal {
@@ -124,13 +116,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
         where: { shopId: shopRecord.id },
         orderBy: { title: 'asc' },
         include: {
-          Variant: {
-            // orderBy removed: createdAt does not exist in schema
-            select: {
-              id: true, shopifyId: true, title: true, sku: true, price: true, inventoryItemId: true,
-              Inventory: { select: { quantity: true, warehouseId: true, Warehouse: { select: { shopifyLocationGid: true } } } }
-            }
-          }
+          Variant: true
         },
         take: PRODUCTS_PER_PAGE,
         skip: skip
@@ -142,25 +128,31 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
       }),
     ]);
 
+    // Fetch all Inventory for all products in one query
+    const allProductIds = productsFromDB.map((p: any) => p.id);
+    const allInventories = await prisma.inventory.findMany({
+      where: { productId: { in: allProductIds } },
+      include: { Warehouse: { select: { shopifyLocationGid: true } } }
+    });
+
+    // Aggregate inventory for each product and variant
     const productsForTable = productsFromDB.map((p: ProductFromDB): ProductForTable => {
-      // Aggregate total inventory from Variant.Inventory
       let totalInventory = 0;
       const inventoryByLocation: ProductForTable['inventoryByLocation'] = {};
+      // For each variant, sum inventory by matching productId
       p.Variant.forEach((variant: any) => {
-        if (variant.Inventory?.length) {
-          variant.Inventory.forEach((inv: any) => {
-            totalInventory += inv.quantity;
-            if (inv.warehouseId) {
-              inventoryByLocation[inv.warehouseId] = { 
-                quantity: inv.quantity, 
-                shopifyLocationGid: inv.Warehouse?.shopifyLocationGid || null 
-              };
-            }
-          });
-        }
+        const variantInventories = allInventories.filter(inv => inv.productId === p.id);
+        variantInventories.forEach((inv: any) => {
+          totalInventory += inv.quantity;
+          if (inv.warehouseId) {
+            inventoryByLocation[inv.warehouseId] = {
+              quantity: inv.quantity,
+              shopifyLocationGid: inv.Warehouse?.shopifyLocationGid || null
+            };
+          }
+        });
       });
-        
-      const firstVariant = p.Variant?.[0];
+      const firstVariant = p.Variant[0];
       return {
         id: p.id,
         shopifyId: p.shopifyId,
@@ -178,7 +170,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response>
           title: v.title ?? v.sku ?? 'Variant',
           sku: v.sku,
           price: v.price?.toString(),
-        // inventoryQuantity removed, use inventory aggregation if needed
           inventoryItemId: v.inventoryItemId,
         })),
         inventoryByLocation: inventoryByLocation,

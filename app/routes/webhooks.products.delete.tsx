@@ -34,9 +34,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const productGid = `gid://shopify/Product/${productData.id}`;
 
     // Delete product and all related data with transaction
-    await prisma.$transaction(async (tx: PrismaClient) => {
+await prisma.$transaction(async (prisma) => {
       // Find the product to be deleted
-      const productToDelete = await tx.product.findUnique({
+      const productToDelete = await prisma.product.findUnique({
         where: { shopifyId: productGid },
         include: {
           Variant: true,
@@ -53,14 +53,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       // 1. Delete inventory records
       if (productToDelete.Inventory.length > 0) {
-        await tx.inventory.deleteMany({
+        await prisma.inventory.deleteMany({
           where: { productId: productToDelete.id }
         });
         console.log(`🗑️ Deleted ${productToDelete.Inventory.length} inventory records`);
       }
 
       // 2. Delete product alerts
-      const deletedAlerts = await tx.productAlert.deleteMany({
+      const deletedAlerts = await prisma.productAlert.deleteMany({
         where: { productId: productToDelete.id }
       });
       if (deletedAlerts.count > 0) {
@@ -68,7 +68,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // 3. Delete notification logs related to this product
-      const deletedNotifications = await tx.notificationLog.deleteMany({
+      const deletedNotifications = await prisma.notificationLog.deleteMany({
         where: { productId: productToDelete.id }
       });
       if (deletedNotifications.count > 0) {
@@ -76,7 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // 4. Delete analytics data
-      const deletedAnalytics = await tx.analyticsData.deleteMany({
+      const deletedAnalytics = await prisma.analyticsData.deleteMany({
         where: { productId: productToDelete.id }
       });
       if (deletedAnalytics.count > 0) {
@@ -85,14 +85,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // 5. Delete variants
       if (productToDelete.Variant.length > 0) {
-        await tx.variant.deleteMany({
+        await prisma.variant.deleteMany({
           where: { productId: productToDelete.id }
         });
         console.log(`🗑️ Deleted ${productToDelete.Variant.length} variants`);
       }
 
       // 6. Finally delete the product
-      await tx.product.delete({
+      await prisma.product.delete({
         where: { id: productToDelete.id }
       });
 

@@ -541,29 +541,30 @@ export async function sendNotification(
     }
 
     const settings = shop.NotificationSetting;
+    const notificationSetting = Array.isArray(settings) ? settings[0] : settings;
     const results: NotificationResult[] = [];
 
     // Build notification config from settings
     const config: NotificationConfig = {
-      email: settings.email ? {
-        enabled: settings.email,
-        address: settings.emailAddress || ''
+      email: notificationSetting?.email ? {
+        enabled: notificationSetting.email,
+        address: notificationSetting.emailAddress || ''
       } : undefined,
-      slack: settings.slack ? {
-        enabled: settings.slack,
-        webhookUrl: settings.slackWebhookUrl || ''
+      slack: notificationSetting?.slack ? {
+        enabled: notificationSetting.slack,
+        webhookUrl: notificationSetting.slackWebhookUrl || ''
       } : undefined,
-      telegram: settings.telegram ? {
-        enabled: settings.telegram,
-        botToken: settings.telegramBotToken || '',
-        chatId: settings.telegramChatId || ''
+      telegram: notificationSetting?.telegram ? {
+        enabled: notificationSetting.telegram,
+        botToken: notificationSetting.telegramBotToken || '',
+        chatId: notificationSetting.telegramChatId || ''
       } : undefined,
-      sms: settings.email ? {
-        enabled: settings.email,
+      sms: notificationSetting?.email ? {
+        enabled: notificationSetting.email,
         phoneNumber: ''
       } : undefined,
-      webhook: settings.slack ? {
-        enabled: settings.slack,
+      webhook: notificationSetting?.slack ? {
+        enabled: notificationSetting.slack,
         url: ''
       } : undefined
     };
@@ -624,7 +625,7 @@ export async function sendNotification(
             message: payload.message,
             subject: payload.title,
             status: result.status,
-            variantId: payload.productId,
+            productId: payload.productId,
             productTitle: payload.productTitle,
             alertType: payload.alertType,
             errorMessage: result.error,
