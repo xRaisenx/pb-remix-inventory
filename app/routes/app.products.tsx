@@ -85,10 +85,10 @@ const getProductClassName = (title: string): string => {
 };
 
 // Map status to badge styling
-const getStatusBadge = (status: string | null) => {
+function getStatusBadge(status: string | null) {
   if (!status) return { className: 'pb-badge-default', text: 'Unknown' };
   
-  switch (status.toLowerCase()) {
+  switch (status?.toLowerCase()) {
     case 'healthy':
       return { className: 'pb-badge-success', text: 'Healthy' };
     case 'low':

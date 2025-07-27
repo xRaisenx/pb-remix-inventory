@@ -37,54 +37,83 @@ async function fetchShopifyProducts(session: any, limit = 5) {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { session } = await authenticate.admin(request);
-    if (!session || !session.shop) {
-      return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
-    }
-    const shopDomain = session.shop;
-    const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
-    if (!shopRecord) {
-      return json({ initialSyncCompleted: true, storeName: shopDomain.replace(".myshopify.com", ""), totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
-    }
-    if (!shopRecord.initialSyncCompleted) {
-      return json({ initialSyncCompleted: false, storeName: shopDomain.replace(".myshopify.com", "") });
-    }
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
     
-    // Hybrid: fetch product images/details from Shopify, analytics from Prisma
-    const [
-      totalProducts,
-      lowStockItemsCount,
-      totalInventoryUnits,
-      shopifyProducts
-    ] = await Promise.all([
-      prisma.product.count({ where: { shopId: shopDomain } }),
-      prisma.product.count({ 
-        where: { 
-          shopId: shopDomain,
-          // Count products with at least one variant with low inventoryQuantity
-          Variant: { some: { inventoryQuantity: { lt: 5 } } }
-        } 
-      }),
-      (async () => {
-        const variants = await prisma.variant.findMany({
-          where: { Product: { shopId: shopDomain } },
-          select: { inventoryQuantity: true }
-        });
-        return variants.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
-      })(),
-      fetchShopifyProducts(session, 5)
-    ]);
+    try {
+      const { session } = await authenticate.admin(request);
+      if (!session || !session.shop) {
+        return json({ initialSyncCompleted: true, storeName: "stub", totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
+      }
+      const shopDomain = session.shop;
+      const shopRecord = await prisma.shop.findUnique({ where: { shop: shopDomain } });
+      if (!shopRecord) {
+        return json({ initialSyncCompleted: true, storeName: shopDomain.replace(".myshopify.com", ""), totalProducts: 0, lowStockItemsCount: 0, totalInventoryUnits: 0, trendingProducts: [], lowStockProductsForAlerts: [], highSalesTrendProducts: [] });
+      }
+      if (!shopRecord.initialSyncCompleted) {
+        return json({ initialSyncCompleted: false, storeName: shopDomain.replace(".myshopify.com", "") });
+      }
+      
+      // Hybrid: fetch product images/details from Shopify, analytics from Prisma
+      const [
+        totalProducts,
+        lowStockItemsCount,
+        totalInventoryUnits,
+        shopifyProducts
+      ] = await Promise.all([
+        prisma.product.count({ where: { shopId: shopDomain } }),
+        prisma.product.count({ 
+          where: { 
+            shopId: shopDomain,
+            // Count products with at least one variant with low inventoryQuantity
+            Variant: { some: { inventoryQuantity: { lt: 5 } } }
+          } 
+        }),
+        (async () => {
+          const variants = await prisma.variant.findMany({
+            where: { Product: { shopId: shopDomain } },
+            select: { inventoryQuantity: true }
+          });
+          return variants.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
+        })(),
+        fetchShopifyProducts(session, 5)
+      ]);
 
-    return json({
-      initialSyncCompleted: true,
-      storeName: shopDomain.replace(".myshopify.com", ""),
-      totalProducts,
-      lowStockItemsCount,
-      totalInventoryUnits,
-      trendingProducts: shopifyProducts,
-      lowStockProductsForAlerts: shopifyProducts,
-      highSalesTrendProducts: shopifyProducts
-    });
+      return json({
+        initialSyncCompleted: true,
+        storeName: shopDomain.replace(".myshopify.com", ""),
+        totalProducts,
+        lowStockItemsCount,
+        totalInventoryUnits,
+        trendingProducts: shopifyProducts,
+        lowStockProductsForAlerts: shopifyProducts,
+        highSalesTrendProducts: shopifyProducts
+      });
+    } catch (authError: any) {
+      // Handle authentication errors properly
+      console.error("[LOADER ERROR] /app._index authentication failed:", authError);
+      
+      // If it's a redirect response (like 302), we should re-throw it
+      if (authError instanceof Response) {
+        // Check if it's a redirect to Shopify admin app page
+        // This usually means the app needs reinstallation
+        if (authError.status === 302 && authError.headers.get('location')?.includes('admin.shopify.com/store')) {
+          console.log("[LOADER] Authentication redirect detected - app may need reinstallation");
+          // We still re-throw to let the Shopify auth flow handle it properly
+        }
+        console.log("[LOADER] Re-throwing redirect response in app._index");
+        throw authError;
+      }
+      
+      // For other authentication errors, redirect to login
+      if (shop) {
+        console.log("[LOADER] Redirecting to login due to authentication error in app._index");
+        throw redirect(`/auth/login?shop=${encodeURIComponent(shop)}`);
+      }
+      
+      // Fallback if we can't determine the shop
+      throw authError;
+    }
   } catch (error) {
     console.error("[LOADER ERROR] /app._index loader failed:", error);
     throw error;

@@ -3,6 +3,10 @@
         "shopify-dev-mcp": {
             "command": "npx",
             "args": ["-y", "@shopify/dev-mcp@latest"]
+        },
+        "shopify-app-template-remix Docs": {
+            "type": "sse",
+            "url": "https://gitmcp.io/Shopify/shopify-app-template-remix"
         }
     }
 }
