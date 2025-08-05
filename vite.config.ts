@@ -40,12 +40,9 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    host: "localhost",
+    host: host,
     port: Number(process.env.PORT || 3000),
-    hmr: {
-      host: "localhost",
-      port: 64999,
-    },
+    hmr: hmrConfig,
     fs: {
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information
       allow: ["app", "node_modules"],
@@ -54,6 +51,7 @@ export default defineConfig({
   plugins: [
     remix({
       ignoredRouteFiles: ["**/.*"],
+      presets: [vercelPreset()],
     }),
     tsconfigPaths(),
   ],
