@@ -4,12 +4,11 @@ import {
   Page,
   Text
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
+// Removed App Bridge TitleBar. Use Polaris Page title instead.
 
 export default function AdditionalPage() {
   return (
-    <Page>
-      <TitleBar title="Additional page" />
+    <Page title="Additional page">
       <Layout>
         <Layout.Section>
           <Card>

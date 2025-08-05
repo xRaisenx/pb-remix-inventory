@@ -45,10 +45,4 @@ jest.mock('~/db.server', () => ({
   },
 }));
 
-// Mock App Bridge
-jest.mock('@shopify/app-bridge-react', () => ({
-  useAppBridge: () => ({
-    dispatch: jest.fn((action) => console.log(`Mock App Bridge dispatch:`, action)),
-  }),
-  // Mock any other exports you use
-}));
+// Removed App Bridge mock. No longer needed.

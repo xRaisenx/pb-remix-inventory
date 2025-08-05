@@ -287,7 +287,10 @@ const shopify = shopifyApp({
     : {}),
 });
 
+
 export default shopify;
+export const authenticate = shopify.authenticate;
+export const login = shopify.login;
 export const apiVersion = "2025-07";
 
 // Custom implementation of addDocumentResponseHeaders
@@ -304,8 +307,34 @@ export function addDocumentResponseHeaders(request: Request, responseHeaders: He
   responseHeaders.set("Referrer-Policy", "no-referrer");
 }
 
-export const authenticate = shopify.authenticate;
-export const unauthenticated = shopify.unauthenticated;
-export const login = shopify.login;
-export const registerWebhooks = shopify.registerWebhooks;
-export const sessionStorage = shopify.sessionStorage;
+
+// Enhanced logging for authentication and login
+
+
+export async function logAndAuthenticateAdmin(request: Request) {
+  try {
+    console.log("[AUTH] Authenticating admin. URL:", request.url);
+    const url = new URL(request.url);
+    console.log("[AUTH] Params:", Object.fromEntries(url.searchParams.entries()));
+    const result = await shopify.authenticate.admin(request);
+    console.log("[AUTH] Success. Session:", result.session?.shop, result.session?.id);
+    return result;
+  } catch (error) {
+    console.error("[AUTH ERROR] authenticate.admin failed:", error);
+    throw error;
+  }
+}
+
+export async function logAndLogin(request: Request) {
+  try {
+    console.log("[LOGIN] Login flow. URL:", request.url);
+    const url = new URL(request.url);
+    console.log("[LOGIN] Params:", Object.fromEntries(url.searchParams.entries()));
+    const result = await shopify.login(request);
+    console.log("[LOGIN] Success.");
+    return result;
+  } catch (error) {
+    console.error("[LOGIN ERROR] login failed:", error);
+    throw error;
+  }
+}
