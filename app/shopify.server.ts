@@ -289,7 +289,21 @@ const shopify = shopifyApp({
 
 export default shopify;
 export const apiVersion = "2025-07";
-export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
+
+// Custom implementation of addDocumentResponseHeaders
+export function addDocumentResponseHeaders(request: Request, responseHeaders: Headers) {
+  // Prevent iframes in the admin dashboard
+  responseHeaders.set("X-Frame-Options", "DENY");
+  
+  // Security headers for embedded apps
+  responseHeaders.set("Content-Security-Policy", "frame-ancestors 'none';");
+  
+  // Other security headers
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
+  responseHeaders.set("X-XSS-Protection", "1; mode=block");
+  responseHeaders.set("Referrer-Policy", "no-referrer");
+}
+
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;

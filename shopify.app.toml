@@ -4,7 +4,7 @@ client_id = "919e88ca96685994550e0a9bc9236584"
 name = "Planet Beauty Inventory AI"
 handle = "focused-policy-app-6"
 application_url = "https://pb-inventory-ai-olive.vercel.app/"
-embedded = false
+embedded = true
 
 [build]
 include_config_on_deploy = false
@@ -27,7 +27,7 @@ redirect_urls = [
 ]
 
 [pos]
-embedded = false
+embedded = true
 
 [app_preferences]
 url = "https://pb-inventory-ai-olive.vercel.app/"

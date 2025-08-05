@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-07-13T20:54:05.080Z",
+  "timestamp": "2025-07-27T23:28:06.358Z",
   "summary": {
     "total": 7,
-    "passed": 7,
-    "passRate": "100.0",
-    "status": "COMPLETE"
+    "passed": 6,
+    "passRate": "85.7",
+    "status": "PARTIAL"
   },
   "results": [
     {
@@ -19,8 +19,8 @@
     },
     {
       "test": "Linting",
-      "success": true,
-      "details": "No linting errors"
+      "success": false,
+      "details": "Linting errors present"
     },
     {
       "test": "Build Process",

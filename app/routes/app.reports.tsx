@@ -4,7 +4,7 @@ import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-r
 import { Form, useLoaderData, useNavigation } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
-import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
+import { PlanetBeautyLayout } from "../components/PlanetBeautyLayout";
 import { stringify } from "csv-stringify/sync";
 import React, { useState } from "react";
 import type { Decimal } from "@prisma/client/runtime/library";

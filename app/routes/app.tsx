@@ -4,7 +4,7 @@ import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
-import { AppLayout } from "~/components/AppLayout";
+import { AppLayout } from "../components/AppLayout";
 import { authenticate, login } from "~/shopify.server";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";

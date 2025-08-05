@@ -40,12 +40,12 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    allowedHosts: [host],
-    cors: {
-      preflightContinue: true,
-    },
+    host: "localhost",
     port: Number(process.env.PORT || 3000),
-    hmr: hmrConfig,
+    hmr: {
+      host: "localhost",
+      port: 64999,
+    },
     fs: {
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information
       allow: ["app", "node_modules"],
@@ -54,74 +54,15 @@ export default defineConfig({
   plugins: [
     remix({
       ignoredRouteFiles: ["**/.*"],
-      future: {
-        v3_fetcherPersist: true,
-        v3_relativeSplatPath: true,
-        v3_throwAbortReason: true,
-        v3_lazyRouteDiscovery: true,
-        v3_singleFetch: false,
-        v3_routeConfig: true,
-      },
-      presets: [vercelPreset()],
     }),
     tsconfigPaths(),
   ],
   build: {
-    // Serverless optimization settings
-    assetsInlineLimit: 0, // Don't inline assets for better caching
-    target: 'es2020', // Modern target for better optimization
-    minify: 'esbuild', // Fast and efficient minification
-    rollupOptions: {
-      output: {
-        // Optimize chunk splitting for serverless
-        manualChunks: (id) => {
-          // Only apply manual chunking for client build
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor';
-            }
-            if (id.includes('@shopify/polaris') || id.includes('@shopify/app-bridge-react')) {
-              return 'shopify';
-            }
-          }
-        },
-        // Improve caching with consistent chunk names
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
-      },
-      // Tree-shaking optimization
-      treeshake: {
-        moduleSideEffects: false,
-        propertyReadSideEffects: false,
-        unknownGlobalSideEffects: false
-      }
-    },
-    // Optimize source maps for production
-    sourcemap: process.env.NODE_ENV === 'development',
-    // Improve build performance
-    chunkSizeWarningLimit: 1000
+    assetsInlineLimit: 0,
+    target: "esnext",
+    minify: "esbuild",
   },
-  // Remove resolve.alias for Polaris (let Vite handle ESM)
-  // Remove noExternal for Polaris (let Vite handle ESM)
   optimizeDeps: {
-    include: [
-      "@shopify/app-bridge-react", 
-      "@shopify/polaris",
-      "react",
-      "react-dom"
-    ],
-    // Exclude from optimization for better serverless performance
-    exclude: ["@prisma/client"]
+    include: ["@shopify/polaris"],
   },
-  // SSR optimization for serverless
-  ssr: {
-    noExternal: ["@shopify/app-bridge-react"], // Only app-bridge-react, not polaris
-    external: ["@shopify/polaris"] // Force Vite to externalize Polaris (ESM-only)
-  },
-  // Define globals for better tree-shaking
-  define: {
-    __DEV__: process.env.NODE_ENV === 'development',
-    __PROD__: process.env.NODE_ENV === 'production'
-  }
 }) satisfies UserConfig;

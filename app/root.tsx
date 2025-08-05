@@ -1,5 +1,6 @@
 import { cssBundleHref } from "@remix-run/css-bundle";
-import type { LinksFunction, MetaFunction } from "@remix-run/node";
+import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -7,17 +8,14 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData
 } from "@remix-run/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
-import appStyles from "~/styles/app.css?url";
+import appStyles from "./styles/app.css?url";
 import { DatabaseErrorBoundary } from "~/components/ErrorBoundary";
-
-export const meta: MetaFunction = () => [
-  { title: "Planet Beauty AI Inventory" },
-  { name: "viewport", content: "width=device-width, initial-scale=1" },
-];
+import shopify from "~/shopify.server";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -26,7 +24,24 @@ export const links: LinksFunction = () => [
   ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
 ];
 
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  await shopify.authenticate.admin(request);
+
+  return json(
+    {
+      polarisTranslations: enTranslations,
+    },
+    {
+      headers: {
+        "Content-Security-Policy": `frame-ancestors https://${new URL(request.url).searchParams.get("shop") || "*.myshopify.com"} https://admin.shopify.com;`,
+      },
+    }
+  );
+};
+
 export default function App() {
+  const { polarisTranslations } = useLoaderData<typeof loader>();
+
   return (
     <html lang="en">
       <head>
@@ -36,7 +51,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <PolarisAppProvider i18n={enTranslations}>
+        <PolarisAppProvider i18n={polarisTranslations}>
           <Outlet />
         </PolarisAppProvider>
         <ScrollRestoration />

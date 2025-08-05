@@ -4,8 +4,8 @@ import { useLoaderData } from "@remix-run/react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import React, { useState, useEffect } from "react";
-import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
-import Settings, { type NotificationSettingsType } from "~/components/Settings";
+import { PlanetBeautyLayout } from "../components/PlanetBeautyLayout";
+import Settings, { type NotificationSettingsType } from "../components/Settings";
 import { INTENT } from "~/utils/intents";
 import type { PrismaClient } from "@prisma/client";
 
