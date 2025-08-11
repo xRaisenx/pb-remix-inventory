@@ -1,10 +1,11 @@
-import { AppProvider, Page, Card, Text, BlockStack, FormLayout, TextField, Button, AppProvider as PolarisAppProvider } from "@shopify/polaris";
+import { AppProvider as PolarisAppProvider, Page, Card, Text, BlockStack, FormLayout, TextField, Button } from "@shopify/polaris";
 import polarisTranslations from "@shopify/polaris/locales/en.json";
 import type { ActionFunctionArgs, LoaderFunctionArgs, LinksFunction } from "@remix-run/node"; // Added LinksFunction
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { login } from "~/shopify.server"; // Corrected import path assuming shopify.server.ts is in app root
 import { loginErrorMessage } from "./error.server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Ensure ?url suffix
+import { useState } from "react";
 
 // Corrected links function
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: polarisStyles }];
@@ -20,9 +21,6 @@ export async function action({ request }: ActionFunctionArgs) {
   const errors = loginErrorMessage(await login(request));
   return { errors };
 }
-
-
-import { useState } from "react";
 
 export default function AuthLoginPage() {
   const loaderData = useLoaderData<typeof loader>();

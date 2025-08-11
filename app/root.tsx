@@ -15,7 +15,6 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import appStyles from "./styles/app.css?url";
 import { DatabaseErrorBoundary } from "~/components/ErrorBoundary";
-import shopify from "~/shopify.server";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -25,8 +24,6 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await shopify.authenticate.admin(request);
-
   return json(
     {
       polarisTranslations: enTranslations,
