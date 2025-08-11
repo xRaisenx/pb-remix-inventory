@@ -9,10 +9,5 @@ module.exports = {
   ],
   globals: {
     shopify: "readonly"
-  },
-  rules: {
-    // Reduce noise from unused vars in generated or optional code paths
-    "@typescript-eslint/no-unused-vars": "off",
-    "no-unused-vars": "off",
   }
 };
