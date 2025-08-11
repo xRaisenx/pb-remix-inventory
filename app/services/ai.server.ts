@@ -373,7 +373,7 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
       };
     }
 
-    const criticalCount = lowStockProducts.filter((p: LowStockProduct): boolean => p.status === 'Critical').length;
+    const criticalCount = lowStockProducts.filter((p: any): boolean => p.status === 'Critical').length;
     const lowCount = lowStockProducts.filter((p: LowStockProduct): boolean => p.status === 'Low').length;
     const outOfStockCount = lowStockProducts.filter((p: LowStockProduct): boolean => p.status === 'OutOfStock').length;
 
