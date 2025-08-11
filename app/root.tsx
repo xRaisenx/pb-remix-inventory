@@ -24,13 +24,20 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const isEmbedded = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
+  const url = new URL(request.url);
+  const shopParam = url.searchParams.get("shop") || "*.myshopify.com";
+  const frameAncestors = isEmbedded
+    ? `https://${shopParam} https://admin.shopify.com`
+    : `'none'`;
+
   return json(
     {
       polarisTranslations: enTranslations,
     },
     {
       headers: {
-        "Content-Security-Policy": `frame-ancestors https://${new URL(request.url).searchParams.get("shop") || "*.myshopify.com"} https://admin.shopify.com;`,
+        "Content-Security-Policy": `frame-ancestors ${frameAncestors};`,
       },
     }
   );

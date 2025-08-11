@@ -23,7 +23,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Redirect to login if shop param is missing
       throw redirect(`/auth/login`);
     }
-    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/)) {
       console.error("[LOADER ERROR] Invalid shop domain format:", shop);
       throw new Response("Invalid shop domain", { status: 400 });
     }
@@ -91,8 +91,20 @@ export default function App() {
     );
   }
 
+  const isEmbedded = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
+
   return (
-    <AppProvider apiKey={apiKey} isEmbeddedApp={true}>
+    isEmbedded ? (
+      <AppProvider apiKey={apiKey} isEmbeddedApp={true}>
+        <PolarisAppProvider i18n={enTranslations}>
+          <div className="pb-embedded-bg" style={{ minHeight: '100vh' }}>
+            <AppLayout>
+              <Outlet />
+            </AppLayout>
+          </div>
+        </PolarisAppProvider>
+      </AppProvider>
+    ) : (
       <PolarisAppProvider i18n={enTranslations}>
         <div className="pb-embedded-bg" style={{ minHeight: '100vh' }}>
           <AppLayout>
@@ -100,6 +112,6 @@ export default function App() {
           </AppLayout>
         </div>
       </PolarisAppProvider>
-    </AppProvider>
+    )
   );
 }

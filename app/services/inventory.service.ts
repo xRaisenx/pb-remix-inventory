@@ -1,8 +1,7 @@
 import prisma from "~/db.server";
 import shopify from "~/shopify.server";
-import { Prisma } from "@prisma/client";
+import type { Prisma, ProductStatus as PrismaProductStatus } from "@prisma/client";
 
-import type { ProductStatus as PrismaProductStatus } from '@prisma/client';
 type ProductStatus = PrismaProductStatus;
 
 // Enhanced inventory service with comprehensive error handling and validation

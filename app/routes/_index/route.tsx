@@ -38,7 +38,7 @@ export default function IndexPage() {
         <Text as="h1" variant="heading2xl">
           <span className="pb-gradient-text">Planet Beauty Inventory AI</span>
         </Text>
-        <Text as="p" variant="bodyMd" tone="subdued" className="pb-hero-subtitle">
+        <Text as="p" variant="bodyMd" tone="subdued">
           Streamline your Shopify store with AI-powered forecasting, smart alerts, and seamless integration.
         </Text>
       </div>
