@@ -1,23 +1,20 @@
 import { AppProvider as PolarisAppProvider, Page, Card, Text, FormLayout, TextField, Button } from "@shopify/polaris";
 import polarisTranslations from "@shopify/polaris/locales/en.json";
-import type { ActionFunctionArgs, LoaderFunctionArgs, LinksFunction } from "@remix-run/node"; // Added LinksFunction
+import type { ActionFunctionArgs, LoaderFunctionArgs, LinksFunction } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
-import { login } from "~/shopify.server"; // Corrected import path assuming shopify.server.ts is in app root
+import { login } from "~/shopify.server";
 import { loginErrorMessage } from "./error.server";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url"; // Ensure ?url suffix
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { useState } from "react";
 
-// Corrected links function
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: polarisStyles }];
 
-// Use shopify.login for /auth/login route as required by embedded auth strategy
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const errors = loginErrorMessage(await login(request));
   return { errors, polarisTranslations };
 };
 
 export async function action({ request }: ActionFunctionArgs) {
-  // Use shopify.login for /auth/login route as required by embedded auth strategy
   const errors = loginErrorMessage(await login(request));
   return { errors };
 }
@@ -34,9 +31,7 @@ export default function AuthLoginPage() {
         <Card>
           <Form method="post">
             <FormLayout>
-              <Text variant="headingMd" as="h2">
-                Log in
-              </Text>
+              <Text variant="headingMd" as="h2">Log in</Text>
               <TextField
                 type="text"
                 name="shop"
