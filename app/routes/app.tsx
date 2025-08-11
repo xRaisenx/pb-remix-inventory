@@ -16,11 +16,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
     const host = url.searchParams.get("host");
+
+    // Embedded preview override: query param -> cookie -> env
+    const embeddedParam = url.searchParams.get("embedded");
+    const cookieHeader = request.headers.get("cookie") || "";
+    const cookieMatch = /(?:^|; )embedded_override=([^;]+)/.exec(cookieHeader);
+    const embeddedCookie = cookieMatch ? decodeURIComponent(cookieMatch[1]) : undefined;
+    const embeddedEnv = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
+    let isEmbedded = embeddedEnv;
+    let setCookieHeader: string | undefined;
+
+    if (embeddedParam === '1' || embeddedParam === 'true') {
+      isEmbedded = true;
+      setCookieHeader = `embedded_override=1; Path=/; HttpOnly; SameSite=Lax`;
+    } else if (embeddedParam === '0' || embeddedParam === 'false') {
+      isEmbedded = false;
+      setCookieHeader = `embedded_override=0; Path=/; HttpOnly; SameSite=Lax`;
+    } else if (embeddedCookie === '1' || embeddedCookie === '0') {
+      isEmbedded = embeddedCookie === '1';
+    }
+
     console.log("[LOADER] /app shop param:", shop);
     console.log("[LOADER] /app host param:", host);
     if (!shop) {
       console.error("[LOADER ERROR] No shop parameter found");
-      // Redirect to login if shop param is missing
       throw redirect(`/auth/login`);
     }
     if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/)) {
@@ -39,12 +58,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         console.error("[LOADER ERROR] Unable to determine valid host parameter");
         throw new Response("Missing host parameter for embedded app", { status: 400 });
       }
-      return json({
-        shop: session.shop,
-        host: validHost,
-        sessionId: session.id,
-        apiKey: process.env.SHOPIFY_API_KEY,
-      });
+      return json(
+        {
+          shop: session.shop,
+          host: validHost,
+          sessionId: session.id,
+          apiKey: process.env.SHOPIFY_API_KEY,
+          isEmbedded,
+        },
+        setCookieHeader ? { headers: { 'Set-Cookie': setCookieHeader } } : undefined
+      );
     } catch (error: any) {
       console.error("[LOADER ERROR] Authentication failed:", error);
       if (error instanceof Response) {
@@ -75,8 +98,9 @@ export default function App() {
     host: string;
     shop: string;
     sessionId: string;
+    isEmbedded: boolean;
   };
-  const { apiKey } = data;
+  const { apiKey, isEmbedded } = data;
 
   // Configuration validation
   if (!apiKey) {
@@ -90,8 +114,6 @@ export default function App() {
       </PolarisAppProvider>
     );
   }
-
-  const isEmbedded = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
 
   return (
     isEmbedded ? (

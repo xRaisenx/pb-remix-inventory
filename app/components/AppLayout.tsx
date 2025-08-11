@@ -60,7 +60,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           onClose={toggleIsSecondaryMenuOpen}
           actions={[
             {
-              items: [{ content: 'Notifications (placeholder)' }],
+              items: [
+                { content: 'Notifications (placeholder)' },
+                ...(process.env.NODE_ENV !== 'production'
+                  ? [
+                      {
+                        content: 'Toggle Embedded (dev)',
+                        onAction: () => {
+                          const url = new URL(window.location.href);
+                          const current = url.searchParams.get('embedded');
+                          const next = current === '1' || current === 'true' ? '0' : '1';
+                          url.searchParams.set('embedded', next);
+                          window.location.href = url.toString();
+                        },
+                      },
+                    ]
+                  : []),
+              ],
             },
           ]}
         />
