@@ -4,23 +4,8 @@ import { logAndLogin } from "~/shopify.server";
 import { boundary } from "@shopify/shopify-app-remix/server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    console.log("[AUTH SPLAT] Starting authentication for new embedded auth strategy");
-    console.log("[AUTH SPLAT] Request URL:", request.url);
-    const url = new URL(request.url);
-    const shop = url.searchParams.get("shop");
-    const host = url.searchParams.get("host");
-    console.log("[AUTH SPLAT] Shop param:", shop);
-    console.log("[AUTH SPLAT] Host param:", host);
-    if (!shop) {
-      console.error("[AUTH SPLAT ERROR] No shop parameter found");
-      throw new Response("Missing shop parameter", { status: 400 });
-    }
-    await logAndLogin(request);
-  } catch (error) {
-    console.error("[AUTH SPLAT ERROR] Unexpected error:", error);
-    throw error;
-  }
+  // Let Shopify's helper return the redirect Response directly
+  return await logAndLogin(request);
 };
 
 // Error boundary for embedded app authentication
