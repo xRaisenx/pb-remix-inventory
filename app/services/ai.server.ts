@@ -374,8 +374,8 @@ async function handleLowStockQuery(entities: any, shopId: string): Promise<Parti
     }
 
     const criticalCount = lowStockProducts.filter((p: any): boolean => p.status === 'Critical').length;
-    const lowCount = lowStockProducts.filter((p: LowStockProduct): boolean => p.status === 'Low').length;
-    const outOfStockCount = lowStockProducts.filter((p: LowStockProduct): boolean => p.status === 'OutOfStock').length;
+    const lowCount = lowStockProducts.filter((p: any): boolean => p.status === 'Low').length;
+    const outOfStockCount = lowStockProducts.filter((p: any): boolean => p.status === 'OutOfStock').length;
 
     let message = `📊 **Stock Alert Summary**:\n`;
     if (criticalCount > 0) message += `🔴 ${criticalCount} Critical\n`;
