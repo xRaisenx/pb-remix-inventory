@@ -358,9 +358,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 7: Recalculate product metrics
-        const notificationSettings = product.Shop.NotificationSetting;
         // NotificationSetting is an array, so use the first element if present
-        const notificationSetting = Array.isArray(product.Shop.NotificationSetting) ? product.Shop.NotificationSetting[0] : undefined;
+const notificationSetting = Array.isArray(product.Shop.NotificationSetting) ? product.Shop.NotificationSetting[0] : undefined;
         const lowStockThreshold = notificationSetting?.lowStockThreshold ?? product.Shop.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 

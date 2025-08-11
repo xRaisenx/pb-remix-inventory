@@ -1,13 +1,11 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "../components/AppLayout";
 import { logAndAuthenticateAdmin } from "~/shopify.server";
-import { boundary } from "@shopify/shopify-app-remix/server";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -47,7 +45,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       throw new Response("Invalid shop domain", { status: 400 });
     }
     try {
-      const { admin, session } = await logAndAuthenticateAdmin(request);
+      const { session } = await logAndAuthenticateAdmin(request);
       let validHost = host;
       if (!validHost && session?.shop) {
         const shopDomain = session.shop.replace('.myshopify.com', '');

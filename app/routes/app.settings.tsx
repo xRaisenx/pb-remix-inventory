@@ -7,7 +7,6 @@ import React, { useState, useEffect } from "react";
 import { PlanetBeautyLayout } from "../components/PlanetBeautyLayout";
 import Settings, { type NotificationSettingsType } from "../components/Settings";
 import { INTENT } from "~/utils/intents";
-import type { PrismaClient } from "@prisma/client";
 
 // TypeScript Interfaces for the route
 interface LoaderData {

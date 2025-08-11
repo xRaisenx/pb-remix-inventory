@@ -1,6 +1,5 @@
 // app/services/ai.server.ts
 import prisma from "../db.server";
-import type { Prisma } from "@prisma/client";
 
 // Enhanced AI service with improved intent parsing and error handling
 export interface AIQuery {
@@ -240,57 +239,21 @@ function validateAIQuery(query: AIQuery): { isValid: boolean; errors: string[] }
   return { isValid: errors.length === 0, errors };
 }
 
-interface StockCheckProductVariant {
-  quantity: number | null;
-  sku: string | null;
-}
+// Removed unused StockCheckProductVariant interface
 
-interface StockCheckProduct {
-  id: string;
-  title: string;
-  status: string | null;
-  quantity: number | null;
-  Variant: StockCheckProductVariant[];
-}
+// Removed unused StockCheckProduct interface
 
-interface LowStockProductVariant {
-  quantity: number | null;
-  sku: string | null;
-}
+// Removed unused LowStockProductVariant interface
 
-interface LowStockProduct {
-  id: string;
-  title: string;
-  status: string | null;
-  Variant: LowStockProductVariant[];
-}
+// Removed unused LowStockProduct interface
 
-interface ProductSearchProductVariant {
-  quantity: number | null;
-  price: string | null;
-  sku: string | null;
-}
+// Removed unused ProductSearchProductVariant interface
 
-interface ProductSearchProduct {
-  id: string;
-  title: string;
-  status: string | null;
-  vendor: string | null;
-  Variant: ProductSearchProductVariant[];
-}
+// Removed unused ProductSearchProduct interface
 
-interface TrendingProductAnalyticsData {
-  date: Date;
-  unitsSold: number | null;
-}
+// Removed unused TrendingProductAnalyticsData interface
 
-interface TrendingProduct {
-  id: string;
-  title: string;
-  salesVelocityFloat: number | null;
-  trending: boolean | null;
-  AnalyticsData: TrendingProductAnalyticsData[];
-}
+// Removed unused TrendingProduct interface
 
 async function handleStockCheck(entities: any, shopId: string): Promise<Partial<AIResponse>> {
   try {
@@ -786,7 +749,8 @@ export async function processAIQuery(query: AIQuery): Promise<AIResponse> {
   }
 }
 
-// Query suggestions based on current inventory state
+// Removed unused getQuerySuggestions helper
+/*
 async function getQuerySuggestions(shopId: string): Promise<string[]> {
   try {
     const [lowStockCount, totalProducts, trendingCount] = await Promise.all([
@@ -834,3 +798,4 @@ async function getQuerySuggestions(shopId: string): Promise<string[]> {
     ];
   }
 }
+*/
