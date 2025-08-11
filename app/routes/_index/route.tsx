@@ -1,7 +1,7 @@
 import { json, type LinksFunction, type LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { Page, Card, BlockStack, Text, TextField, Button, FormLayout, InlineStack, Bleed, Box } from "@shopify/polaris";
+import { Page, Card, BlockStack, Text, TextField, Button, FormLayout, InlineStack } from "@shopify/polaris";
 
 // Import login from shopify.server.ts
 import { login } from "~/shopify.server";
