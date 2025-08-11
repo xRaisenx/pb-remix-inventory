@@ -29,7 +29,8 @@ export default function AuthLoginPage() {
     <PolarisAppProvider i18n={loaderData.polarisTranslations}>
       <Page>
         <Card>
-          <Form method="post">
+          {/* Post to /login which invokes Shopify’s login helper */}
+          <Form method="post" action="/login">
             <FormLayout>
               <Text variant="headingMd" as="h2">Log in</Text>
               <TextField

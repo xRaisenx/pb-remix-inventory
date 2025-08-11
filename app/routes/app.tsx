@@ -100,6 +100,7 @@ export default function App() {
   };
   const { apiKey, isEmbedded } = data;
 
+  // Always render standalone layout for /app only after auth; index is kept minimal
   // Configuration validation
   if (!apiKey) {
     return (
