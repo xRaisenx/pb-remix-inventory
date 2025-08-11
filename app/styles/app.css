@@ -346,3 +346,73 @@ body {
 .kerastase-shampoo { background-color: #1f2937; }
 .mario-badescu-spray { background-color: #64748b; }
 .t3-hair-dryer { background-color: #ef4444; }
+
+/* --- Advanced Hi-Tech Theme Additions --- */
+.pb-gradient-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #3b0764 50%, #0f172a 100%);
+  color: #ffffff;
+}
+
+.pb-gradient-text {
+  background: linear-gradient(90deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pb-glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.15);
+}
+
+.pb-card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.pb-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 25px 35px -10px rgba(0, 0, 0, 0.45);
+}
+
+.pb-hero {
+  text-align: center;
+  padding: 48px 16px 8px 16px;
+}
+
+.pb-hero-title {
+  font-size: 40px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.pb-hero-subtitle {
+  opacity: 0.85;
+  margin-top: 8px;
+}
+
+.pb-index-container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 48px 16px;
+}
+
+.pb-embedded-bg {
+  background: radial-gradient(1000px 600px at 10% -10%, rgba(139,92,246,0.08), transparent),
+              radial-gradient(1000px 600px at 90% 110%, rgba(236,72,153,0.08), transparent);
+  min-height: 100%;
+}
+
+/* Override Polaris Cards in dark contexts */
+.pb-dark .Polaris-Card {
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Utility */
+.pb-center { display: flex; justify-content: center; align-items: center; }
+.pb-mx-auto { margin-left: auto; margin-right: auto; }
+.pb-w-full { width: 100%; }

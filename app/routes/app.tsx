@@ -94,9 +94,11 @@ export default function App() {
   return (
     <AppProvider apiKey={apiKey} isEmbeddedApp={true}>
       <PolarisAppProvider i18n={enTranslations}>
-        <AppLayout>
-          <Outlet />
-        </AppLayout>
+        <div className="pb-embedded-bg" style={{ minHeight: '100vh' }}>
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        </div>
       </PolarisAppProvider>
     </AppProvider>
   );

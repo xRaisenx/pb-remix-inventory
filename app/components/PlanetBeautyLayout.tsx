@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { Text, ButtonGroup, Button } from '@shopify/polaris';
+import { Text, ButtonGroup, Button, Card } from '@shopify/polaris';
 
 interface PlanetBeautyLayoutProps {
   children: ReactNode;
@@ -7,32 +7,17 @@ interface PlanetBeautyLayoutProps {
 
 export function PlanetBeautyLayout({ children }: PlanetBeautyLayoutProps) {
   return (
-    <div style={{
-      padding: '20px',
-      background: 'linear-gradient(135deg, #ffeef7 0%, #fff5f8 100%)',
-      minHeight: '100vh'
-    }}>
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '30px',
-        padding: '20px',
-        background: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(216, 27, 96, 0.1)'
-      }}>
-        <Text variant="headingXl" as="h1">
-          Planet Beauty Inventory AI
+    <div className="pb-gradient-page pb-embedded-bg" style={{ minHeight: '100vh' }}>
+      <div className="pb-hero">
+        <Text as="h1" variant="heading2xl">
+          <span className="pb-gradient-text">Planet Beauty Inventory AI</span>
         </Text>
-        <Text variant="bodyMd" as="p" tone="subdued">
+        <Text as="p" variant="bodyMd" tone="subdued">
           Intelligent inventory management for beauty retailers
         </Text>
       </div>
-      
-      <div style={{
-        marginBottom: '30px',
-        display: 'flex',
-        justifyContent: 'center'
-      }}>
+
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
         <ButtonGroup>
           <Button>Dashboard</Button>
           <Button>Products</Button>
@@ -42,14 +27,13 @@ export function PlanetBeautyLayout({ children }: PlanetBeautyLayoutProps) {
           <Button>Settings</Button>
         </ButtonGroup>
       </div>
-      
-      <div style={{
-        background: 'white',
-        borderRadius: '8px',
-        padding: '20px',
-        boxShadow: '0 2px 8px rgba(216, 27, 96, 0.1)'
-      }}>
-        {children}
+
+      <div className="pb-index-container">
+        <Card>
+          <div className="pb-glass pb-card-hover" style={{ padding: 20 }}>
+            {children}
+          </div>
+        </Card>
       </div>
     </div>
   );
