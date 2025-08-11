@@ -3,20 +3,24 @@ import polarisTranslations from "@shopify/polaris/locales/en.json";
 import type { ActionFunctionArgs, LoaderFunctionArgs, LinksFunction } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { login } from "~/shopify.server";
-import { loginErrorMessage } from "./error.server";
+
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { useState } from "react";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const errors = loginErrorMessage(await login(request));
-  return { errors, polarisTranslations };
+  // Do not start login here; render the form and let POST handle login to avoid loops
+  return { errors: {}, polarisTranslations } as const;
 };
 
 export async function action({ request }: ActionFunctionArgs) {
-  const errors = loginErrorMessage(await login(request));
-  return { errors };
+  // Delegate to Shopify login; Response may be a redirect to Shopify or the app
+  const result = await login(request);
+  if (result && typeof (result as any).status === 'number') {
+    return result as any;
+  }
+  return { errors: {} } as const;
 }
 
 export default function AuthLoginPage() {
