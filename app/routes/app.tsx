@@ -1,13 +1,11 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { Outlet, useLoaderData } from "@remix-run/react";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import { AppLayout } from "../components/AppLayout";
 import { logAndAuthenticateAdmin } from "~/shopify.server";
-import { boundary } from "@shopify/shopify-app-remix/server";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -16,19 +14,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
     const host = url.searchParams.get("host");
+
+    // Embedded preview override: query param -> cookie -> env
+    const embeddedParam = url.searchParams.get("embedded");
+    const cookieHeader = request.headers.get("cookie") || "";
+    const cookieMatch = /(?:^|; )embedded_override=([^;]+)/.exec(cookieHeader);
+    const embeddedCookie = cookieMatch ? decodeURIComponent(cookieMatch[1]) : undefined;
+    const embeddedEnv = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
+    let isEmbedded = embeddedEnv;
+    let setCookieHeader: string | undefined;
+
+    if (embeddedParam === '1' || embeddedParam === 'true') {
+      isEmbedded = true;
+      setCookieHeader = `embedded_override=1; Path=/; HttpOnly; SameSite=Lax`;
+    } else if (embeddedParam === '0' || embeddedParam === 'false') {
+      isEmbedded = false;
+      setCookieHeader = `embedded_override=0; Path=/; HttpOnly; SameSite=Lax`;
+    } else if (embeddedCookie === '1' || embeddedCookie === '0') {
+      isEmbedded = embeddedCookie === '1';
+    }
+
     console.log("[LOADER] /app shop param:", shop);
     console.log("[LOADER] /app host param:", host);
     if (!shop) {
       console.error("[LOADER ERROR] No shop parameter found");
-      // Redirect to login if shop param is missing
       throw redirect(`/auth/login`);
     }
-    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/)) {
+    if (!shop.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/)) {
       console.error("[LOADER ERROR] Invalid shop domain format:", shop);
       throw new Response("Invalid shop domain", { status: 400 });
     }
     try {
-      const { admin, session } = await logAndAuthenticateAdmin(request);
+      const { session } = await logAndAuthenticateAdmin(request);
       let validHost = host;
       if (!validHost && session?.shop) {
         const shopDomain = session.shop.replace('.myshopify.com', '');
@@ -39,12 +56,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         console.error("[LOADER ERROR] Unable to determine valid host parameter");
         throw new Response("Missing host parameter for embedded app", { status: 400 });
       }
-      return json({
-        shop: session.shop,
-        host: validHost,
-        sessionId: session.id,
-        apiKey: process.env.SHOPIFY_API_KEY,
-      });
+      return json(
+        {
+          shop: session.shop,
+          host: validHost,
+          sessionId: session.id,
+          apiKey: process.env.SHOPIFY_API_KEY,
+          isEmbedded,
+        },
+        setCookieHeader ? { headers: { 'Set-Cookie': setCookieHeader } } : undefined
+      );
     } catch (error: any) {
       console.error("[LOADER ERROR] Authentication failed:", error);
       if (error instanceof Response) {
@@ -75,9 +96,11 @@ export default function App() {
     host: string;
     shop: string;
     sessionId: string;
+    isEmbedded: boolean;
   };
-  const { apiKey } = data;
+  const { apiKey, isEmbedded } = data;
 
+  // Always render standalone layout for /app only after auth; index is kept minimal
   // Configuration validation
   if (!apiKey) {
     return (
@@ -92,12 +115,24 @@ export default function App() {
   }
 
   return (
-    <AppProvider apiKey={apiKey} isEmbeddedApp={true}>
+    isEmbedded ? (
+      <AppProvider apiKey={apiKey} isEmbeddedApp={true}>
+        <PolarisAppProvider i18n={enTranslations}>
+          <div className="pb-embedded-bg" style={{ minHeight: '100vh' }}>
+            <AppLayout>
+              <Outlet />
+            </AppLayout>
+          </div>
+        </PolarisAppProvider>
+      </AppProvider>
+    ) : (
       <PolarisAppProvider i18n={enTranslations}>
-        <AppLayout>
-          <Outlet />
-        </AppLayout>
+        <div className="pb-embedded-bg" style={{ minHeight: '100vh' }}>
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        </div>
       </PolarisAppProvider>
-    </AppProvider>
+    )
   );
 }

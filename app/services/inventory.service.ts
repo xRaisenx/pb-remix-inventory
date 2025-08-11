@@ -1,8 +1,7 @@
 import prisma from "~/db.server";
 import shopify from "~/shopify.server";
-import { Prisma } from "@prisma/client";
+import type { Prisma, ProductStatus as PrismaProductStatus } from "@prisma/client";
 
-import type { ProductStatus as PrismaProductStatus } from '@prisma/client';
 type ProductStatus = PrismaProductStatus;
 
 // Enhanced inventory service with comprehensive error handling and validation
@@ -359,9 +358,8 @@ export async function updateInventoryQuantityInShopifyAndDB(
         }
 
         // Step 7: Recalculate product metrics
-        const notificationSettings = product.Shop.NotificationSetting;
         // NotificationSetting is an array, so use the first element if present
-        const notificationSetting = Array.isArray(product.Shop.NotificationSetting) ? product.Shop.NotificationSetting[0] : undefined;
+const notificationSetting = Array.isArray(product.Shop.NotificationSetting) ? product.Shop.NotificationSetting[0] : undefined;
         const lowStockThreshold = notificationSetting?.lowStockThreshold ?? product.Shop.lowStockThreshold ?? 10;
         const criticalStockThreshold = notificationSetting?.criticalStockThresholdUnits ?? Math.min(5, Math.floor(lowStockThreshold * 0.3));
 

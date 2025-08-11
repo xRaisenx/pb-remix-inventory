@@ -1,84 +1,68 @@
-import { json, type LinksFunction, type LoaderFunctionArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import { Text } from "@shopify/polaris";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
 
-// Import login from shopify.server.ts
 import { login } from "~/shopify.server";
-
-// Import CSS modules properly without ?url
-import styles from "./styles.module.css";
-
-export const links: LinksFunction = () => [];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-
-  // If a 'shop' parameter is present, initiate the auth process immediately.
-  // This is the standard flow for new app installations.
+  // If a 'shop' parameter is present (from Shopify), initiate auth
   if (url.searchParams.get("shop")) {
-    // After login, redirect to the embedded app route, not admin.shopify.com
-    const shop = url.searchParams.get("shop");
-    const host = url.searchParams.get("host");
-    if (shop && host) {
-      // Redirect to embedded app entry point
-      return redirect(`/app?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
-    }
     return await login(request);
   }
-
-  // If no 'shop' param, show the manual login form.
-  return json({ showForm: true });
+  return json({ ok: true });
 };
 
 export default function IndexPage() {
-  const { showForm } = useLoaderData<{ showForm: boolean }>();
-
+  // Minimal landing page with only the install form
   return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>Welcome to Planet Beauty Inventory AI</h1>
-        <p className={styles.text}>
-          Streamline your Shopify store with Planet Beauty Inventory AI – your solution for intelligent inventory management.
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #0f172a 0%, #3b0764 50%, #0f172a 100%)',
+      color: '#fff',
+      padding: '24px'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: 520,
+        background: 'rgba(255, 255, 255, 0.08)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: 16,
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        padding: '28px 24px'
+      }}>
+        <h1 style={{
+          margin: 0,
+          marginBottom: 8,
+          fontSize: 28,
+          lineHeight: 1.2,
+          background: 'linear-gradient(90deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>Planet Beauty Inventory AI</h1>
+        <p style={{ marginTop: 0, opacity: 0.9, marginBottom: 18 }}>
+          Log in or install by entering your Shopify shop domain.
         </p>
 
-        {showForm && (
-          <div className={styles.formContainer}>
-            <Text variant="bodyMd" as="span" alignment="center">
-              Already have the app installed or want to install it? Enter your shop domain to get started.
-            </Text>
-            <Form className={styles.form} method="post" action="/auth/login">
-              <label className={styles.label}>
-                <span>Shop domain</span>
-                <input
-                  className={styles.input}
-                  type="text"
-                  name="shop"
-                  placeholder="your-store-name.myshopify.com"
-                  aria-label="Shop domain"
-                />
-              </label>
-              <button className={styles.button} type="submit">
-                Log In / Install
-              </button>
-            </Form>
-          </div>
-        )}
-
-        <div className={styles.featuresListContainer}>
-          <h2 className={styles.subheading}>Why Choose Planet Beauty Inventory AI?</h2>
-          <ul className={styles.list}>
-            <li>
-              <strong>AI-Powered Forecasting</strong>: Predict demand with Gemini 2.0 Flash intelligence.
-            </li>
-            <li>
-              <strong>Smart Alerts</strong>: Never run out of stock with proactive notifications.
-            </li>
-            <li>
-              <strong>Seamless Integration</strong>: Native Shopify integration for beauty retailers.
-            </li>
-          </ul>
-        </div>
+        {/* Exact element structure requested */}
+        <form method="post" action="/login" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 15 }} data-discover="true">
+          <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', maxWidth: 300 }}>
+            <span style={{ marginBottom: 5, fontWeight: 'bold' }}>Shop domain</span>
+            <input
+              type="text"
+              name="shop"
+              placeholder="your-store-name.myshopify.com"
+              aria-label="Shop domain"
+              style={{ width: '100%', padding: 10, border: '1px solid #ccc', borderRadius: 4 }}
+              required
+            />
+          </label>
+          <button type="submit" style={{ padding: '10px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+            Log In / Install
+          </button>
+        </form>
       </div>
     </div>
   );

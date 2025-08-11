@@ -1,15 +1,8 @@
 // app/routes/app.products.tsx
 
-import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { useState, useMemo, useCallback } from "react";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
-import { ProductModal } from "~/components/ProductModal";
-import { PlanetBeautyLayout } from "~/components/PlanetBeautyLayout";
-import { calculateProductMetrics } from "~/services/product.service";
-import { updateInventoryQuantityInShopifyAndDB } from "~/services/inventory.service";
-import { INTENT } from "~/utils/intents";
 import type { Decimal } from "@prisma/client/runtime/library";
 
 // --- TYPE DEFINITIONS ---
@@ -56,49 +49,15 @@ export interface ProductForTable {
   inventoryByLocation: Record<string, { quantity: number; shopifyLocationGid: string | null }>;
 }
 
-interface LoaderData {
-  products: ProductForTable[];
-  warehouses: Array<{ id: string; name: string; shopifyLocationGid: string | null }>;
-  error?: string;
-  shopDomain: string;
-  pageInfo: {
-    currentPage: number;
-    totalPages: number;
-    totalResults: number;
-    nextPageUrl?: string;
-    prevPageUrl?: string;
-  };
-}
+// LoaderData type omitted since this route currently exports only a loader and no component consuming it
 
 const PRODUCTS_PER_PAGE = 25;
 
 // Map product names to CSS classes for styling (matching example)
-const getProductClassName = (title: string): string => {
-  const titleLower = title.toLowerCase();
-  if (titleLower.includes('anastasia') && titleLower.includes('brow')) return 'anastasia-brow-gel';
-  if (titleLower.includes('elta') && titleLower.includes('md')) return 'elta-md-sunscreen';
-  if (titleLower.includes('borghese') && titleLower.includes('serum')) return 'borghese-serum';
-  if (titleLower.includes('kerastase') && titleLower.includes('shampoo')) return 'kerastase-shampoo';
-  if (titleLower.includes('mario') && titleLower.includes('badescu')) return 'mario-badescu-spray';
-  if (titleLower.includes('t3') && titleLower.includes('hair')) return 't3-hair-dryer';
-  return 'default-product';
-};
+// getProductClassName helper not currently used in UI; remove for cleanliness
 
 // Map status to badge styling
-function getStatusBadge(status: string | null) {
-  if (!status) return { className: 'pb-badge-default', text: 'Unknown' };
-  
-  switch (status?.toLowerCase()) {
-    case 'healthy':
-      return { className: 'pb-badge-success', text: 'Healthy' };
-    case 'low':
-      return { className: 'pb-badge-warning', text: 'Low Stock' };
-    case 'critical':
-      return { className: 'pb-badge-critical', text: 'Critical' };
-    default:
-      return { className: 'pb-badge-default', text: status };
-  }
-};
+// getStatusBadge helper not currently used in UI; remove for cleanliness
 
 // --- LOADER ---
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<Response> => {

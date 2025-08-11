@@ -984,3 +984,86 @@ echo "SHIP IT 🚀" && git tag v1.0.0-prod
 
 
 *No stone unturned—this app is bulletproof.*
+
+## Planet Beauty Inventory AI - Quick Start
+
+### Prerequisites
+- Node.js 18+ (or 20+)
+- PostgreSQL (Neon recommended)
+- Shopify Partner app credentials
+
+### Install
+```
+npm ci
+npm run prisma -- generate
+```
+
+### Environment
+Create `.env` with:
+```
+SHOPIFY_API_KEY=...
+SHOPIFY_API_SECRET=...
+SHOPIFY_APP_URL=https://your-app.vercel.app
+SCOPES=read_products,write_products,read_orders
+DATABASE_URL=postgres://...
+DIRECT_DATABASE_URL=postgres://...
+EMBEDDED_APP=true
+```
+- `EMBEDDED_APP=true` to run embedded; set to `false` for standalone.
+- On Vercel, configure the same variables in Project Settings.
+
+### Develop
+```
+npm run dev
+```
+- Visit the landing page `http://localhost:3000/` and enter `yourshop.myshopify.com` to install/login.
+
+### Build & Start
+```
+./node_modules/.bin/remix vite:build
+npm run start
+```
+
+### Vercel Deployment
+- Set Environment Variables in Vercel:
+  - `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `SCOPES`
+  - `DATABASE_URL`, `DIRECT_DATABASE_URL`, `EMBEDDED_APP`
+- Build command:
+```
+npm run vercel-build
+```
+- The app adapts CSP based on `EMBEDDED_APP`.
+
+### Embedded vs Standalone Preview
+- Default mode from `EMBEDDED_APP`.
+- Override at runtime: append `?embedded=1` or `?embedded=0` to `/app`.
+- Dev-only toggle in the TopBar (AppLayout) flips the embedded cookie.
+
+### Theming
+- Hi‑tech gradient/glass theme:
+  - Core classes in `app/styles/app.css`: `pb-gradient-page`, `pb-embedded-bg`, `pb-glass`, `pb-card-hover`, `pb-gradient-text`.
+  - Applied to landing page and dashboard layouts.
+
+### Major Routes
+- `/` Landing + install form
+- `/auth/login` Shopify login
+- `/app` Embedded/standalone shell
+- `/app._index` Dashboard index (initial sync prompt, metrics)
+- `/app.inventory` Inventory management
+- `/app.products` Product list data
+- `/app.settings` Notification and integration settings
+
+### Services
+- `services/inventory.service.ts`: Shopify + DB inventory updates, restock suggestions
+- `services/ai.server.ts`: Intent parsing and AI-style responses for stock queries
+
+### Quality Gates
+- Lint: `npm run lint` → must show 0 errors, 0 warnings
+- Types: `npm run type-check` → must be clean
+- Build: `./node_modules/.bin/remix vite:build` → must succeed
+
+### Notes
+- Database connection includes Neon pooling parameters auto-appended in `db.server.ts`.
+- Webhook handlers are resilient and log issues while acknowledging Shopify.
+
+See `CODEBASE_OVERVIEW.md` for a deeper dive into architecture, providers, and workflows.

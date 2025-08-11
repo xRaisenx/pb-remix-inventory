@@ -2,7 +2,6 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { calculateProductMetrics } from "~/services/product.service";
-import type { PrismaClient } from "@prisma/client";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
@@ -106,7 +105,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       };
 
       const metrics = calculateProductMetrics(productWithUpdatedVariants as any, shopSettings);
-      const previousStatus = variant.Product.status;
 
       // Update product with new metrics
       await tx.product.update({

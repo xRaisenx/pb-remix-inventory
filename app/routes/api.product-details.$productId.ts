@@ -3,27 +3,10 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import type { ProductForTable } from "~/routes/app.products"; // Import the target type
-import type { Decimal } from "@prisma/client/runtime/library";
 
-// Define a type for the selected inventory fields
-type SelectedInventory = {
-    quantity: number;
-    warehouseId: string;
-    Warehouse: {
-        shopifyLocationGid: string | null;
-    } | null;
-};
+// SelectedInventory type omitted: building inventory shape inline in the loader
 
-// Define a type for the selected variant fields
-type SelectedVariant = {
-    id: string;
-    shopifyId: string | null;
-    title: string | null;
-    sku: string | null;
-    price: Decimal | null;
-    inventoryItemId: string | null;
-    Inventory: SelectedInventory[];
-};
+// SelectedVariant type omitted: not needed by the current implementation
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await authenticate.admin(request); // Ensures the request is authenticated

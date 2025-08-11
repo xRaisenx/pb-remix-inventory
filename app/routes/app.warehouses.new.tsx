@@ -6,7 +6,6 @@ import { Page, Card, TextField, Button, BlockStack, Banner, Select } from "@shop
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { z } from "zod";
-import type { PrismaClient } from "@prisma/client";
 
 // Zod schema for validation
 const WarehouseSchema = z.object({

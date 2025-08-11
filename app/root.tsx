@@ -15,7 +15,6 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import appStyles from "./styles/app.css?url";
 import { DatabaseErrorBoundary } from "~/components/ErrorBoundary";
-import shopify from "~/shopify.server";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -25,7 +24,12 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await shopify.authenticate.admin(request);
+  const isEmbedded = (process.env.EMBEDDED_APP || 'true').toLowerCase() === 'true';
+  const url = new URL(request.url);
+  const shopParam = url.searchParams.get("shop") || "*.myshopify.com";
+  const frameAncestors = isEmbedded
+    ? `https://${shopParam} https://admin.shopify.com`
+    : `'none'`;
 
   return json(
     {
@@ -33,7 +37,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     {
       headers: {
-        "Content-Security-Policy": `frame-ancestors https://${new URL(request.url).searchParams.get("shop") || "*.myshopify.com"} https://admin.shopify.com;`,
+        "Content-Security-Policy": `frame-ancestors ${frameAncestors};`,
       },
     }
   );
